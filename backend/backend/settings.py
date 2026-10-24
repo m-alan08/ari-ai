@@ -15,8 +15,18 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "staging", "production"] = "development"
     log_level: str = "info"
+    # auto: json outside development/test, text in dev. json = one object per line, redacted.
+    log_format: Literal["auto", "text", "json"] = "auto"
     api_base_url: str = "http://localhost:8000"
     frontend_origin: str = "http://localhost:3000"
+
+    # Operations surface
+    # Bearer token for GET /api/v1/ops/status. Unset disables the endpoint outside dev/test.
+    ops_token: SecretStr | None = None
+    # Generic HTTPS webhook for critical-failure alerts (Slack-compatible {"text": ...}).
+    alert_webhook_url: SecretStr | None = None
+    # Controlled feature flags: comma-separated names, off unless listed. See flags().
+    feature_flags: str = ""
 
     database_url: str = "postgresql+psycopg://app:app@localhost:5432/hackatl"
     artifact_store_uri: str = "file://./artifacts"
@@ -101,6 +111,8 @@ class Settings(BaseSettings):
         "rl_checkpoint_sha256",
         "repository_bindings_file",
         "security_workdir",
+        "ops_token",
+        "alert_webhook_url",
         mode="before",
     )
     @classmethod
@@ -117,6 +129,19 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.app_env in ("development", "test")
+
+    @property
+    def resolved_log_format(self) -> str:
+        if self.log_format != "auto":
+            return self.log_format
+        return "text" if self.is_dev else "json"
+
+    def flags(self) -> frozenset[str]:
+        """Enabled feature flags (FEATURE_FLAGS=flag-a,flag-b). Unknown names are inert."""
+        return frozenset(f.strip() for f in self.feature_flags.split(",") if f.strip())
+
+    def feature_enabled(self, name: str) -> bool:
+        return name in self.flags()
 
     def model_for(self, agent: str) -> str:
         if self.app_env in ("production", "staging"):

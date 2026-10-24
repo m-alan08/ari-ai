@@ -6,6 +6,8 @@ All notable changes are documented here. Format follows
 
 ## [Unreleased]
 
+- Add pilot deployment and release-operations tooling: startup configuration validation (`hackatl-preflight`, wired into `deploy/railway/start.sh` before migrations), Alembic head preflight, structured JSON/text logging with secret redaction (`LOG_FORMAT`), token-gated `GET /api/v1/ops/status` (queue depth, worker leases, migration head, first-responder default mode), critical-failure alert webhook (`ALERT_WEBHOOK_URL`), allowlist feature flags (`FEATURE_FLAGS`), Postgres backup/restore scripts and a restore-confirmation gate, compose resource limits for api/worker, a staging env template, a curl smoke suite, an integration-branch builder for validating open PRs together, and a `deploy/release_check.py` release checklist runner. Docs: `docs/deploy/PILOT_OPERATIONS.md`, `docs/deploy/RELEASE_CHECKLIST.md`.
+
 - Scout specialist now trains on the labelled commit-eval set (each case's planted edit vs. its original code as a minimal positive/negative pair) and was promoted after beating the static-pattern baseline (macro F1 0.349 vs 0.084); new checkpoint committed under `specialists/checkpoints/scout/`.
 
 - Assessment UI: agents the orchestrator skipped now stay visible as 'Not needed' with the recorded reason (e.g. 'no confirmed findings'); on failed/cancelled runs they show 'Not reached'. Replaces the ambiguous 'not run' label on the relay and team list.

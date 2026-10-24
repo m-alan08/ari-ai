@@ -25,6 +25,7 @@ dependencies = [
 hackatl-api = "backend.cli:serve"
 hackatl-worker = "backend.cli:worker"
 hackatl-migrate = "backend.cli:migrate"
+hackatl-preflight = "backend.cli:preflight"
 
 [tool.uv.sources]
 hackatl-shared = { workspace = true }
