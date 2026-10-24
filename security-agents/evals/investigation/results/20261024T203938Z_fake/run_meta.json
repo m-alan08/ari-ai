@@ -1,0 +1,21 @@
+{
+  "eval": "investigation",
+  "run_id": "20261024T203938Z",
+  "provider": "fake",
+  "repeat": 1,
+  "repo_commit": "bdf2f047c9aefa6adfd165c04ba552ba3d9cc9ce",
+  "eval_config": {
+    "max_hypotheses": 3,
+    "max_hypotheses_to_validate": 3,
+    "max_tokens": 1000000,
+    "max_usd": 5.0,
+    "max_wall_clock_s": 1800.0,
+    "remediation": "declined (approver returns None)",
+    "specialists": "package default (advisory only)"
+  },
+  "environment": {
+    "python": "3.12.15",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "cases": 31
+}

@@ -428,7 +428,7 @@
       ],
       "ground_truth": {
         "defects": [
-          {"cwe": "CWE-345", "path": "receiver.py", "symbol": "receive_github", "note": "verify_signature call removed; unsigned deliveries accepted", "introduced_at_commit": 0}
+          {"cwe": "CWE-347", "path": "receiver.py", "symbol": "receive_github", "note": "verify_signature call removed; unsigned deliveries accepted", "introduced_at_commit": 0}
         ],
         "negatives": []
       },

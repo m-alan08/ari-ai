@@ -1,0 +1,4 @@
+# heavy per-case artifacts (materialized snapshot + orchestrator workdir);
+# keep results.json / run_meta.json / llm_calls.json committed as evidence
+*/snapshot/
+*/work/

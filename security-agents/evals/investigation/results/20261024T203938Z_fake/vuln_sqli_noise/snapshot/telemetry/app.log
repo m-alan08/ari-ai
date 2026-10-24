@@ -1,0 +1,4 @@
+2026-10-20T04:11:02Z INFO worker started
+2026-10-20T04:12:44Z WARN query failed near 'DROP TABLE products' (transient, retried)
+2026-10-20T04:13:01Z INFO cache flush complete
+2026-10-20T04:17:39Z ERROR timeout talking to upstream metrics sink
