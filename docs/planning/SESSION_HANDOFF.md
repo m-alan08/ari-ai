@@ -1703,3 +1703,28 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Scout retrained and **promoted**: macro_f1 0.349 vs best deterministic baseline 0.084 (static_analyze_patterns). Checkpoint + `results/scout.json`/REPORT.md committed. Other specialists have no field-compatible eval rows — their tuning signal is the live eval scores, not training data.
 - Eval harness: `run.py` cleanup survives missing `gh` auth; `score_api.py` accepts the bare-list assessments response. All 35 cases pushed as `eval/20261024-110115/*` branches; assessments accumulate live pending a fresh `hackatl_session` for scoring + scope widening (`access_control.authentication` category).
 - Test scope fixture (`make_scope` default) now grants all three check categories — required for the f2 listing invariant after the authentication template landed.
+
+## 2026-10-24 — Devin (Alan): investigation-quality eval harness (YC sprint)
+
+- New `security-agents/evals/investigation/`: end-to-end Scout→Diagnose benchmark
+  complementing `evals/commits/` (which is case/branch-level). Real orchestrator +
+  tools + sandbox; only the provider is swapped.
+- Corpus: 31 labelled cases over 3 skeletons (single-file `shop`, package
+  `files`, flat `hooks`) covering IDOR/SQLi/traversal/SSRF/shell/session-expiry/
+  cookie/TLS/bounds vulns, hard negatives, benign, ambiguous, multi-commit
+  snapshots, noisy telemetry. Ground truth stays in `cases.json` — a leakage
+  regression test greps the recorded provider transcript.
+- Provider modes fake/live/record/replay. Live requires `ANTHROPIC_API_KEY` +
+  budget — none exists in the eval environment, so live results are labelled
+  `unavailable` (per instruction, never invent credentials).
+- Executed fake run committed at `results/20261024T204625Z_fake/` (31 cases × 3
+  repeats): completion 100%, reproducibility 31/31 identical hypothesis sets,
+  snapshot-sha 93/93, artifact integrity 93/93. Scripted-policy measures:
+  flag-level P 0.769 / R 1.0 / F1 0.87; resolved P 1.0 / R 0.40. Dominant
+  failure stage: **Probe** (probe_inconclusive ×9 cases, probe_refuted ×3 per
+  repeat — session_expiry, webhook_sig, tls_verify can't be modelled by the
+  existing check templates). Not real-model quality — harness validation +
+  orchestrator/pipeline evidence.
+- Next: add Probe check templates for session-expiry/webhook-signature/TLS
+  classes (same gap Adam flagged for `evals/commits`); run live-provider eval
+  once a key + budget exist.

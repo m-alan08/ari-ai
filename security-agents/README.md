@@ -136,7 +136,55 @@ security-agents/
     scope_guard.py
     redact.py
   tests/
+  evals/investigation/   # end-to-end Scout→Diagnose quality benchmark
 ```
+
+## Investigation-quality evaluation
+
+`evals/investigation/` measures whether the Scout → Probe → Trace → Diagnose
+chain produces useful, correct, reproducible security findings. It runs the
+**real orchestrator, real tools and real sandbox driver** against a synthetic
+corpus of labelled cases; only the model provider is swapped.
+
+- **Corpus** (`corpus/skeletons/` + `cases.json`): ~31 cases — planted
+  vulnerabilities across CWEs (IDOR, SQLi, traversal, SSRF, shell injection,
+  session expiry, cookie flags, timing-safe compare, TLS verify, bounds),
+  hard negatives and lookalikes, benign changes, ambiguous/missing-evidence
+  cases, three repository structures (single-file, package, flat scripts),
+  multi-commit snapshots, and a noisy-telemetry variant. Ground truth lives
+  only in `cases.json` — `labels.yaml` ships legit `expectations` context but
+  the answer key never enters the materialized snapshot, and a regression test
+  greps the recorded provider transcript for label terms.
+- **Provider modes**: `fake` (deterministic scripted FakeLLM policy —
+  simulated provider, honestly labelled), `live` (Anthropic via
+  `live_gateway_from_env()` — requires an authorized key + budget; absent one
+  it reports `unavailable`), `record` (wraps live, saves
+  `provider_recording.jsonl`), `replay` (replays a recording).
+- **Scorer** (`score.py`): TP/FP/FN, precision/recall/F1 at flag level (Scout
+  hypothesis emitted) and resolved level (confirmed/diagnosed finding),
+  findings per investigation, completion rate, p50/p95 latency, tokens/USD,
+  tool calls, snapshot-sha correlation, artifact integrity, cross-repeat
+  reproducibility, and per-FN failure attribution (scout_miss / rank_filtered /
+  probe_refuted / probe_inconclusive / agent_error).
+- **Report** (`report.py`): renders `REPORT.md` with measured tables, failure
+  attribution, per-case outcomes, example successful/unsuccessful/FP
+  investigations and explicit limitations.
+
+```
+cd security-agents
+PYTHONPATH=.:evals/investigation:../shared:../standards \
+  .venv/bin/python evals/investigation/run.py --provider fake --repeat 3 \
+  --out evals/investigation/results
+PYTHONPATH=.:evals/investigation:../shared:../standards \
+  .venv/bin/python evals/investigation/report.py evals/investigation/results/<run_dir>
+```
+
+Latest committed fake-provider run: `evals/investigation/results/20261024T204625Z_fake/`
+(31 cases × 3 repeats, 100% completion, reproducibility 31/31 identical
+hypothesis sets). Fake-provider numbers measure the harness + scripted
+policy, not real model quality — they are clearly labelled as simulated.
+Live-provider results were unavailable (no authorized API key in the
+evaluation environment). Regression tests: `tests/test_eval_investigation.py`.
 
 ## Tasks
 

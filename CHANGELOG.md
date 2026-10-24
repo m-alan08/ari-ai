@@ -6,6 +6,8 @@ All notable changes are documented here. Format follows
 
 ## [Unreleased]
 
+- Investigation-quality evaluation harness (`security-agents/evals/investigation/`): 31-case labelled corpus (planted vulns, hard negatives, benign, ambiguous, multi-commit snapshots, noisy telemetry), a deterministic scripted-provider mode plus live/record/replay modes, scorer (TP/FP/FN, precision/recall/F1, latency, cost, tool calls, snapshot correlation, artifact integrity, cross-repeat reproducibility, failure attribution), report generator, and regression tests including a ground-truth-leakage audit. Executed fake-provider run committed under `results/20261024T204625Z_fake/` (100% completion, 31/31 reproducible); live-provider results labelled unavailable — no authorized key in the eval environment.
+
 - Scout specialist now trains on the labelled commit-eval set (each case's planted edit vs. its original code as a minimal positive/negative pair) and was promoted after beating the static-pattern baseline (macro F1 0.349 vs 0.084); new checkpoint committed under `specialists/checkpoints/scout/`.
 
 - Assessment UI: agents the orchestrator skipped now stay visible as 'Not needed' with the recorded reason (e.g. 'no confirmed findings'); on failed/cancelled runs they show 'Not reached'. Replaces the ambiguous 'not run' label on the relay and team list.
