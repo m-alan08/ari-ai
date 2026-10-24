@@ -1,0 +1,45 @@
+{
+  "_comment": "Scope-approved build recipe for the report-hub eval target. Fixture config only; not an answer key.",
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "target_dir": "target",
+  "app_factory": "services.api:create_app",
+  "test_command": [
+    "-q",
+    "tests"
+  ],
+  "identities": {
+    "tenant_a": {
+      "auth_header": "Bearer fixture-token-tenant-a",
+      "customer_id": "tenant_a"
+    },
+    "tenant_b": {
+      "auth_header": "Bearer fixture-token-tenant-b",
+      "customer_id": "tenant_b"
+    }
+  },
+  "resources": {
+    "report": {
+      "tenant_a": {
+        "id": "rep_a1"
+      },
+      "tenant_b": {
+        "id": "rep_b1"
+      }
+    }
+  },
+  "routes": [
+    {
+      "id": "report_detail",
+      "method": "GET",
+      "path_template": "/reports/{report_id}",
+      "resource": "report"
+    },
+    {
+      "id": "report_list",
+      "method": "GET",
+      "path_template": "/reports",
+      "resource": "report"
+    }
+  ]
+}

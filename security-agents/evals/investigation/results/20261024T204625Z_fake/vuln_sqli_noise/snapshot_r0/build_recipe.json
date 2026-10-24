@@ -1,0 +1,103 @@
+{
+  "_comment": [
+    "Sandbox build recipe for the shop-lite eval target (operator-provided, scope-approved).",
+    "Names entry points, fixture identities and fixture resources a reviewed check template may",
+    "reference. Not an answer key: it says nothing about which routes are correct."
+  ],
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "target_dir": "target",
+  "app_factory": "shop.app:create_app",
+  "test_command": [
+    "-q",
+    "tests"
+  ],
+  "identities": {
+    "alice": {
+      "auth_header": "Bearer fixture-token-alice",
+      "customer_id": "cus_alice"
+    },
+    "bob": {
+      "auth_header": "Bearer fixture-token-bob",
+      "customer_id": "cus_bob"
+    }
+  },
+  "resources": {
+    "order": {
+      "alice": {
+        "id": "ord_a1",
+        "amount": "120.00",
+        "amount_field": "amount",
+        "refunded_field": "paid"
+      },
+      "bob": {
+        "id": "ord_b1",
+        "amount": "80.00",
+        "amount_field": "amount",
+        "refunded_field": "paid"
+      }
+    },
+    "invoice": {
+      "alice": {
+        "id": "inv_a1",
+        "amount": "120.00",
+        "amount_field": "amount",
+        "refunded_field": "paid"
+      },
+      "bob": {
+        "id": "inv_b1",
+        "amount": "80.00",
+        "amount_field": "amount",
+        "refunded_field": "paid"
+      }
+    },
+    "customer": {
+      "alice": {
+        "id": "cus_alice"
+      },
+      "bob": {
+        "id": "cus_bob"
+      }
+    }
+  },
+  "routes": [
+    {
+      "id": "order_detail",
+      "method": "GET",
+      "path_template": "/orders/{order_id}",
+      "resource": "order"
+    },
+    {
+      "id": "invoice_detail",
+      "method": "GET",
+      "path_template": "/invoices/{invoice_id}",
+      "resource": "invoice"
+    },
+    {
+      "id": "customer_detail",
+      "method": "GET",
+      "path_template": "/customers/{customer_id}",
+      "resource": "customer"
+    },
+    {
+      "id": "order_list",
+      "method": "GET",
+      "path_template": "/orders",
+      "resource": "order"
+    },
+    {
+      "id": "create_invoice_payment",
+      "method": "POST",
+      "path_template": "/invoices/{invoice_id}/payments",
+      "resource": "invoice",
+      "body_template": {
+        "amount": "{amount}"
+      },
+      "bound_source": {
+        "route": "invoice_detail",
+        "field": "amount"
+      },
+      "accumulated_field": "paid"
+    }
+  ]
+}

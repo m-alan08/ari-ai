@@ -1,0 +1,39 @@
+{
+  "_comment": "Scope-approved build recipe for the files-lite eval target. Fixture config only; not an answer key.",
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "target_dir": "target",
+  "app_factory": "app:create_app",
+  "test_command": [
+    "-q",
+    "tests"
+  ],
+  "identities": {
+    "alice": {
+      "auth_header": "Bearer fixture-token-alice",
+      "customer_id": "usr_alice"
+    },
+    "bob": {
+      "auth_header": "Bearer fixture-token-bob",
+      "customer_id": "usr_bob"
+    }
+  },
+  "resources": {
+    "document": {
+      "alice": {
+        "id": "doc_a1"
+      },
+      "bob": {
+        "id": "doc_b1"
+      }
+    }
+  },
+  "routes": [
+    {
+      "id": "document_detail",
+      "method": "GET",
+      "path_template": "/documents/{doc_id}",
+      "resource": "document"
+    }
+  ]
+}

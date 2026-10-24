@@ -104,9 +104,9 @@ def run_case(
     """Materialize one case and run the real orchestrator over it."""
     case_dir = out_dir / case.id
     case_dir.mkdir(parents=True, exist_ok=True)
-    mat = corpus.materialize_case(case, work_root)
+    mat = corpus.materialize_case(case, work_root / f"rep{repeat_idx}")
 
-    snap_dest = case_dir / "snapshot"
+    snap_dest = case_dir / f"snapshot_r{repeat_idx}"
     snapshot = SnapshotHandle.from_directory(
         mat.workspace, snap_dest, snapshot_id=new_id("snp"), repo_id="rep_eval"
     )
@@ -168,7 +168,7 @@ def run_case(
         gateway=gateway,
         driver=LocalProcessDriver(allow=True),
         library=library,
-        workdir=case_dir / "work",
+        workdir=case_dir / f"work_r{repeat_idx}",
         approve_remediation=lambda finding: None,  # decline remediation
         step_runner=step_runner,
     )

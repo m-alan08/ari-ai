@@ -1,0 +1,3 @@
+- repackage telemetry exporter
+- ask infra about that WARN line in app.log, probably nothing
+- bump fixture seed rows

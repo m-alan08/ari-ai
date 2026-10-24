@@ -1,0 +1,32 @@
+{
+  "_comment": "Scope-approved build recipe for the hooks-lite eval target. Fixture config only; not an answer key.",
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "target_dir": "target",
+  "app_factory": "receiver:create_app",
+  "test_command": [
+    "-q",
+    "tests"
+  ],
+  "identities": {
+    "ops": {
+      "auth_header": "Bearer fixture-token-ops",
+      "customer_id": "svc_ops"
+    }
+  },
+  "resources": {
+    "job": {
+      "ops": {
+        "id": "job_a1"
+      }
+    }
+  },
+  "routes": [
+    {
+      "id": "job_detail",
+      "method": "GET",
+      "path_template": "/jobs/{job_id}",
+      "resource": "job"
+    }
+  ]
+}
