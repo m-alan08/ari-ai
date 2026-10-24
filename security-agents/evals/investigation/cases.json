@@ -1,0 +1,850 @@
+{
+  "_comment": [
+    "Dataset manifest for the investigation-quality eval (evals/investigation).",
+    "Each case materializes a committed skeleton under corpus/skeletons/<skeleton>,",
+    "applies the listed commits (string edits, in order) and assesses the final tree.",
+    "ground_truth is the answer key: it is NEVER materialized into the target tree,",
+    "never concatenated into prompts, and a regression test asserts no GT string",
+    "reaches an LLM request. Edit paths are relative to the skeleton's target/ dir.",
+    "kind: vuln = planted defect; hard_negative = safe lookalike a weak agent flags;",
+    "benign = ordinary change; ambiguous = missing/ambiguous evidence where either",
+    "flagging or not is acceptable but CONFIRMING a finding is a false positive.",
+    "Commit messages are ordinary and never name the defect."
+  ],
+  "cases": [
+    {
+      "id": "vuln_order_detail_idor",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "perf(api): skip the ownership join on the order detail hot path",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        o = store.orders.get(order_id)\n        if o is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_owner(o.customer_id, customer)\n        return order_out(o)",
+              "new": "        o = store.orders.get(order_id)\n        if o is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        return order_out(o)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-639", "path": "shop/app.py", "symbol": "get_order", "note": "require_owner removed from order detail", "introduced_at_commit": 0}
+        ],
+        "negatives": [
+          {"path": "shop/app.py", "symbol": "get_invoice", "hypothesis_class": "CWE-639", "note": "sibling route still enforces require_owner"}
+        ]
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "order_detail"}
+    },
+    {
+      "id": "vuln_invoice_detail_idor",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "refactor(api): load the invoice row directly in get_invoice",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        inv = store.invoices.get(invoice_id)\n        if inv is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_owner(inv.customer_id, customer)\n        return invoice_out(store, inv)",
+              "new": "        inv = store.invoices.get(invoice_id)\n        if inv is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        return invoice_out(store, inv)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-639", "path": "shop/app.py", "symbol": "get_invoice", "note": "require_owner removed from invoice detail", "introduced_at_commit": 0}
+        ],
+        "negatives": [
+          {"path": "shop/app.py", "symbol": "get_order", "hypothesis_class": "CWE-639", "note": "sibling route still enforces require_owner"}
+        ]
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "invoice_detail"}
+    },
+    {
+      "id": "vuln_customer_detail_idor",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "perf(api): drop redundant owner check on customer detail",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        target = store.customers.get(customer_id)\n        if target is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_owner(target.id, customer)",
+              "new": "        target = store.customers.get(customer_id)\n        if target is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-639", "path": "shop/app.py", "symbol": "get_customer", "note": "require_owner removed from customer detail", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "customer_detail"}
+    },
+    {
+      "id": "vuln_invoice_bound",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "fix(api): validate a single payment against the invoice amount",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        if inv.paid + body.amount > inv.amount:\n            raise HTTPException(422, \"payment exceeds invoice balance\")",
+              "new": "        if body.amount > inv.amount:\n            raise HTTPException(422, \"payment exceeds invoice balance\")"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-1284", "path": "shop/app.py", "symbol": "pay_invoice", "note": "bound ignores accumulated payments (inv.paid dropped)", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "create_invoice_payment"}
+    },
+    {
+      "id": "vuln_search_sqli",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "perf(db): inline the search query for fewer param binds",
+          "edits": [
+            {
+              "path": "shop/db.py",
+              "old": "        cur = self._db.execute(\n            \"SELECT sku, name, price FROM products WHERE name LIKE ? LIMIT ?\",\n            (f\"%{query}%\", limit),\n        )",
+              "new": "        sql = f\"SELECT sku, name, price FROM products WHERE name LIKE '%{query}%' LIMIT {int(limit)}\"\n        cur = self._db.execute(sql)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-89", "path": "shop/db.py", "symbol": "search", "note": "f-string SQL with caller query", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_session_expiry",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "perf(auth): skip the session timestamp check on every request",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        if not session_valid(session, time.time()):\n            raise HTTPException(status.HTTP_401_UNAUTHORIZED, \"session expired\")\n        return store.customers[session.customer_id]",
+              "new": "        return store.customers[session.customer_id]"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-613", "path": "shop/app.py", "symbol": "current_customer", "note": "session_valid call removed; tokens never expire", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_idor_multi_commit",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "feat(audit): add audit trail helper module",
+          "edits": [
+            {
+              "path": "shop/audit.py",
+              "mode": "create_file",
+              "content": "\"\"\"Audit helpers for shop-lite.\"\"\"\n\nfrom __future__ import annotations\n\n\ndef audit_trail(order_id: str) -> list[str]:\n    \"\"\"Placeholder audit log lookup.\"\"\"\n    return [f\"order {order_id} viewed\"]\n"
+            }
+          ]
+        },
+        {
+          "message": "perf(api): skip the ownership join on the order detail hot path",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "        o = store.orders.get(order_id)\n        if o is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_owner(o.customer_id, customer)\n        return order_out(o)",
+              "new": "        o = store.orders.get(order_id)\n        if o is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        return order_out(o)"
+            }
+          ]
+        },
+        {
+          "message": "feat(api): add order status endpoint",
+          "edits": [
+            {
+              "path": "shop/app.py",
+              "old": "    return app\n\n\napp = create_app()",
+              "new": "    @app.get(\"/orders/{order_id}/status\")\n    def order_status(\n        order_id: str,\n        customer: Customer = Depends(current_customer),\n        store: Store = Depends(get_store),\n    ) -> dict[str, str]:\n        o = store.orders.get(order_id)\n        if o is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_owner(o.customer_id, customer)\n        return {\"id\": o.id, \"status\": o.status}\n\n    return app\n\n\napp = create_app()"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-639", "path": "shop/app.py", "symbol": "get_order", "note": "require_owner removed in commit 2 of 3", "introduced_at_commit": 1}
+        ],
+        "negatives": [
+          {"path": "shop/app.py", "symbol": "order_status", "hypothesis_class": "CWE-639", "note": "new sibling route enforces require_owner"}
+        ]
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "order_detail"}
+    },
+    {
+      "id": "vuln_sqli_noise",
+      "kind": "vuln",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "perf(db): inline the search query for fewer param binds",
+          "edits": [
+            {
+              "path": "shop/db.py",
+              "old": "        cur = self._db.execute(\n            \"SELECT sku, name, price FROM products WHERE name LIKE ? LIMIT ?\",\n            (f\"%{query}%\", limit),\n        )",
+              "new": "        sql = f\"SELECT sku, name, price FROM products WHERE name LIKE '%{query}%' LIMIT {int(limit)}\"\n        cur = self._db.execute(sql)"
+            }
+          ],
+          "extra_files": {
+            "telemetry/app.log": "2026-10-20T04:11:02Z INFO worker started\n2026-10-20T04:12:44Z WARN query failed near 'DROP TABLE products' (transient, retried)\n2026-10-20T04:13:01Z INFO cache flush complete\n2026-10-20T04:17:39Z ERROR timeout talking to upstream metrics sink\n",
+            "notes/todo.txt": "- repackage telemetry exporter\n- ask infra about that WARN line in app.log, probably nothing\n- bump fixture seed rows\n"
+          }
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-89", "path": "shop/db.py", "symbol": "search", "note": "f-string SQL amid noisy telemetry", "introduced_at_commit": 0}
+        ],
+        "negatives": [
+          {"path": "telemetry/app.log", "hypothesis_class": "CWE-89", "note": "log noise mentions DROP TABLE but is not executable code"}
+        ]
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_file_traversal",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "refactor(files): simplify download path resolution",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "        root = UPLOAD_ROOT.resolve()\n        candidate = (root / name).resolve()\n        if not str(candidate).startswith(str(root) + \"/\"):\n            raise HTTPException(400, \"path escapes upload root\")\n        return candidate",
+              "new": "        root = UPLOAD_ROOT.resolve()\n        return root / name"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-22", "path": "app.py", "symbol": "safe_upload_path", "note": "containment check removed", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_fetch_ssrf",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "perf(fetch): drop the host allow-list lookup on the fetch path",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "        host = (urlparse(body.url).hostname or \"\").lower()\n        if host not in ALLOWED_FETCH_HOSTS:\n            raise HTTPException(400, \"host not allowed\")\n        with urllib.request.urlopen(body.url, timeout=5) as resp:",
+              "new": "        with urllib.request.urlopen(body.url, timeout=5) as resp:"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-918", "path": "app.py", "symbol": "fetch_url", "note": "ALLOWED_FETCH_HOSTS check removed", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_share_compare",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "refactor(share): compare the share token directly",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "        if not hmac.compare_digest(doc.share_token, token):",
+              "new": "        if doc.share_token != token:"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-208", "path": "app.py", "symbol": "shared_document", "note": "non-constant-time compare on share token", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_extract_traversal",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "fix(extract): restore default tar member filtering",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "            tf.extractall(STAGING_ROOT, filter=\"data\")",
+              "new": "            tf.extractall(STAGING_ROOT)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-22", "path": "app.py", "symbol": "extract_archive", "note": "tarfile extractall without data filter allows member escape", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_dispatch_shell",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "feat(ops): add operator dispatch endpoint",
+          "edits": [
+            {
+              "path": "dispatch.py",
+              "mode": "create_file",
+              "content": "\"\"\"Operator dispatch helpers.\"\"\"\n\nfrom __future__ import annotations\n\nimport subprocess\n\nOPS = {\"rotate\": \"rotate.sh\", \"backup\": \"backup.sh\"}\n\n\ndef run_op(name: str) -> None:\n    script = OPS.get(name, f\"{name}.sh\")\n    subprocess.run(f\"ops/{script}\", shell=True, check=False)\n"
+            },
+            {
+              "path": "app.py",
+              "old": "    return app\n\n\napp = create_app()",
+              "new": "    @app.post(\"/ops/{name}\")\n    def run_named_op(\n        name: str,\n        user: User = Depends(current_user),\n    ) -> dict[str, str]:\n        from dispatch import run_op\n\n        run_op(name)\n        return {\"status\": \"dispatched\"}\n\n    return app\n\n\napp = create_app()"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-78", "path": "dispatch.py", "symbol": "run_op", "note": "shell=True on caller-controlled op name", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_traversal_2commits",
+      "kind": "vuln",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "docs: note the staging directory layout",
+          "edits": [
+            {
+              "path": "README.md",
+              "mode": "append",
+              "content": "\n## Layout\n\n- uploads live under the upload root\n- archives stage under the staging root\n"
+            }
+          ]
+        },
+        {
+          "message": "refactor(files): simplify download path resolution",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "        root = UPLOAD_ROOT.resolve()\n        candidate = (root / name).resolve()\n        if not str(candidate).startswith(str(root) + \"/\"):\n            raise HTTPException(400, \"path escapes upload root\")\n        return candidate",
+              "new": "        root = UPLOAD_ROOT.resolve()\n        return root / name"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-22", "path": "app.py", "symbol": "safe_upload_path", "note": "containment removed in second commit", "introduced_at_commit": 1}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_webhook_sig",
+      "kind": "vuln",
+      "skeleton": "hooks",
+      "structure": "service_split",
+      "commits": [
+        {
+          "message": "refactor(webhooks): trust the edge gateway's signature check",
+          "edits": [
+            {
+              "path": "receiver.py",
+              "old": "        if not verify_signature(WEBHOOK_SECRET, body, x_signature_256):\n            raise HTTPException(status.HTTP_401_UNAUTHORIZED, \"bad signature\")",
+              "new": "        # signature verification is handled by the edge gateway (see runbook)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-345", "path": "receiver.py", "symbol": "receive_github", "note": "verify_signature call removed; unsigned deliveries accepted", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_tls_verify",
+      "kind": "vuln",
+      "skeleton": "hooks",
+      "structure": "service_split",
+      "commits": [
+        {
+          "message": "fix(worker): tolerate self-signed artifact hosts in staging",
+          "edits": [
+            {
+              "path": "worker.py",
+              "old": "    context = ssl.create_default_context()",
+              "new": "    context = ssl._create_unverified_context()"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-295", "path": "worker.py", "symbol": "fetch_artifact", "note": "TLS certificate verification disabled", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_cookie_flags",
+      "kind": "vuln",
+      "skeleton": "hooks",
+      "structure": "service_split",
+      "commits": [
+        {
+          "message": "fix(login): allow the session cookie on plain http in dev",
+          "edits": [
+            {
+              "path": "receiver.py",
+              "old": "            secure=True,",
+              "new": "            secure=False,"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-614", "path": "receiver.py", "symbol": "login", "note": "Secure flag removed from session cookie", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_report_command",
+      "kind": "vuln",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "refactor(jobs): build the report command as one shell string",
+          "edits": [
+            {
+              "path": "services/jobs.py",
+              "old": "    if command not in ALLOWED_COMMANDS:\n        raise ValueError(f\"command {command!r} is not allowed\")\n    argv = [\"reportctl\", command, *args]\n    return subprocess.run(argv, capture_output=True, timeout=60)",
+              "new": "    cmd = f\"reportctl {command} {' '.join(args)}\"\n    return subprocess.run(cmd, shell=True, capture_output=True, timeout=60)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-78", "path": "services/jobs.py", "symbol": "run_report_command", "note": "allow-list dropped and shell=True introduced", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "vuln_tenant_filter",
+      "kind": "vuln",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "perf(api): skip the tenant check on report detail reads",
+          "edits": [
+            {
+              "path": "services/api.py",
+              "old": "        \"\"\"Return one report by id.\"\"\"\n        r = store.reports.get(report_id)\n        if r is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_tenant(r.tenant, tenant)\n        return report_out(r)",
+              "new": "        \"\"\"Return one report by id.\"\"\"\n        r = store.reports.get(report_id)\n        if r is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        return report_out(r)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-639", "path": "services/api.py", "symbol": "get_report", "note": "require_tenant removed from report detail", "introduced_at_commit": 0}
+        ],
+        "negatives": [
+          {"path": "services/api.py", "symbol": "generate_report", "hypothesis_class": "CWE-639", "note": "sibling route still enforces require_tenant"}
+        ]
+      },
+      "expected": {"flagged": true, "confirmable": true, "route_id": "report_detail"}
+    },
+    {
+      "id": "vuln_unbounded_list",
+      "kind": "vuln",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "perf(api): trust the client's page-size hint on report lists",
+          "edits": [
+            {
+              "path": "services/api.py",
+              "old": "        n = clamp_limit(limit)",
+              "new": "        n = limit"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [
+          {"cwe": "CWE-770", "path": "services/api.py", "symbol": "list_reports", "note": "clamp_limit bypassed; unbounded page size", "introduced_at_commit": 0}
+        ],
+        "negatives": []
+      },
+      "expected": {"flagged": true, "confirmable": false}
+    },
+    {
+      "id": "neg_search_format",
+      "kind": "hard_negative",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "refactor(db): hoist the search query into a named variable",
+          "edits": [
+            {
+              "path": "shop/db.py",
+              "old": "        cur = self._db.execute(\n            \"SELECT sku, name, price FROM products WHERE name LIKE ? LIMIT ?\",\n            (f\"%{query}%\", limit),\n        )",
+              "new": "        sql = \"SELECT sku, name, price FROM products WHERE name LIKE ? LIMIT ?\"\n        cur = self._db.execute(sql, (\"%\" + query + \"%\", limit))"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "shop/db.py", "symbol": "search", "hypothesis_class": "CWE-89", "note": "named sql variable but still fully parameterized"}
+        ]
+      },
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "neg_share_etag",
+      "kind": "hard_negative",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "refactor(preview): compare the cached preview explicitly",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "        key = hashlib.md5(doc.body, usedforsecurity=False).hexdigest()\n        if key not in store.preview_cache:\n            store.preview_cache[key] = doc.body[:120].decode(\"utf-8\", \"replace\")\n        return {\"id\": doc.id, \"preview\": store.preview_cache[key]}",
+              "new": "        key = hashlib.md5(doc.body, usedforsecurity=False).hexdigest()\n        if key not in store.preview_cache:\n            store.preview_cache[key] = doc.body[:120].decode(\"utf-8\", \"replace\")\n        preview = store.preview_cache[key]\n        # The cache key is a non-secret content hash; plain equality is fine here.\n        if preview != store.preview_cache[key]:\n            raise HTTPException(500, \"cache inconsistency\")\n        return {\"id\": doc.id, \"preview\": preview}"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "app.py", "symbol": "preview_document", "hypothesis_class": "CWE-208", "note": "!= on a non-secret cache value, not a token compare"}
+        ]
+      },
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "neg_jobs_list_args",
+      "kind": "hard_negative",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "hardening(jobs): quote argv entries defensively",
+          "edits": [
+            {
+              "path": "services/jobs.py",
+              "old": "import sqlite3\nimport subprocess",
+              "new": "import shlex\nimport sqlite3\nimport subprocess"
+            },
+            {
+              "path": "services/jobs.py",
+              "old": "    argv = [\"reportctl\", command, *args]",
+              "new": "    argv = [\"reportctl\", command, *[shlex.quote(a) for a in args]]"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "services/jobs.py", "symbol": "run_report_command", "hypothesis_class": "CWE-78", "note": "shlex.quote present but argv is still a list without shell=True"}
+        ]
+      },
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "neg_verify_ctx",
+      "kind": "hard_negative",
+      "skeleton": "hooks",
+      "structure": "service_split",
+      "commits": [
+        {
+          "message": "hardening(worker): pin TLS verification flags explicitly",
+          "edits": [
+            {
+              "path": "worker.py",
+              "old": "    context = ssl.create_default_context()",
+              "new": "    context = ssl.create_default_context()\n    context.check_hostname = True\n    context.verify_mode = ssl.CERT_REQUIRED"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "worker.py", "symbol": "fetch_artifact", "hypothesis_class": "CWE-295", "note": "explicitly verified TLS; a superficial read may flag it"}
+        ]
+      },
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "neg_parameterized_export",
+      "kind": "hard_negative",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "refactor(jobs): hoist the export query into a named variable",
+          "edits": [
+            {
+              "path": "services/jobs.py",
+              "old": "        cur = db.execute(\n            \"SELECT id, title FROM reports WHERE tenant = ? LIMIT ?\",\n            (tenant, limit),\n        )",
+              "new": "        sql = \"SELECT id, title FROM reports WHERE tenant = ? LIMIT ?\"\n        cur = db.execute(sql, (tenant, limit))"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "services/jobs.py", "symbol": "export_rows", "hypothesis_class": "CWE-89", "note": "named sql variable but still parameterized"}
+        ]
+      },
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "benign_readme",
+      "kind": "benign",
+      "skeleton": "shop",
+      "structure": "package",
+      "commits": [
+        {
+          "message": "docs: document the seeded fixture identities",
+          "edits": [
+            {
+              "path": "README.md",
+              "mode": "append",
+              "content": "\n## Fixtures\n\n- alice owns ord_a1, ord_a2 and inv_a1\n- bob owns ord_b1 and inv_b1\n"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {"defects": [], "negatives": []},
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "benign_cache",
+      "kind": "benign",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "refactor(upload): hoist the base64 import to module scope",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "import hashlib\nimport hmac\nimport io",
+              "new": "import base64\nimport hashlib\nimport hmac\nimport io"
+            },
+            {
+              "path": "app.py",
+              "old": "        path = safe_upload_path(body.name)\n        path.parent.mkdir(parents=True, exist_ok=True)\n        import base64\n\n        path.write_bytes(base64.b64decode(body.body_b64 or \"\"))",
+              "new": "        path = safe_upload_path(body.name)\n        path.parent.mkdir(parents=True, exist_ok=True)\n        path.write_bytes(base64.b64decode(body.body_b64 or \"\"))"
+            },
+            {
+              "path": "app.py",
+              "old": "        \"\"\"Extract an uploaded tar archive into the staging dir, confined.\"\"\"\n        import base64\n\n        blob = base64.b64decode(body.archive_b64)",
+              "new": "        \"\"\"Extract an uploaded tar archive into the staging dir, confined.\"\"\"\n        blob = base64.b64decode(body.archive_b64)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {"defects": [], "negatives": []},
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "benign_rename",
+      "kind": "benign",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "refactor(api): rename the filtered rows variable for clarity",
+          "edits": [
+            {
+              "path": "services/api.py",
+              "old": "        rows = [r for r in store.reports.values() if r.tenant == tenant]\n        return [report_out(r) for r in rows[:n]]",
+              "new": "        visible = [r for r in store.reports.values() if r.tenant == tenant]\n        return [report_out(r) for r in visible[:n]]"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {"defects": [], "negatives": []},
+      "expected": {"flagged": false, "confirmable": false}
+    },
+    {
+      "id": "amb_tls_env",
+      "kind": "ambiguous",
+      "skeleton": "hooks",
+      "structure": "service_split",
+      "commits": [
+        {
+          "message": "feat(worker): allow insecure TLS behind an env flag for local dev",
+          "edits": [
+            {
+              "path": "worker.py",
+              "old": "import hashlib\nimport hmac\nimport ssl",
+              "new": "import hashlib\nimport hmac\nimport os\nimport ssl"
+            },
+            {
+              "path": "worker.py",
+              "old": "    context = ssl.create_default_context()",
+              "new": "    if os.environ.get(\"FILES_TLS_INSECURE\", \"0\") == \"1\":\n        context = ssl._create_unverified_context()\n    else:\n        context = ssl.create_default_context()"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "worker.py", "symbol": "fetch_artifact", "hypothesis_class": "CWE-295", "note": "env-gated insecure TLS: undecidable without deployment config; must not be confirmed"}
+        ]
+      },
+      "expected": {"flagged": null, "confirmable": false, "must_not_confirm": true}
+    },
+    {
+      "id": "amb_external_authz",
+      "kind": "ambiguous",
+      "skeleton": "files",
+      "structure": "single_module",
+      "commits": [
+        {
+          "message": "feat(audit): add operator audit log endpoint",
+          "edits": [
+            {
+              "path": "app.py",
+              "old": "    return app\n\n\napp = create_app()",
+              "new": "    @app.get(\"/audit-log\")\n    def audit_log(\n        user: User = Depends(current_user),\n    ) -> dict[str, str]:\n        \"\"\"Operator audit log. Object-level authorization is enforced by the\n        edge gateway per the deployment runbook; this handler only requires\n        a signed-in user.\"\"\"\n        return {\"entries\": \"0\"}\n\n    return app\n\n\napp = create_app()"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "app.py", "symbol": "audit_log", "hypothesis_class": "CWE-862", "note": "lookalike missing-authz route; external enforcement is claimed but unverifiable"}
+        ]
+      },
+      "expected": {"flagged": null, "confirmable": false, "must_not_confirm": true}
+    },
+    {
+      "id": "amb_missing_helper",
+      "kind": "ambiguous",
+      "skeleton": "mono",
+      "structure": "monorepo",
+      "commits": [
+        {
+          "message": "refactor(authz): route report access through the shared authz helper",
+          "edits": [
+            {
+              "path": "shared/authz.py",
+              "mode": "create_file",
+              "content": "\"\"\"Authorization helpers (implementation pending).\"\"\"\n\nfrom __future__ import annotations\n\n\ndef check_report_access(resource_tenant: str, tenant: str) -> bool:\n    \"\"\"Whether tenant may read a report owned by resource_tenant.\"\"\"\n    raise NotImplementedError\n"
+            },
+            {
+              "path": "services/api.py",
+              "old": "        \"\"\"Return one report by id.\"\"\"\n        r = store.reports.get(report_id)\n        if r is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        require_tenant(r.tenant, tenant)\n        return report_out(r)",
+              "new": "        \"\"\"Return one report by id.\"\"\"\n        r = store.reports.get(report_id)\n        if r is None:\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \"not found\")\n        from shared.authz import check_report_access\n\n        check_report_access(r.tenant, tenant)\n        return report_out(r)"
+            }
+          ]
+        }
+      ],
+      "ground_truth": {
+        "defects": [],
+        "negatives": [
+          {"path": "services/api.py", "symbol": "get_report", "hypothesis_class": "CWE-862", "note": "delegates to an unimplemented helper; fails closed (500), exploitability undecidable"}
+        ]
+      },
+      "expected": {"flagged": null, "confirmable": false, "must_not_confirm": true}
+    }
+  ]
+}
