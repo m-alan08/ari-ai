@@ -58,7 +58,6 @@ class EffectNotApplied(Exception):
     (e.g. the remote rejected the request before acting). The job stays retryable."""
 
 
-
 class PermanentJobError(Exception):
     """Non-retryable failure (bad input, policy denial). Recorded, not retried."""
 

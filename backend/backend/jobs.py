@@ -693,35 +693,6 @@ def is_cancel_requested(conn: Connection, job_id: str) -> bool:
     return bool(row and row[0])
 
 
-def defer(conn: Connection, job_id: str, owner: str, *, delay_s: float) -> bool:
-    """Requeue a running job without consuming a failure attempt.
-
-    Claim already incremented ``attempts``. Prerequisite waits must not burn the
-    ordinary retry budget, so this undoes that increment and schedules a retry.
-    """
-    row = conn.execute(
-        sa.select(jobs.c.attempts)
-        .where(jobs.c.id == job_id, jobs.c.lease_owner == owner, jobs.c.status == "running")
-        .with_for_update()
-    ).first()
-    if row is None:
-        return False
-    conn.execute(
-        sa.update(jobs)
-        .where(jobs.c.id == job_id)
-        .values(
-            status="queued",
-            attempts=max(int(row.attempts) - 1, 0),
-            run_after=utcnow() + timedelta(seconds=max(0.0, delay_s)),
-            lease_owner=None,
-            lease_expires_at=None,
-            last_error={"code": "PREREQUISITE_NOT_READY", "message": "waiting for prerequisite"},
-            updated_at=sa.func.now(),
-        )
-    )
-    return True
-
-
 def fail(
     conn: Connection,
     job_id: str,
