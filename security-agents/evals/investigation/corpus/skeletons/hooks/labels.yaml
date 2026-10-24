@@ -1,0 +1,34 @@
+# Behavioural expectations for hooks-lite (context only — answer keys live in cases.json).
+target_dir: target
+schema_version: 1
+expectations:
+  - id: exp_webhook_signed
+    subject: "POST /webhooks/github"
+    statement: "Every webhook delivery must carry a valid HMAC-SHA256 signature."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/worker.py, symbol: verify_signature, note: "called from receive_github"}
+  - id: exp_no_replay
+    subject: "POST /webhooks/github"
+    statement: "Stale or duplicate deliveries must be rejected."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/receiver.py, symbol: receive_github, note: "delivery_is_fresh + seen_deliveries"}
+  - id: exp_cookie_flags
+    subject: "POST /sessions/login"
+    statement: "Session cookies are Secure, HttpOnly and SameSite=Lax."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/receiver.py, symbol: login, note: "set_cookie flags"}
+  - id: exp_tls_verified
+    subject: "worker.fetch_artifact"
+    statement: "Artifact downloads verify TLS certificates."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/worker.py, symbol: fetch_artifact, note: "default ssl context"}
+fixture_identities:
+  - {principal: svc_ops, token: fixture-token-ops}

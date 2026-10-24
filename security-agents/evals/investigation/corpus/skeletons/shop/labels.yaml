@@ -1,0 +1,37 @@
+# Behavioural expectations for shop-lite (context only — the answer key for each
+# eval case lives in cases.json ground_truth, which is never materialized).
+target_dir: target
+schema_version: 1
+expectations:
+  - id: exp_owner_only
+    subject: "resource reads"
+    statement: "A customer can only read profiles, orders and invoices they own."
+    kind: authorization
+    data_sensitivity: financial
+    sources:
+      - {path: target/shop/app.py, symbol: require_owner, note: "used by every sibling resource route"}
+      - {path: target/README.md, note: "Behavior section"}
+  - id: exp_invoice_bound
+    subject: "POST /invoices/{invoice_id}/payments"
+    statement: "Total payments for an invoice must never exceed the invoice amount."
+    kind: invariant
+    data_sensitivity: financial
+    sources:
+      - {path: target/shop/app.py, symbol: pay_invoice, note: docstring}
+  - id: exp_session_expiry
+    subject: "bearer tokens"
+    statement: "Session tokens older than max_age_s must be rejected."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/shop/app.py, symbol: session_valid, note: "called from current_customer"}
+  - id: exp_search_readonly
+    subject: "GET /search"
+    statement: "Search runs fixed parameterized queries only; caller input is never SQL."
+    kind: injection_resistance
+    data_sensitivity: internal
+    sources:
+      - {path: target/shop/db.py, symbol: search, note: "parameterized query"}
+fixture_identities:
+  - {customer: cus_alice, token: fixture-token-alice, owns: [ord_a1, ord_a2, inv_a1]}
+  - {customer: cus_bob, token: fixture-token-bob, owns: [ord_b1, inv_b1]}

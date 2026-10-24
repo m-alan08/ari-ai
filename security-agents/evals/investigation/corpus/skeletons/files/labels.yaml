@@ -1,0 +1,36 @@
+# Behavioural expectations for files-lite (context only — answer keys live in cases.json).
+target_dir: target
+schema_version: 1
+expectations:
+  - id: exp_owner_only
+    subject: "document reads"
+    statement: "A user can only read documents they own."
+    kind: authorization
+    data_sensitivity: internal
+    sources:
+      - {path: target/app.py, symbol: require_owner, note: "shared ownership helper"}
+      - {path: target/README.md, note: "Behavior section"}
+  - id: exp_upload_confined
+    subject: "GET /files/{name} and POST /upload"
+    statement: "File paths are confined to the upload root."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/app.py, symbol: safe_upload_path, note: docstring}
+  - id: exp_fetch_allowlist
+    subject: "POST /fetch"
+    statement: "Outbound fetches only reach allow-listed hosts."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/app.py, symbol: ALLOWED_FETCH_HOSTS, note: "host allow-list"}
+  - id: exp_share_compare
+    subject: "GET /share/{doc_id}"
+    statement: "Share tokens are compared in constant time."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/app.py, symbol: shared_document, note: "hmac.compare_digest"}
+fixture_identities:
+  - {user: usr_alice, token: fixture-token-alice, owns: [doc_a1]}
+  - {user: usr_bob, token: fixture-token-bob, owns: [doc_b1]}

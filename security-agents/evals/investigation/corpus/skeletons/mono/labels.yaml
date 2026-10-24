@@ -1,0 +1,29 @@
+# Behavioural expectations for report-hub (context only — answer keys live in cases.json).
+target_dir: target
+schema_version: 1
+expectations:
+  - id: exp_tenant_only
+    subject: "report reads"
+    statement: "A tenant can only read reports it owns."
+    kind: authorization
+    data_sensitivity: internal
+    sources:
+      - {path: target/shared/util.py, symbol: require_tenant, note: "shared tenancy helper"}
+      - {path: target/README.md, note: "Behavior section"}
+  - id: exp_page_clamped
+    subject: "GET /reports"
+    statement: "List endpoints clamp page size to at most 500 rows."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/shared/util.py, symbol: clamp_limit, note: MAX_PAGE_LIMIT}
+  - id: exp_commands_allowlisted
+    subject: "services.jobs.run_report_command"
+    statement: "Report commands run only from the allow-list, as argv lists."
+    kind: invariant
+    data_sensitivity: internal
+    sources:
+      - {path: target/services/jobs.py, symbol: ALLOWED_COMMANDS, note: "allow-listed commands"}
+fixture_identities:
+  - {tenant: tenant_a, token: fixture-token-tenant-a, owns: [rep_a1, rep_a2]}
+  - {tenant: tenant_b, token: fixture-token-tenant-b, owns: [rep_b1]}
