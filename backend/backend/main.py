@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from backend import jobs
 from backend.api import (
     auth,
+    execution,
     github_repos,
     incidents,
     intelligence,
@@ -90,6 +91,17 @@ def create_app() -> FastAPI:
         )
         return _error(request, exc.status, exc.code, str(exc), exc.details, headers)
 
+    @app.exception_handler(jobs.QueueBackpressure)
+    async def _backpressure(request: Request, exc: jobs.QueueBackpressure) -> JSONResponse:
+        return _error(
+            request,
+            429,
+            exc.code,
+            str(exc),
+            {"retry_after_s": exc.retry_after_s, "pending": exc.pending, "limit": exc.limit},
+            {"Retry-After": str(exc.retry_after_s)},
+        )
+
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
         errors = [{k: v for k, v in e.items() if k in ("loc", "msg", "type")} for e in exc.errors()]
@@ -155,6 +167,7 @@ def create_app() -> FastAPI:
         live_defense.router,
         live_defense_controls.router,
         live_defense_first_responder.router,
+        execution.router,
     ):
         app.include_router(r, prefix="/api/v1")
     return app

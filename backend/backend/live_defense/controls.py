@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import Any
 
@@ -351,7 +353,13 @@ def advance(
     return updated
 
 
-def execute_control(conn: Connection, control_id: str) -> dict[str, Any]:
+def execute_control(
+    conn: Connection,
+    control_id: str,
+    effect_guard: Callable[[str], AbstractContextManager[None]] | None = None,
+) -> dict[str, Any]:
+    """``effect_guard`` (``JobContext.effect`` from the worker) durably records the adapter
+    call before it is made, so a crash mid-call is never replayed automatically."""
     control = load_control(conn, control_id, for_update=True)
     if control.status is LiveControlStatus.escalated and control.kind is LiveControlKind.escalate:
         return {"control_id": control.id, "status": control.status.value, "adapter": False}
@@ -413,21 +421,23 @@ def execute_control(conn: Connection, control_id: str) -> dict[str, Any]:
         return {"control_id": control.id, "status": "failed", "error": str(exc)}
     control = advance(conn, control, LiveControlStatus.executing, "live_defense.execute")
     expires_unix = (control.expires_at or utcnow()).timestamp()
+    guard = effect_guard or (lambda _key: nullcontext())
     try:
-        result = call(
-            url,
-            secret,
-            {
-                "op": "apply",
-                "control_id": control.id,
-                "kind": control.kind.value,
-                "target_type": control.target.type.value,
-                "target_value": control.target.value,
-                "max_requests": control.max_requests,
-                "log_level": "debug",
-                "expires_at_unix": expires_unix,
-            },
-        )
+        with guard(f"control:{control.id}:apply"):
+            result = call(
+                url,
+                secret,
+                {
+                    "op": "apply",
+                    "control_id": control.id,
+                    "kind": control.kind.value,
+                    "target_type": control.target.type.value,
+                    "target_value": control.target.value,
+                    "max_requests": control.max_requests,
+                    "log_level": "debug",
+                    "expires_at_unix": expires_unix,
+                },
+            )
     except AdapterDenied as exc:
         _audit(
             conn,

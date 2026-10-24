@@ -59,3 +59,7 @@ queries in `scripts/` (planned). No paid observability SaaS.
 
 MVP: none beyond UI. Post-MVP: alerts on budget exhaustion rate, sandbox
 failure rate, webhook backlog.
+
+## Execution reliability metrics
+
+Queue and worker figures follow the same DB-query approach: `GET /api/v1/projects/{id}/execution` and `python -m backend.execution stats` report queue wait time, active workers, lease age, execution duration, retries, cancellation outcomes, failure categories, recovery status and stuck executions, computed from `jobs`, `job_events` and `worker_heartbeats`. See `docs/architecture/execution-reliability.md`.

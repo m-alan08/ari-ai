@@ -109,6 +109,8 @@ from backend.migrate import upgrade  # noqa: E402
 upgrade()
 
 _TABLES = [
+    "worker_heartbeats",
+    "job_events",
     "analyst_handoffs",
     "first_responder_invocations",
     "first_responder_decisions",

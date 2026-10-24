@@ -14,6 +14,7 @@ agents use. Owner: **Srihith**. Spec: [docs/13](../docs/13_BACKEND_API_DESIGN.md
 | Settings from env | `settings.py` | implemented |
 | Schema + Alembic migration (append-only audit trigger) | `db.py`, `migrations/` | implemented; up/down/up tested |
 | Durable queue: SKIP LOCKED, leases, heartbeats, retry/backoff, dead-letter, cancel | `jobs.py`, `worker.py` | implemented; crash/lease-expiry recovery tested |
+| Execution reliability: validated lifecycle + `job_events` history, `waiting`/`timed_out`/`recovery_required`, `ctx.effect` uncertain-effect guard, reconciliation, fair claims + per-project limits, backpressure, deadlines, retry policies, worker registry, `/projects/{id}/execution`, `/jobs/{id}/history`, `/jobs/{id}/recovery`, `python -m backend.execution` | `jobs.py`, `worker.py`, `execution.py`, `api/execution.py` + migration 0016 | implemented; `tests/test_execution_reliability.py` (real Postgres). See `docs/architecture/execution-reliability.md` |
 | Sessions (dev login + GitHub OAuth), CSRF, org authz, rate limits, idempotency | `api/` | implemented; OAuth exchange not exercised against real GitHub |
 | Projects, repos, scopes (approver ≠ requester), approvals, assessments, findings, patches, artifacts, audit | `api/routes.py` | implemented |
 | SSE with `Last-Event-ID` resume from the durable log | `api/routes.py` | implemented |

@@ -26,6 +26,7 @@ from backend.api.deps import (
     require_project,
     require_user,
 )
+from backend.api.execution import job_project
 from backend.artifacts import ArtifactStore
 from backend.db import (
     agent_runs,
@@ -1517,16 +1518,9 @@ def get_job(job_id: str, request: Request) -> dict[str, Any]:
     with transaction() as conn:
         user = _user(conn, request)
         row = conn.execute(sa.select(jobs_t).where(jobs_t.c.id == job_id)).mappings().first()
-        pid = (row["payload"] or {}).get("project_id") if row else None
         # Assessment jobs (including approval resumes) retain only assessment_id
-        # in their payload. Resolve their project through the persisted assessment,
-        # rather than trusting an optional redundant project_id field.
-        if row and row["kind"] == "run_assessment":
-            pid = conn.execute(
-                sa.select(assessments.c.project_id).where(
-                    assessments.c.id == (row["payload"] or {}).get("assessment_id")
-                )
-            ).scalar_one_or_none()
+        # in their payload; job_project resolves them through the persisted assessment.
+        pid = job_project(conn, row) if row else None
         if row is None or not pid:
             raise not_found("job")
         require_project(conn, user, pid)
@@ -1538,6 +1532,10 @@ def get_job(job_id: str, request: Request) -> dict[str, Any]:
             "result": row["result"],
             "last_error": {k: v for k, v in (row["last_error"] or {}).items() if k != "trace"}
             or None,
+            "error_category": row["error_category"],
+            "deadline_at": row["deadline_at"].isoformat() if row["deadline_at"] else None,
+            "effect_state": row["effect_state"],
+            "recovery": row["recovery"],
         }
 
 

@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     # Workers
     worker_lease_s: int = 60
     worker_poll_interval_s: float = 1.0
+    # Execution reliability (docs/architecture/execution-reliability.md). 0 disables a limit.
+    job_max_running_per_project: int = 4
+    job_max_running_global: int = 0
+    job_max_pending_per_project: int = 1000
+    job_max_running_emergency: int = 2
+    worker_reconcile_interval_s: float = 30.0
+    worker_stale_s: int = 120
+    job_stuck_pending_s: int = 900
+    worker_finalize_retries: int = 3
     orchestrator_factory: str = Field(
         default="security_agents.api:build_orchestrator",
         description="module:callable returning an Orchestrator; see backend/host.py",
