@@ -27,7 +27,7 @@ from typing import Any
 import httpx
 from sqlalchemy import exc as sa_exc
 
-from backend import execution, jobs
+from backend import alerts, execution, jobs
 from backend.db import transaction
 from backend.jobs import ErrorCategory
 from backend.settings import get_settings
@@ -264,6 +264,10 @@ def run_one(owner: str, kinds: list[str] | None = None) -> str | None:
     except PermanentJobError as exc:
         _finalize_fail(job, owner, {"code": exc.code.value, "message": str(exc)}, exc)
         log.warning("job %s (%s) failed permanently: %s", job.id, job.kind, exc)
+        alerts.send_alert(
+            "job_failed_permanent",
+            details={"job_id": job.id, "kind": job.kind, "error": str(exc)[:300]},
+        )
     except Exception as exc:
         status = _finalize_fail(
             job,
@@ -276,6 +280,17 @@ def run_one(owner: str, kinds: list[str] | None = None) -> str | None:
             exc,
         )
         log.exception("job %s (%s) errored; now %s", job.id, job.kind, status)
+        if status == "dead":
+            # Attempts exhausted: nobody will retry this job. Page a human.
+            alerts.send_alert(
+                "job_dead",
+                details={
+                    "job_id": job.id,
+                    "kind": job.kind,
+                    "attempts": job.attempts,
+                    "error": f"{type(exc).__name__}: {exc}"[:300],
+                },
+            )
     finally:
         stop.set()
         hb.join(timeout=5)
