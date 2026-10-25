@@ -6,6 +6,10 @@ All notable changes are documented here. Format follows
 
 ## [Unreleased]
 
+- Added opt-in bounded exact-SHA release review automation with isolated strict
+  regressions, signed evidence, existing-owner routing and a protected cost ledger.
+  No automatic merge, deployment or customer enforcement.
+
 - Starting an assessment with no commit SHA now reviews the latest commit on the repository's
   default branch when connected through the GitHub App.
 - Verify now honors repository-declared `protected_tests` from `build_recipe.json` in its no-tampering check.
