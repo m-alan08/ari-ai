@@ -35,6 +35,11 @@ services:
     ports: ["127.0.0.1:8000:8000"]
     volumes: [artifacts:/data/artifacts]
     depends_on: { migrate: { condition: service_completed_successfully } }
+    restart: unless-stopped
+    # Bounded resources: a runaway request handler cannot starve the workers.
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/readyz')"]
       interval: 5s
@@ -48,6 +53,11 @@ services:
     volumes: [artifacts:/data/artifacts]
     depends_on: { migrate: { condition: service_completed_successfully } }
     restart: unless-stopped
+    # Bounded resources: one worker = one job at a time, ~1 GB budget. Scale out
+    # by adding replicas or WORKER_PROCESSES (Railway), never by raising this cap.
+    mem_limit: 2g
+    cpus: 2.0
+    pids_limit: 512
 
 volumes:
   pgdata:

@@ -555,3 +555,16 @@ existing tables; POST .../onboarding/test-event sends a synthetic spike through
 the app's real owned_staging ingest (owner, rate-limited, never executes);
 POST /repositories/{id}/disconnect revokes App grant + mappings, idempotent.
 Wizard page + transport methods + 10 backend tests + 2 Playwright specs.
+
+## Pilot deployment + release ops — feat/alan/pilot-deployment-ops
+
+Ops track PR open for review (no merge without approval). Startup config preflight,
+Alembic-head check, token-gated ops/status (queue + worker leases + first-responder
+default), JSON logs with secret redaction, ALERT_WEBHOOK_URL critical alerting,
+FEATURE_FLAGS allowlist, compose resource bounds, db backup/restore scripts with
+RESTORE_CONFIRM gate, staging env template, smoke suite, release checklist runner,
+and integration_branch.sh for validating open PRs together. Verified live on local
+staging profile: preflight PASS, smoke 15/15, release check 18/0 fail, backup→restore
+drill parity at head 0015, job_dead alert delivered redacted. Integration branch:
+#441+#458 merge + 348 tests pass; #412/#496 conflict — needs owner resolution.
+No migrations added, no first_responder.py or security-hardening files touched.

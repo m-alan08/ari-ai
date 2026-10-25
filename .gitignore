@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.staging.example
 *.pem
 *.key
 *.p12
@@ -88,6 +89,14 @@ rl-defense/results/*/seed*/holdout_trajectories.jsonl
 rl-defense/results/*/*/seed*/candidate_online_experience.jsonl
 rl-defense/results/*/*/seed*/candidate_online_selected_experience.jsonl
 rl-defense/results/*/*/seed*/holdout_trajectories.jsonl
+
+# Live Defense e2e machine-readable reports
+test-results/
+# Database backup dumps (local restore drills)
+backups/
+
+# Generated release-readiness reports (deploy/release_readiness.py)
+deploy/reports/
 scripts/rehearsal/bindings.json
 scripts/rehearsal/target-app/app/books.db
 scripts/rehearsal/target-app/.git

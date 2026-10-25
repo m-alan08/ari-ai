@@ -10,8 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend import jobs
-from backend import ops
+from backend import jobs, ops
 from backend.api import (
     auth,
     execution,
@@ -21,6 +20,7 @@ from backend.api import (
     live_defense,
     live_defense_controls,
     live_defense_first_responder,
+    live_defense_investigations,
     onboarding,
     routes,
     runtime,
@@ -184,6 +184,8 @@ def create_app() -> FastAPI:
         live_defense.router,
         live_defense_controls.router,
         live_defense_first_responder.router,
+        execution.router,
+        live_defense_investigations.router,
         ops_api.router,
         onboarding.router,
     ):

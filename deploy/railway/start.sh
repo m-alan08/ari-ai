@@ -20,6 +20,10 @@ export ANTHROPIC_MODEL_FAST=claude-haiku-5-5
 export AGENT_MODEL_OVERRIDES=""
 export LLM_SERVER_FALLBACKS=false
 
+# Fail fast on a misconfigured deploy (missing secrets, dev-only settings in
+# production) before touching the database; the worker re-checks migrations itself.
+hackatl-preflight --config --worker
+
 hackatl-migrate
 
 # Twelve workers (~80 MB each) so concurrent commits each get their own run at once; jobs are
