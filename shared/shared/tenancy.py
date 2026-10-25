@@ -111,4 +111,5 @@ class Repository(StrictModel):
     full_name: str = Field(pattern=r"^[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+$")
     default_branch: ShortText = "main"
     installation_id: int | None = Field(default=None, ge=1)
+    disconnected_at: UtcDatetime | None = None
     created_at: UtcDatetime

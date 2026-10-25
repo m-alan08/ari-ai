@@ -191,6 +191,13 @@ def recent_commits(repo_id: str, request: Request) -> dict[str, Any]:
         if repo is None:
             raise ApiError(ErrorCode.NOT_FOUND, "repository not found", 404)
         require_project(conn, user, repo.project_id)
+    if repo.disconnected_at is not None:
+        return {
+            "items": [],
+            "next_cursor": None,
+            "available": False,
+            "reason": "Repository is disconnected; live reads stay off until it is reconnected.",
+        }
     if repo.installation_id is None:
         return {
             "items": [],

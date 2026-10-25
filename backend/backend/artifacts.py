@@ -46,7 +46,9 @@ class ArtifactStore:
         kind: ArtifactKind,
         project_id: str | None,
         media_type: str = "application/octet-stream",
-        redacted: bool = True,
+        # False by default: raw bytes are NOT redacted here, and the stored flag
+        # must never claim otherwise. put_text/put_json pass True after redacting.
+        redacted: bool = False,
     ) -> ArtifactRef:
         if len(data) > MAX_ARTIFACT_BYTES:
             raise ValueError("artifact exceeds 50 MiB limit")
@@ -103,6 +105,7 @@ class ArtifactStore:
             kind=kind,
             project_id=project_id,
             media_type=media_type,
+            redacted=True,
         )
 
     def put_json(
@@ -110,7 +113,12 @@ class ArtifactStore:
     ) -> ArtifactRef:
         data = json.dumps(redact(value), sort_keys=True, default=str).encode()
         return self.put_bytes(
-            conn, data, kind=kind, project_id=project_id, media_type="application/json"
+            conn,
+            data,
+            kind=kind,
+            project_id=project_id,
+            media_type="application/json",
+            redacted=True,
         )
 
     def get(self, conn: Connection, artifact_id: str) -> tuple[dict[str, Any], bytes]:

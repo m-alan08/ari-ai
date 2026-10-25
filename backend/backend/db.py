@@ -114,6 +114,7 @@ repositories = sa.Table(
     sa.Column("full_name", sa.String(200), nullable=False),
     sa.Column("default_branch", sa.String(200), nullable=False),
     sa.Column("installation_id", sa.BigInteger),
+    sa.Column("disconnected_at", sa.DateTime(timezone=True)),
     _created(),
     sa.UniqueConstraint("provider", "full_name", name="uq_repositories_provider_full_name"),
 )

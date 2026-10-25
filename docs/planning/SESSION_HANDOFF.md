@@ -18,6 +18,85 @@ adds an entry before ending.
 
 ---
 
+### 2026-10-25 — Devin (agent, Alan) — N1 revocation-protocol lock order + locked finalization check
+- Did:
+  - `services.repository_revocation_locked()` — the canonical transactional
+    finalization primitive: locks `repositories` FOR UPDATE, then
+    `deploy_commit_mappings` FOR UPDATE (canonical order), then runs
+    `repository_revocation`. A finalizer that locks before persisting a success
+    outcome serializes against a concurrent disconnect — no `executed` row can
+    land after disconnect commits. Cheap per-turn checks keep using
+    `repository_revocation` (unlocked).
+  - `routes.py` disconnect: explicit mapping-row FOR UPDATE lock right after the
+    repo-row lock — same canonical order, so the two sides cannot deadlock.
+  - New test `test_revocation_locked_serializes_finalize_with_disconnect`.
+  - Shared with Grok (#458): he wires `repository_revocation_locked` into
+    `live_defense/first_responder.py`'s final-persist block in place of the
+    plain `repository_revocation` call; coordinated via issue #559.
+- Commands run and results: 21/21 hardening tests; ruff+format clean.
+- Next steps: Devin Bot recompose; Grok's `first_responder.py` finalization edit
+  lands the two strict RC2 tests.
+- Warnings: never hold the locked check across a provider call — lock only at
+  the finalization boundary (see docstring).
+
+### 2026-10-25 — Devin (agent, Alan) — R2 disconnect-side cancellation for release-0019
+- Did (fork PR #4): R2 P1 fix-request from Devin Integration. Disconnect now locks the
+  repo row FOR UPDATE for the whole transaction (serializes per-operation and
+  final-persist revocation checks), identifies live-defense work via the trusted
+  repo<->mapping linkage (jobs keyed by application_id, mapping_id, and decision_id
+  -> first_responder_decisions.application_id), cancels queued+waiting linked jobs,
+  and sets cancel_requested on RUNNING linked jobs (cooperative; evidence/cost
+  preserved). New `services.repository_revocation(conn, repo_id=, application_id=,
+  mapping_id=)` is the canonical check for Alan's #458 first_responder source
+  callback and final persist — returns 'repository_disconnected' /
+  'deploy_mapping_revoked' / None. Did NOT touch first_responder.py (#458 head).
+  Codex probe `test_repository_disconnect_stops_next_provider_turn` goes green only
+  on the composed tree once #458 calls the helper per provider turn.
+- Tests: 20/20 test_customer_security_hardening (new: linked agent-step jobs
+  cancelled incl. running -> cancel_requested, unrelated decision untouched,
+  repository_revocation contract); regression subsets green; ruff/format clean.
+
+### 2026-10-24 — Devin (agent, Alan) — canonical repo disconnect + migration rebase + e2e fix
+- Did: resolved the three blockers on PR #4 (feat/devin-pilot-security-hardening):
+  1. Migration collision: execution-reliability (fork PR #1) owns revision `0016`; its
+     `0016_execution_reliability.py` is vendored verbatim on this branch and disconnect moved
+     to `0017` (down_revision `0016`, linear chain, head pin `"0017"` in test_parallel_migrations).
+  2. Disconnect canonical model (replaces fork PR #6's `installation_id IS NULL` semantics):
+     `repositories.disconnected_at` is the single gate for snapshots/assessments/push automation/
+     live commit reads; disconnect additionally revokes `deploy_commit_mappings`, cancels queued
+     repo jobs (repo_id payload + index_snapshot via snapshot), fails pending/indexing snapshots,
+     and cooperatively cancels non-terminal assessments. `installation_id` is KEPT as the access
+     record — nulling it is neither the revocation signal nor history-preserving. Reconnect still
+     re-verifies `can_connect`; it does not restore `automatic_assessments` or revoked mappings.
+     State surfaced on the typed contract: `Repository.disconnected_at`, schema 0.25.0 additive
+     (0.22=#458, 0.23=fork #3, 0.24=fork #6 reserved).
+  3. GitHub E2E failure root-caused: my dev-login rate limit (20/5min/IP) starved the parallel
+     Playwright suite — both failures were the shared `signIn` helper timing out. Raised to
+     120/5min/IP (endpoint stays dev-gated by AUTH_DEV_LOGIN_ENABLED).
+- PR #6 must update to stay compatible: drop its own `disconnect_repository` (installation_id
+  NULL + mapping revoke) — the canonical endpoint here already revokes mappings; its onboarding
+  step logic must treat `disconnected_at IS NOT NULL` as disconnected (its `installed` filter on
+  `installation_id is not None` is wrong under the canonical model); keep the frontend/transport
+  call shape (same route, JSON response still `{"id","disconnected"}`).
+- Tests: 19/19 in test_customer_security_hardening.py (new: mapping revoked, 3 queued job kinds
+  cancelled, pending snapshot failed, in-flight assessment CANCELLED, audit counts, installation_id
+  retained, reconnect denied without access grant, disconnected_at in contract); full suite
+  337 passed / 7 env-gated skips; ruff+format+contract freshness clean; mypy 7 errors all
+  pre-existing on base (verified via stash).
+
+### 2026-10-24 — Devin (agent, Alan) — pilot security hardening (customer-facing boundaries)
+- Did: audited customer-facing security boundaries for the first design-partner pilot and implemented the highest-severity independently fixable gaps on branch `feat/devin-pilot-security-hardening` (PR target: fork `m-alan08/ari-ai`). Findings + gate doc: `docs/PILOT_SECURITY_CHECKLIST.md`.
+- State of the code (verified by `backend/tests/test_customer_security_hardening.py`, 17 tests):
+  - `upsert_user` now anchors identity on immutable `github_id`; a freed login claimed by a different account no longer inherits the victim row (the stale login is detached + `user.login_released` audit). Was a real account-takeover path.
+  - `POST /projects/{id}/repositories` with `installation_id: null` is rejected outside dev/test (name-only connects had no proof of access and globally squatted `owner/repo` names). Personal-installation access is refreshed from GitHub at connect/reconnect time.
+  - New `POST /repositories/{id}/disconnect` + `/reconnect` (owner; migration `0016` adds `repositories.disconnected_at`). Disconnect blocks snapshots, assessments (`create_assessment`), push automation (`auto_commits.schedule` + `assess_github_commit` job), and live commit reads, and forces `automatic_assessments` off.
+  - Per-user rate limit (60/min) moved into `require_user` — it now covers every authed route on every router (runtime/incidents/github_repos/intelligence/live_defense* previously bypassed it). Dedicated budgets: snapshots 30/hr, RL recommend 20/hr, connects 20/hr, OAuth callback 30/5min/IP.
+  - Assessment SSE stream re-checks membership every 15 s (revoked members stop receiving events).
+  - `ArtifactStore.put_bytes` no longer defaults `redacted=True` (flag honesty); `put_text`/`put_json` pass it explicitly. `/api/openapi.json` is dev-only. `auth.login` events are audited.
+- Commands run and results (executed): `uv run pytest -q backend/tests/test_customer_security_hardening.py` (17 passed); regression subset `test_api_core + test_auto_commits + test_webhook_monitoring + test_idempotent_mutations + test_snapshot_* + test_list_cursors + test_github_repo_access + test_incidents + test_parallel_migrations` (83 passed); full `backend/tests` 335 passed / 7 env-gated skips; ruff+mypy+contract freshness clean; PR https://github.com/m-alan08/ari-ai/pull/4 CI 9/9 green.
+- Decisions: avoided PR #458's file set entirely (no changes to jobs/worker/llm/live_defense agent internals). `control_channels.hmac_secret` plaintext storage is documented as residual risk — fixing it needs a KMS story, not a regex. No contract/schema changes (SCHEMA_VERSION untouched); migration `0016` only adds a column.
+- Warnings for the next session: `require_user` now rate-limits — tests sharing a user >60 authed calls/min will 429 (conftest clears limiter state per test). Reconnect re-verifies `can_connect`, so reconnecting an App repo requires the access row to still exist or be refreshable. Ops note: server-side disconnect does not revoke the GitHub App installation — customers must uninstall App-side to fully revoke.
+
 ### 2026-10-24 — Devin (agent, Adam) — leaked Vercel snapshot cleanup, push→agents verification
 - Did: verified the named-sandbox snapshot-leak fix already on main (`persistent: False` on run boxes + `destroy` in teardown + `_sweep_stale`); opened PR #495 making the sweep also delete stale run boxes' orphan snapshots so leaked quota is actually freed. Confirmed `delete_orphan_snapshots` only removes snapshots created *by* the destroyed sandbox — the shared `ari-base-*` snapshot can never be an orphan of a run box. Verified on main: security-agents suite 581 passed / 24 skipped, frontend typecheck + 330 vitest + lint clean, standards smoke (CWE/OWASP/CVSS/ATT&CK/D3FEND/SARIF/SP 800-115) passes. Confirmed agents are standards-grounded in code: Scout CWE/OWASP, Probe CWE, Trace ATT&CK/CVSS, Diagnose D3FEND, Fortify CWE/D3FEND; Patch/Verify get standards context via the tagged finding + remediation plan, not prompts.
 - State of the code: push→agents path gates are code-verified (`pipeline.process_github_delivery` → `auto_commits.schedule` → `assess_github_commit`): `repositories.automatic_assessments` (per-repo opt-in, UI switch exists), `GITHUB_AUTO_COMMIT_AUTHORS` (Railway entrypoint defaults `*`), `monitoring_policy.enabled` (project setting, UI switch), active `AuthorizedScope`. All four must be on for pushes to spawn runs — they are product gates, not bugs.

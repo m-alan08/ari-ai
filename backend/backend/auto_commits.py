@@ -65,6 +65,8 @@ def authors() -> set[str]:
 def schedule(
     conn: Connection, repo: Any, delivery: Any, payload: dict[str, Any], change: Any
 ) -> dict[str, Any]:
+    if repo["disconnected_at"] is not None:
+        return {"ignored": "repository disconnected"}
     if not repo["automatic_assessments"]:
         return {"ignored": "repository automatic assessments disabled"}
     allowed = authors()
@@ -190,6 +192,8 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
         )
     if repo["installation_id"] != p["installation_id"]:
         return policy_exit(p, "repository installation changed")
+    if repo["disconnected_at"] is not None:
+        return policy_exit(p, "repository disconnected")
     commit = github_client().commit(repo["installation_id"], repo["full_name"], p["sha"])
     if commit.get("sha") != p["sha"]:
         raise ValueError("GitHub returned a different commit")
