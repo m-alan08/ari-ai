@@ -52,6 +52,20 @@ const GROUPS: { label: string; items: RailItem[] }[] = [
       { href: '/settings', label: 'Settings' },
     ],
   },
+const PRIMARY = [
+  { href: '/onboarding', label: 'Onboarding' },
+  { href: '/commits', label: 'Code review' },
+  { href: '', label: '7 agents' },
+];
+const TOOLS = [
+  { href: '/live-defense', label: 'Live Defense' },
+  { href: '/findings', label: 'Findings' },
+  { href: '/approvals', label: 'Approvals' },
+  { href: '/monitoring', label: 'Monitoring' },
+  { href: '/incidents', label: 'Incidents' },
+  { href: '/scopes', label: 'Authorized scopes' },
+  { href: '/expectations', label: 'Expectations' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 const isActive = (pathname: string, base: string, href: string) =>

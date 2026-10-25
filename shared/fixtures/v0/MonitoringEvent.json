@@ -31,5 +31,6 @@
   "source": "github",
   "status": "processed",
   "status_reason": null,
+  "test_event": false,
   "type": "push"
 }

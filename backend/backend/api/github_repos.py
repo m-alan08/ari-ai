@@ -18,7 +18,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection
 
 from backend.api.deps import ApiError, require_project, require_user
-from backend.db import github_repo_access, repositories, transaction, users
+from backend.db import (
+    github_repo_access,
+    memberships,
+    projects,
+    repositories,
+    transaction,
+    users,
+)
 from backend.github import GitHubApp, GitHubNotConfigured
 from backend.settings import get_settings
 from shared.errors import ErrorCode
@@ -97,21 +104,33 @@ def verify_installation_access(full_name: str, installation_id: int) -> None:
 
 
 def _refresh_personal_installation_repositories(
-    user_id: str, login: str | None, github_id: int | None
-) -> None:
+    user_id: str, login: str | None, github_id: int | None, *, strict: bool = False
+) -> bool:
+    """Refresh the user's trusted personal-installation rows from GitHub.
+
+    Returns True when a live check ran to completion (rows refreshed); False
+    when the check was skipped — no login, dev identity, App not configured, or
+    no trusted personal installation exists — meaning callers that must not
+    trust the sign-in snapshot need their own verification.
+
+    ``strict=True`` is for authorization gates (reconnect): a GitHub-side
+    failure is fatal instead of best-effort, so a revoked installation or an
+    outage can never reactivate Ari processing from stale cache. Best-effort
+    callers (the picker) keep the default.
+    """
     settings = get_settings()
     if (
         not isinstance(login, str)
         or not login.strip()
         or (github_id is None and settings.is_dev and settings.auth_dev_login_enabled)
     ):
-        return
+        return False
 
     try:
         app = GitHubApp()
         installation = app.user_installation(login)
         if installation is None:
-            return
+            return False
         account = installation.get("account")
         installation_id = installation.get("id")
         if (
@@ -119,7 +138,7 @@ def _refresh_personal_installation_repositories(
             or account.get("type") != "User"
             or type(installation_id) is not int
         ):
-            return
+            return False
         if github_id is not None:
             trusted = account.get("id") == github_id
         else:
@@ -128,16 +147,38 @@ def _refresh_personal_installation_repositories(
                 isinstance(account_login, str) and account_login.casefold() == login.casefold()
             )
         if not trusted:
-            return
+            return False
         repositories_for_installation = app.installation_repositories(installation_id)
     except GitHubNotConfigured:
         log.warning(
             "could not refresh GitHub repositories for %s (GitHub App not configured)", login
         )
-        return
+        return False
+    except httpx.HTTPStatusError as exc:
+        log.warning("could not refresh GitHub repositories for %s (%s)", login, type(exc).__name__)
+        if strict:
+            if exc.response.status_code in (401, 403, 404):
+                raise ApiError(
+                    ErrorCode.FORBIDDEN,
+                    "GitHub could not confirm the App installation — it may have been "
+                    "uninstalled or reconfigured; reconnect is refused",
+                    403,
+                ) from exc
+            raise ApiError(
+                ErrorCode.SUBSYSTEM_UNAVAILABLE,
+                "GitHub could not confirm the installation right now — try again",
+                503,
+            ) from exc
+        return False
     except httpx.HTTPError as exc:
         log.warning("could not refresh GitHub repositories for %s (%s)", login, type(exc).__name__)
-        return
+        if strict:
+            raise ApiError(
+                ErrorCode.SUBSYSTEM_UNAVAILABLE,
+                "GitHub could not confirm the installation right now — try again",
+                503,
+            ) from exc
+        return False
 
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -174,6 +215,7 @@ def _refresh_personal_installation_repositories(
                     ]
                 )
             )
+    return True
 
 
 @router.get("/github/repositories")
@@ -193,12 +235,29 @@ def list_accessible_repositories(request: Request) -> dict[str, Any]:
             user.id, identity["github_login"], identity["github_id"]
         )
 
+    # The joined repo row must be in a project the user belongs to — shared
+    # GitHub visibility of a full_name is not Ari tenant membership.
+    member_projects = (
+        sa.select(projects.c.id)
+        .where(
+            projects.c.org_id.in_(
+                sa.select(memberships.c.org_id)
+                .where(memberships.c.user_id == user.id)
+                .scalar_subquery()
+            )
+        )
+        .scalar_subquery()
+    )
     with transaction() as conn:
         rows = conn.execute(
             sa.select(github_repo_access, repositories.c.id.label("repo_id"))
+            .select_from(github_repo_access)
             .join(
                 repositories,
-                repositories.c.full_name == github_repo_access.c.full_name,
+                sa.and_(
+                    repositories.c.full_name == github_repo_access.c.full_name,
+                    repositories.c.project_id.in_(member_projects),
+                ),
                 isouter=True,
             )
             .where(github_repo_access.c.user_id == user.id)

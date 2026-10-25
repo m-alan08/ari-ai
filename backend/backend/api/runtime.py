@@ -210,7 +210,12 @@ def _open_findings_on(conn: sa.Connection, project_id: str, route: str) -> list[
 
 
 def ingest(
-    project_id: str, token_id: str, batch: RuntimeSignalBatch, application_id: str | None = None
+    project_id: str,
+    token_id: str,
+    batch: RuntimeSignalBatch,
+    application_id: str | None = None,
+    *,
+    test_event: bool = False,
 ) -> RuntimeIngestAck:
     window_s = (batch.window_end - batch.window_start).total_seconds()
     scores: list[RouteScore] = []
@@ -302,6 +307,7 @@ def ingest(
                     batch.source, application_id, window.route, batch.window_end
                 ),
                 simulated=batch.source not in AUTHENTICATED_RUNTIME_SOURCES,
+                test_event=test_event,
                 status=EventStatus.processed,
                 status_reason=f"[{batch.source}] {window.route} anomaly={sc.anomaly_score:.2f}: {reason}"[
                     :500

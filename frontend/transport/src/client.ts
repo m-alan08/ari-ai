@@ -127,6 +127,17 @@ export class ApiClient {
   updateRepository(repoId: string, body: C.RepositoryUpdate, options?: RequestOptions): Promise<C.Repository> {
     return this.request(`/repositories/${segment(repoId)}`, 'Repository', options, body, undefined, undefined, false, 'PATCH') as Promise<C.Repository>;
   }
+  /** Owner kill-switch: parks the repository server-side; the GitHub App grant stays until uninstalled. */
+  disconnectRepository(repoId: string, options?: RequestOptions): Promise<{ id: string; disconnected: boolean }> {
+    return this.request(`/repositories/${segment(repoId)}/disconnect`, RAW, options, {}) as Promise<{ id: string; disconnected: boolean }>;
+  }
+  onboardingStatus(projectId: string, options?: RequestOptions): Promise<C.OnboardingStatus> {
+    return this.request(`/projects/${segment(projectId)}/onboarding`, 'OnboardingStatus', options) as Promise<C.OnboardingStatus>;
+  }
+  /** Owner-only authorized test event through the app's real owned_staging channel. Never executes. */
+  onboardingTestEvent(projectId: string, body: C.OnboardingTestEventCreate, options?: MutationOptions): Promise<C.OnboardingTestEventResult> {
+    return this.request(`/projects/${segment(projectId)}/onboarding/test-event`, 'OnboardingTestEventResult', options, body, options?.idempotencyKey) as Promise<C.OnboardingTestEventResult>;
+  }
   createSnapshot(repoId: string, body: C.SnapshotCreate, key: string, options?: RequestOptions): Promise<C.Snapshot> {
     return this.request(`/repositories/${segment(repoId)}/snapshots`, 'Snapshot', options, body, key) as Promise<C.Snapshot>;
   }

@@ -10,6 +10,11 @@ SCHEMA_VERSION = (
     # 0.22 ops readiness (additive): ReadinessStatus gains workers/capabilities/
     #      capabilities_ready/git_sha/schema_version; HealthStatus gains
     #      git_sha/schema_version; new DiagnosticsReport. /readyz consumers only.
+||||||| f8ab19e7
+    "0.22.0"  # 0.2 RLExplanation; 0.3 runtime signals; 0.4 ids allow _-; 0.5 early REPORTING;
+    # 0.22 ops readiness (additive): ReadinessStatus gains workers/capabilities/
+    #      capabilities_ready/git_sha/schema_version; HealthStatus gains
+    #      git_sha/schema_version; new DiagnosticsReport. /readyz consumers only.
     # 0.6 intelligence memory (PR #39); 0.7 security standards + incidents (PR #49);
     # 0.8 FindingDetail / AssessmentReport response DTOs (additive);
     # 0.9 CheckCategory enum (Probe ids + V0 fixture aliases);
@@ -53,4 +58,5 @@ SCHEMA_VERSION = (
     #      (observability); 0.25 reserved by fork PR #6 (customer onboarding).
     # 0.26 Repository.disconnected_at (additive): canonical disconnect state for
     #      the repository kill-switch; installation_id is kept as the access record.
+||||||| f8ab19e7
 )

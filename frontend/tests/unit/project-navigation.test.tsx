@@ -5,6 +5,7 @@ const route = vi.hoisted(() => ({ path: '/projects/p1' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.path, useParams: () => ({}) }));
 afterEach(cleanup);
 it('groups every project route under labelled rail groups', () => {
+it('leads with the workflows and retains secondary routes behind More', () => {
   render(<ProjectNavigation base="/projects/p1" />);
   const nav = screen.getByRole('navigation', { name: 'Project' });
   expect(nav.querySelectorAll('.rail-group-label').length).toBe(3);
@@ -23,6 +24,15 @@ it('groups every project route under labelled rail groups', () => {
     ['Settings', '/projects/p1/settings'],
   ]);
   expect(screen.getByRole('link', { name: '7 Agents' }).getAttribute('aria-current')).toBe('page');
+  expect(within(nav.querySelector('.project-tabs') as HTMLElement).getAllByRole('link').map(a => a.textContent)).toEqual(['Onboarding', 'Code review', '7 agents']);
+  expect(screen.getByRole('link', { name: '7 agents' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/projects/p1/onboarding');
+  fireEvent.click(screen.getByText('More'));
+  expect(screen.getByRole('link', { name: 'Live Defense' }).getAttribute('href')).toBe('/projects/p1/live-defense');
+  expect(screen.getByRole('link', { name: 'Authorized scopes' }).getAttribute('href')).toBe('/projects/p1/scopes');
+  expect(screen.getByRole('link', { name: 'Approvals' }).getAttribute('href')).toBe('/projects/p1/approvals');
+  fireEvent.keyDown(screen.getByText('More'), { key: 'Escape' });
+  expect(screen.getByText('More').closest('details')!.open).toBe(false);
 });
 it('keeps the seven-agent workflow selected on replay pages', () => {
   route.path = '/projects/p1/assessments/a1';

@@ -302,6 +302,12 @@
       "default": null,
       "title": "Status Reason"
     },
+    "test_event": {
+      "default": false,
+      "description": "True for owner-authorized onboarding test events. They traverse the real authenticated ingest channel (simulated stays False) but customer-facing views must label them unmistakably as tests.",
+      "title": "Test Event",
+      "type": "boolean"
+    },
     "type": {
       "$ref": "#/$defs/EventType"
     }

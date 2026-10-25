@@ -548,3 +548,10 @@ Phase 7B specification delivered in PR #437. CI at 157be64: 569 RL plus existing
 20k smoke/reload, 724 backend /14 skips, 4 integration, docs/secrets passed. Three
 CodeRabbit documentation clarifications addressed; no adapter semantics changed.
 Final head must pass review/CI before research-only merge; then stop.
+
+Customer onboarding (feat/alan/customer-onboarding, contracts 0.24.0 additive,
+no migration): GET /projects/{id}/onboarding computes the 11-step journey from
+existing tables; POST .../onboarding/test-event sends a synthetic spike through
+the app's real owned_staging ingest (owner, rate-limited, never executes);
+POST /repositories/{id}/disconnect revokes App grant + mappings, idempotent.
+Wizard page + transport methods + 10 backend tests + 2 Playwright specs.
