@@ -123,11 +123,13 @@ def _bind_and_fake(
     llm.TRANSPORT_OVERRIDE = lambda: AlanScriptTransport(repo / "target")
 
 
-def test_schema_keeps_0_22_without_claiming_0_20() -> None:
+def test_schema_keeps_0_23_without_claiming_0_20_or_0_22() -> None:
+    # Upstream main owns 0.22.0 for ops readiness (DiagnosticsReport); Phase 7C
+    # lands on top as 0.23.0. PR #412 still reserves 0.20.0.
     from shared import SCHEMA_VERSION
     from shared.live_defense import ORCHESTRATOR_VERSION
 
-    assert SCHEMA_VERSION == "0.22.0"
+    assert SCHEMA_VERSION == "0.23.0"
     assert ORCHESTRATOR_VERSION == "7c.1.0"
 
 
