@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "canonical_repository": "adamissac/ari-ai",
+  "integration_repository": "m-alan08/ari-ai",
+  "integration_pr": 8,
+  "integration_branch": "integration/2026-11-02-release",
+  "trusted_regression_sha": "abf6b316b1de2fea9a8ac8c89a79a7368900145a",
+  "max_reviews_per_day": 3,
+  "max_reviews_per_sha": 1,
+  "max_fix_rounds_per_day": 2,
+  "max_findings": 20,
+  "max_api_requests": 10,
+  "reserved_usd_per_request": "0.50",
+  "max_usd_per_review": "5.00",
+  "max_usd_per_day": "15.00",
+  "model": "gpt-5.4-mini-2026-03-17",
+  "model_context_tokens": 400000,
+  "max_output_tokens": 8192,
+  "pricing_valid_through": "2026-11-25",
+  "required_ci": [
+    "backend-tests",
+    "rl-integration",
+    "secagents-tests",
+    "intel-tests",
+    "review-tests",
+    "static-and-unit",
+    "e2e",
+    "gitleaks"
+  ],
+  "native_reviewer": "chatgpt-codex-connector[bot]",
+  "transfer_branches": {
+    "reliability": "transfer/execution-reliability",
+    "observability": "transfer/investigation-observability",
+    "hardening": "transfer/pilot-security-hardening",
+    "onboarding": "transfer/customer-onboarding",
+    "manifest": "transfer/sequential-manifest"
+  },
+  "source_paths": [
+    "backend/backend/jobs.py",
+    "backend/backend/execution.py",
+    "backend/backend/worker.py",
+    "backend/backend/services.py",
+    "backend/backend/redaction.py",
+    "backend/backend/artifacts.py",
+    "backend/backend/api/routes.py",
+    "backend/backend/api/execution.py",
+    "backend/backend/api/github_repos.py",
+    "backend/backend/api/onboarding.py",
+    "backend/backend/api/live_defense_investigations.py",
+    "backend/backend/live_defense/first_responder.py",
+    "backend/backend/live_defense/provider_ledger.py",
+    "backend/backend/live_defense/agent_execution.py",
+    "backend/backend/migrations/versions/0018_execution_reliability.py",
+    "backend/backend/migrations/versions/0019_repository_disconnect.py",
+    "shared/shared/__init__.py"
+  ],
+  "regressions": [
+    "backend/tests/live_defense_e2e/test_independent_integration.py",
+    "backend/tests/live_defense_e2e/test_exec_reliability_compat.py",
+    "backend/tests/live_defense_e2e/test_rc2_independent.py",
+    "backend/tests/test_independent_corrected_review.py",
+    "backend/tests/test_rc2_populated_migration.py",
+    "backend/tests/test_rc2_upstream_migrations.py",
+    "backend/tests/test_rc2_transfer_manifest.py",
+    "backend/tests/test_execution_reliability.py",
+    "backend/tests/test_jobs_queue.py",
+    "backend/tests/test_customer_security_hardening.py",
+    "backend/tests/test_tenant_isolation_adversarial.py",
+    "backend/tests/test_worker_drain.py",
+    "backend/tests/test_live_defense_investigations.py",
+    "backend/tests/test_redact_code.py",
+    "backend/tests/test_redact_text_gaps.py",
+    "backend/tests/test_parallel_migrations.py"
+  ],
+  "workstreams": {
+    "reliability": {
+      "assignee": "m-alan08",
+      "session_id": null,
+      "finding_ids": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F7",
+        "F8",
+        "F10",
+        "N3",
+        "N4",
+        "N7"
+      ],
+      "branch": "feat/devin-execution-reliability",
+      "pull_request": 1
+    },
+    "hardening": {
+      "assignee": "m-alan08",
+      "session_id": null,
+      "finding_ids": [
+        "N1",
+        "N5"
+      ],
+      "branch": "feat/devin-pilot-security-hardening",
+      "pull_request": 4
+    },
+    "onboarding": {
+      "assignee": "m-alan08",
+      "session_id": null,
+      "finding_ids": [
+        "N2"
+      ],
+      "branch": "feat/alan/customer-onboarding",
+      "pull_request": 6
+    },
+    "observability": {
+      "assignee": "m-alan08",
+      "session_id": null,
+      "finding_ids": [
+        "F6",
+        "F9",
+        "N6"
+      ],
+      "branch": "feat/devin-investigation-observability",
+      "pull_request": 3
+    },
+    "integration": {
+      "assignee": "m-alan08",
+      "session_id": null,
+      "finding_ids": [],
+      "branch": "integration/2026-11-02-release"
+    }
+  },
+  "max_fix_messages_per_pr": 6,
+  "max_fix_messages_per_day": 4,
+  "max_fix_rounds_per_pr": 2
+}

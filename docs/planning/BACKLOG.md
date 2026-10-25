@@ -36,3 +36,11 @@ Completed: centered sign-in form and reduced-motion-aware background decoration.
 
 
 Completed: evaluation terminology cleanup and explicit synthetic/illustrative provenance labels.
+
+### Independent review automation — activation pending (2026-10-25)
+
+Automation package implemented; local safety suite 56 passing. Manually review/merge
+installation PRs, verify GitHub container CI, then configure native Codex, optional
+OpenAI project key and existing Devin sessions with confirmed native hard caps.
+No prompt relay is needed after activation. See
+`docs/release/AUTOMATED_INDEPENDENT_REVIEW.md`; paid calls remain OFF.

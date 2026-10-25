@@ -27,3 +27,9 @@
 # /docs/15_SECURITY_BOUNDARIES.md       @OWNER-SECURITY
 # /security-agents/**/sandbox*          @OWNER-SECURITY
 # /security-agents/**/authorization*    @OWNER-SECURITY
+
+# Independent review policy is a trust boundary.
+/.github/ari-review/ @m-alan08 @adamissac
+/.github/workflows/ @m-alan08 @adamissac
+/.github/CODEOWNERS @m-alan08 @adamissac
+/scripts/ari_review/ @m-alan08 @adamissac

@@ -38,3 +38,13 @@ code-intelligence, the security-agents sandbox, payments-lite). It runs Ruff, fo
 strict mypy on `code_review`, the reviewer suite against a Postgres service (FakeTransport;
 real git exports and pytest executions), and the reviewer through the shared
 `security_agents` sandbox driver. The live reviewer eval (`-m live_llm`) never runs here.
+
+## Bounded independent integration review
+
+`ari-candidate-review.yml` pins candidate/upstream/policy SHAs, executes the strict
+independent security suite in an isolated container, optionally performs a bounded
+Codex Action audit, publishes authenticated evidence and assigns existing owners.
+`ari-review-refresh.yml` refreshes same-SHA CI and coordinates bounded existing Devin
+sessions. `ari-review-tooling.yml` validates the controller. See
+[setup and activation](../../docs/release/AUTOMATED_INDEPENDENT_REVIEW.md). No automatic
+merge, deployment or enforcement; paid execution requires explicit one-time setup.
