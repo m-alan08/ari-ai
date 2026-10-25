@@ -55,9 +55,10 @@ def main() -> int:
     for _ in range(10):
         q = f"?limit=200{f'&cursor={cursor}' if cursor else ''}"
         page = _get(f"/projects/{project}/assessments{q}")
-        for a in page.get("items", []):
+        items = page["items"] if isinstance(page, dict) else page
+        for a in items:
             assessments[a["id"]] = a
-        cursor = page.get("next_cursor")
+        cursor = page.get("next_cursor") if isinstance(page, dict) else None
         if not cursor:
             break
     by_sha: dict[str, dict] = {}

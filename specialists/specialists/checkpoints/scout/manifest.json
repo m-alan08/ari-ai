@@ -7,37 +7,37 @@
   "type": "mlp-relu"
  },
  "dataset": {
-  "sha256": "edcdea35904bce4c8ca285beaceec9ce431a46f3e0417fe15889b15b143bd23c",
+  "sha256": "c4f7a66125227c949e65dd6930cda2b64d4e7b2bc6bc1feff1616851d5fb3956",
   "sizes": {
-   "test": 8997,
-   "train": 35218,
-   "val": 8264
+   "test": 1305,
+   "train": 5084,
+   "val": 1015
   },
   "train_label_counts": {
    "CWE-1284": 300,
-   "CWE-22": 393,
-   "CWE-502": 306,
-   "CWE-639": 300,
-   "CWE-78": 272,
-   "CWE-79": 326,
-   "CWE-798": 241,
-   "CWE-862": 316,
-   "CWE-89": 331,
+   "CWE-22": 300,
+   "CWE-502": 300,
+   "CWE-639": 307,
+   "CWE-78": 240,
+   "CWE-79": 300,
+   "CWE-798": 240,
+   "CWE-862": 302,
+   "CWE-89": 302,
    "CWE-916": 300,
-   "CWE-918": 241,
+   "CWE-918": 240,
    "CWE-942": 240,
-   "safe": 22044,
-   "vuln_other": 9608
+   "safe": 1706,
+   "vuln_other": 7
   },
   "version": "corpus-2+mitre-pinned+real-corpus"
  },
  "description": "Classify a code span as one of 12 CWE weakness classes, other-vulnerable, or safe; the safe-probability ranks suspicious paths.",
  "evaluation": {
   "best_baseline": "static_analyze_patterns",
-  "best_baseline_test": 0.0985,
+  "best_baseline_test": 0.0835,
   "primary_metric": "macro_f1",
   "promoted": true,
-  "test": 0.3738
+  "test": 0.3492
  },
  "features": {
   "char_ngrams": true,
@@ -70,22 +70,22 @@
  },
  "training": {
   "batch_size": 64,
-  "best_epoch": 2,
-  "best_val_loss": 0.62016,
+  "best_epoch": 26,
+  "best_val_loss": 0.02462,
   "dropout": 0.25,
   "epochs": 40,
-  "epochs_run": 8,
+  "epochs_run": 32,
   "hidden": 96,
   "input_dim": 16384,
   "lr": 0.002,
   "numpy": "2.5.4",
   "patience": 6,
   "python": "3.12.15",
-  "seconds": 18.26,
+  "seconds": 8.42,
   "seed": 7,
   "weight_decay": 1e-05
  },
  "version": "1.1.0",
  "weights_bytes": 6297272,
- "weights_sha256": "13c5bbca7fd7d03a6cfba1fc8a5618d724bacfb4b14d715bed0f36ed82067a8a"
+ "weights_sha256": "ecf0fa38d5cb3a4e9214ae96eded7cc178c5cadc71a10a4a2e24d6bde201c6bd"
 }

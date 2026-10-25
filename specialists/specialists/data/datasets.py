@@ -20,6 +20,7 @@ from typing import Any
 from standards import catalog
 
 from .corpus import GENERATOR_VERSION, SAFE, generate
+from .evalcommits import scout_rows as evalcommit_rows
 from .realdata import attack_descriptions, diversevul, nvd_cves
 
 Split = dict[str, list[dict[str, Any]]]
@@ -52,6 +53,10 @@ def scout(test_family: int = 3) -> Split:
     for r in diversevul():
         out[r["split"]].append(
             {"family": r["family"], "framework": "c", "code": r["code"], "label": r["label"]}
+        )
+    for r in evalcommit_rows():
+        out[r["split"]].append(
+            {"family": r["family"], "framework": r["framework"], "code": r["code"], "label": r["label"]}
         )
     return out
 

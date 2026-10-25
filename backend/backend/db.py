@@ -304,9 +304,57 @@ jobs = sa.Table(
     sa.Column("result", JSONB),
     _created(),
     sa.Column("updated_at", TS, nullable=False, server_default=sa.func.now()),
+    # 0016 execution reliability (docs/architecture/execution-reliability.md)
+    sa.Column("project_id", sa.String(80)),
+    sa.Column("depends_on", sa.String(80)),
+    sa.Column("defer_count", sa.Integer, nullable=False, server_default="0"),
+    sa.Column("deadline_at", TS),
+    sa.Column("started_at", TS),
+    sa.Column("first_started_at", TS),
+    sa.Column("finished_at", TS),
+    sa.Column("effect_state", sa.String(20)),
+    sa.Column("effect_key", sa.String(200)),
+    sa.Column("error_category", sa.String(40)),
+    sa.Column("recovery", JSONB),
     sa.CheckConstraint(
-        "status in ('queued','running','succeeded','failed','cancelled','dead')", name="status"
+        "status in ('queued','waiting','running','succeeded','failed','cancelled','dead',"
+        "'timed_out','recovery_required')",
+        name="status",
     ),
+    sa.CheckConstraint(
+        "effect_state is null or effect_state in ('in_flight','settled')", name="effect_state"
+    ),
+)
+
+job_events = sa.Table(
+    "job_events",
+    metadata,
+    sa.Column("seq", sa.BigInteger, sa.Identity(), primary_key=True),
+    sa.Column(
+        "job_id", sa.String(80), sa.ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    ),
+    sa.Column("project_id", sa.String(80)),
+    sa.Column("kind", sa.String(60), nullable=False),
+    sa.Column("from_status", sa.String(20)),
+    sa.Column("to_status", sa.String(20), nullable=False),
+    sa.Column("attempt", sa.Integer, nullable=False),
+    sa.Column("worker", sa.String(120)),
+    sa.Column("category", sa.String(40)),
+    sa.Column("reason", sa.Text),
+    sa.Column("details", JSONB),
+    _created(),
+)
+
+worker_heartbeats = sa.Table(
+    "worker_heartbeats",
+    metadata,
+    sa.Column("worker_id", sa.String(120), primary_key=True),
+    sa.Column("state", sa.String(20), nullable=False),
+    sa.Column("current_job_id", sa.String(80)),
+    sa.Column("jobs_finished", sa.Integer, nullable=False, server_default="0"),
+    sa.Column("started_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.Column("last_seen_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.CheckConstraint("state in ('idle','busy','stopping')", name="state"),
 )
 sa.Index("ix_jobs_claim", jobs.c.status, jobs.c.priority, jobs.c.run_after)
 

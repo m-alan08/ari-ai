@@ -5,12 +5,15 @@ against this repository, and how long each takes. It is the yardstick for every 
 model or specialist change: keep a change only if it scores at least as well here and every
 run stays under 180 s.
 
-- `cases.json`: 23 one-commit cases. `idor` (8): an access-control defect on a route in
+- `cases.json`: 45 one-commit cases. `idor` (8): an access-control defect on a route in
   `build_recipe.json`, which the ownership check template can prove, so the full chain should
-  validate, fix and verify it. `vuln` (7): real weaknesses outside the current check templates
-  (timing compare, missing signature check, SQL injection, path traversal, shell injection,
-  OAuth state, argument injection), scored on detection only. `benign` (8): no weakness; a
-  validated finding is a false positive. Commit messages are ordinary and never name the defect.
+  validate, fix and verify it. `vuln` (24): real weaknesses across 20 CWEs (timing compare,
+  missing signature check, SQL injection, path traversal, shell injection, OAuth state,
+  argument injection, session expiry, CSRF exemption, integrity digest, TOCTOU, over-broad
+  token permissions, webhook replay, insecure cookie, missing auth checks, TLS verify-off,
+  unbounded queries, weak input validation), scored on detection. `benign` (13): no weakness;
+  a validated finding is a false positive. Commit messages are ordinary and never name the
+  defect.
 - `run.py`: pushes each case as its own branch from `origin/main` (batches, default 4 at once),
   waits for the assessments, scores them, closes the fix PRs the platform opens and deletes the
   branches. The eval branches never reach `main`.

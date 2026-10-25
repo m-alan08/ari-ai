@@ -1696,3 +1696,136 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Prod: enabled `automatic_assessments` on adamissac/mypypath (ari-ai already on), enabled `monitoring_policy` on the `derv` project, approved mypypath's sandbox scope (active to 2026-11-18), stamped delivery authorization on both projects. Push→agents chain verified live: monitoring assessments COMPLETED within ~1-2 min of each push.
 - Branch `feat/adam/agent-visibility-not-needed`: relay/team list now label skipped agents 'Not needed' (with the recorded skip note) or 'Not reached' on failed/cancelled runs. `earlyEndNote` in `frontend/lib/relay.ts` reads the reason from persisted `state_changed` events.
 - Next: expand `security-agents/evals/commits/cases.json` toward ~40 cases, add check templates to lift `vuln validated` off 0/7 (only ownership + bounds templates exist).
+
+## 2026-10-24 — Devin (Alan): execution reliability — Codex review fixes (F2–F5, F1/F7 contract)
+
+- Codex review `codex/first-responder-integration-review` (NO-GO) assigned queue defects F2–F5 to this branch; all fixed.
+- F2: `EMERGENCY_JOB_KINDS` (emergency_stop/rollback/expire) claim under a bounded reserve `JOB_MAX_RUNNING_EMERGENCY` (default 2), exempt from project/global caps and not consuming ordinary slots; `live_defense_execute`/`verify` remain limited.
+- F3: `jobs.complete`/`jobs.fail` fence on a live lease (DB clock); expired workers cannot report outcomes; original owner's late `recovery_required` completion stays the audited exception.
+- F4: `jobs.defer(delay_s=|depends_on=)` — validated transition + `job_events`, `defer_count` makes it neutral on the retry budget, cancel/deadline precedence, refused after uncertain effects. For Grok's Diagnose scheduling.
+- F5: `modes.cancel_first_responder_jobs` now covers `waiting` (→ cancelled) and flags `recovery_required` `cancel_requested` without erasing effect evidence.
+- F1/F7 contract sent to Grok: `ctx.effect("provider:<job_id>:<attempt>:<seq>")` for billable requests (no replay of unknown outcomes); `enqueue(deadline_at=)` propagates the absolute FR deadline. See `coordination/messages/20261024T233000Z-devin-to-grok-f1-f7-queue-contract.md`.
+- Migration `0016` gained `jobs.defer_count` (additive, same revision).
+
+## 2026-10-25 — Devin (Alan): execution reliability — Codex re-review fix R5
+
+- R5 (release re-review `codex/release-0019-rereview`, `test_abrupt_process_death_during_provider_send_requires_recovery`): abrupt worker death during a provider send left `effect_state` NULL even though `provider_ledger.reserve_attempt` had committed `in_flight` — reconcile requeued the job instead of `recovery_required`.
+- Fix (queue side, Codex's option B): `execution.reconcile` now consults the billable-request ledger for expired-lease jobs whose payload carries `invocation_id` — a `first_responder_invocations` doc with `execution.uncertain_provider_outcome` or a `provider_attempts` row in `reserved`/`in_flight`/`sent`/`uncertain` → `recovery_required`, with owner/attempt fencing and the attempt's idempotency/effect key audited in `recovery`. Read via tolerant JSONB, so pre-ledger docs carry no uncertainty; no import of Grok's models.
+- Option A stays available to ledger writers: `jobs.begin_effect(conn, job_id, owner, key)` inside the reservation transaction commits job uncertainty atomically with the reservation.
+- `jobs._ROW_COLS` now selects `payload` (needed by the reconcile probe; `.mappings()` consumers unaffected).
+- 5 new tests in `backend/tests/test_execution_reliability.py` (in_flight → recovery + audited operator resolution; uncertain flag; settled-only → requeue; missing invocation → requeue; atomic reservation path).
+- Codex's repro file itself (`test_release_rereview.py`) needs the `live_defense_e2e` harness, which lives only on the integration/codex branches — semantics ported into the reliability file; the composed tree must re-run the strict green assertion.
+
+## 2026-10-25 — Devin (Alan): execution reliability — Codex RC2 fixes N3/N4
+
+- Codex RC2 review `codex/rc2-independent-review` (NO-GO on 3f16c99f) assigned
+  N4 (P1, shared with Observability Devin) and N3 (P2, shared with Grok's
+  provider-ledger owner). Probes: `test_rc2_independent.py` —
+  `test_viewer_history_does_not_bypass_job_error_redaction`,
+  `test_job_api_does_not_expose_infrastructure_credentials`,
+  `test_operator_confirmed_retry_resolves_provider_ledger`,
+  `test_fast_reclaim_cannot_hide_unresolved_provider_from_reconciler`.
+- N3 — one durable fenced recovery protocol, all inside the same transactions:
+  * `jobs.unresolved_billable_attempt` moved to `jobs.py` and now runs in
+    `claim` on every picked row — a fast reclaim beating the reconciler can
+    never hand a job with an unresolved billable ledger row to a worker; it
+    transitions `running->recovery_required` (fenced diag + audited event)
+    and the claim loop moves on.
+  * `execution.resolve_recovery` closes the ledger in the same transaction as
+    the job transition: `applied` -> attempts `settled`, `not_applied`/`retry`
+    -> attempts `cancelled`, `uncertain_provider_outcome` cleared (only
+    unresolved states touched; uses existing ProviderAttemptState values so
+    the doc still validates). A `retry` could otherwise requeue while the
+    ledger still blocked the next reservation — or replay a billable call.
+- N4 — `jobs.fail` sanitized `last_error` but wrote the raw exception into
+  `job_events.reason` (viewer-readable via `/jobs/{id}/history`). Fixed:
+  `record_event` redacts reason+details, `transition` redacts
+  last_error/recovery/result, `fail` redacts stored error; read-side scrub in
+  `execution.history`, `stuck_jobs` recovery and `GET /jobs/{id}` covers rows
+  written before the fix. `redaction.py` gained URI-userinfo and
+  credential `key=value` patterns (postgresql://svc:pass@host wasn't caught).
+  Role authorization unchanged (viewer reads, owner resolves).
+- Literal RC2 probes run only on the composed tree (live_defense_e2e harness);
+  semantics asserted strict in `backend/tests/test_execution_reliability.py`
+  (+7 tests, file now 59). Suite: 377 passed, 7 skipped.
+
+## 2026-10-25 — Devin (Alan): execution reliability — Codex review 3 fix N7
+
+- Codex third review (`docs/reviews/corrected-independent/REPORT.md` @
+  upstream `codex/release-independent-security` `abf6b316`, NO-GO on 77897e76):
+  my generic `key=value` pattern had been merged into
+  `_HIGH_CONFIDENCE_PATTERNS`, which `redact_code` also applies — it rewrote
+  non-secret expressions (`api_key=os.environ["API_KEY"]` →
+  `api_key=[REDACTED]"API_KEY"]`), corrupting persisted diff artifacts.
+- Fix on `feat/devin-execution-reliability`: `backend/backend/redaction.py`
+  synced to the upstream structure; the generic kv matcher is now
+  `_GENERIC_KV_PATTERN`, free-text only (`_PATTERNS`/`redact_text`), and is
+  excluded from `_HIGH_CONFIDENCE_PATTERNS`/`redact_code`. `uri_password`
+  stays in `_HIGH_CONFIDENCE_PATTERNS` before `dsn_credentials`
+  (integration's 77897e76 order), and `find_high_confidence_secret` keeps the
+  dsn-label preference (2dae2207). `ArtifactStore.put_text` now routes
+  `ArtifactKind.diff` through `redact_code`, matching upstream.
+- Verified: Codex's strict N7 file — the two parametrized
+  ArtifactStore.put_text/get roundtrips + ast.parse assertions pass;
+  `test_redact_code.py` + `test_redact_text_gaps.py` (vendored, byte-identical
+  to upstream/main blobs) 14 passed; +2 new regressions in
+  test_execution_reliability.py (file now 61). Suite: 395 passed, 7 skipped —
+  the only failure is Codex's N1 lock-ordering audit test which needs
+  Hardening's `repository_revocation_locked` (not on this branch, not my
+  finding; audit file left unvendored).
+
+## 2026-10-25 — Devin (Alan): execution reliability — Codex RC4 fix N8
+
+- RC4 independent review (adamissac#632, `codex/rc4-independent-audit`): N8
+  (P2) — `_CODE_KV_PATTERN` missed quoted mapping keys (`{"password": "lit"}`)
+  and annotated assignments (`password: str = "lit"`); literals survived in
+  diff artifacts labeled `redacted=true` and were served to project viewers.
+- Fix: `_CODE_KV_PATTERN` now has three literal-terminating prefix shapes —
+  simple `name =|"…"`/`name: "…"`, annotated `name: Type = "…"`, quoted
+  mapping key/subscript `{"name": "…"}`/`d["name"] = "…"` (single+double
+  quotes). Only the quoted literal is rewritten; unquoted non-secret
+  expressions (`api_key=os.environ["API_KEY"]`, `password: str = os.getenv()`)
+  stay byte-identical — N7 not reopened. Sealed verified-diff delivery
+  untouched; `redacted=true` labeling unchanged.
+- Verified: Codex's 4 strict N8 probes (`test_rc4_n8_artifact_disclosure.py` @
+  `4cd32dfb`, run in place) pass — put_text/get roundtrip keeps `redacted`
+  while dropping the literal, and the real viewer API returns 200 without the
+  secret while the outsider still gets 404. N7 probes re-run green; vendored
+  test_redact_code/test_redact_text_gaps 14 passed; +5 new regressions in
+  test_execution_reliability.py (file now 65). Suite: 397 passed, 7 skipped.
+
+## 2026-10-25 — Devin (Alan): execution reliability — Codex repeat-review fix N9
+
+- Repeat review (adamissac#633, `codex/rc4-n8-repeat`): N8 resolved, new N9
+  (P2) — the annotated-assignment alternative's `[^=\n]+?` span accepted `;`
+  (and `#`), so `password: str; notice = "public notice"` redacted the *next*
+  statement's literal — artifact corruption, not disclosure.
+- Fix: annotation span is now `[^=\n;#]+?` — can't cross a statement
+  separator or comment. `password: str == "x"` (comparison) also correctly
+  stays untouched. Real annotated/quoted-key/subscript literals still redact;
+  N7 nonliteral expressions byte-identical; sealed-diff bytes, `redacted=`
+  labeling, viewer-200/outsider-404 unchanged.
+- Verified: Codex's 2 N9 redaction probes run in place pass (direct
+  redact_code byte-identical + diff put/get roundtrip); the third file test
+  (`test_split_read_and_write_limits_are_enforced`) is the ops workstream's
+  split-rate-limit control — `rate_limit_read_per_minute` isn't wired on this
+  branch, not my scope. N7 (4/4) + N8 (4/4) probes re-run green; +4 new
+  regressions (file now 69); suite: 401 passed, 7 skipped.
+
+## 2026-10-24 — Devin (Adam): specialist eval-brain + live eval harness
+
+- `specialists/data/evalcommits.py`: eval cases become minimal pairs (planted edit = CWE/vuln_other positive, original = hard negative), splits pinned by case id; `scout()` merges the 60 rows.
+- Scout retrained and **promoted**: macro_f1 0.349 vs best deterministic baseline 0.084 (static_analyze_patterns). Checkpoint + `results/scout.json`/REPORT.md committed. Other specialists have no field-compatible eval rows — their tuning signal is the live eval scores, not training data.
+- Eval harness: `run.py` cleanup survives missing `gh` auth; `score_api.py` accepts the bare-list assessments response. All 35 cases pushed as `eval/20261024-110115/*` branches; assessments accumulate live pending a fresh `hackatl_session` for scoring + scope widening (`access_control.authentication` category).
+- Test scope fixture (`make_scope` default) now grants all three check categories — required for the f2 listing invariant after the authentication template landed.
+
+
+## 2026-10-24 — Devin (Alan): execution reliability workstream
+
+- Branch `feat/devin-execution-reliability` (from upstream/main 58fc015a). Migration `0016` (head pin bumped); no shared contract or `SCHEMA_VERSION` change, so no conflict with #412/#458 schema claims. If another PR lands a `0016` first, renumber this revision's `revision`/`down_revision`.
+- Extends `jobs.py`/`worker.py`: transition table + `job_events`, `ctx.effect` uncertain-effect guard (wired into `live_defense_execute`), reconciliation, fair claims + per-project limits, backpressure, deadlines, retry policies, worker registry; new `backend/backend/execution.py` and `backend/backend/api/execution.py`.
+- Did not touch `live_defense/first_responder.py` (#458). After #458 merges: wrap its provider calls with `ctx.effect` and pass `deadline_s` on `live_defense_agent_step` enqueue.
+- Behaviour change: a cancel-requested job whose lease expired is now `cancelled` (was stuck `running`); `test_jobs_queue.py` updated accordingly.
+- Note: `CHANGELOG.md` on upstream main contains a leftover `|||||||` merge marker under Unreleased (pre-existing, not touched).
+
+- Follow-up review: `end_effect(applied=False)` now keeps a `settled` marker when an earlier effect was already applied (prevents replay of an applied effect); `end_effect` regression test added; control-doc caveat documented.

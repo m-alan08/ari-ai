@@ -1,567 +1,725 @@
 {
- "_comment": "Labelled commit eval for the seven agents (+ reviewer). Each case is applied to origin/main as one commit and pushed to its own branch; the production pipeline assesses it like any push. kind: idor = the ownership check template can prove it end to end; vuln = a real weakness outside the current check templates (scored on detection only); benign = no weakness (any validated finding or fix is a false positive). Commit messages are ordinary and never name the defect. Do not add cases that put secrets in the tree.",
- "cases": [
-  {
-   "id": "idor_repository_detail",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "repository_detail",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): skip the membership join when reading a repository",
-   "edits": [
+  "_comment": "Labelled commit eval for the seven agents (+ reviewer). Each case is applied to origin/main as one commit and pushed to its own branch; the production pipeline assesses it like any push. kind: idor = the ownership check template can prove it end to end; vuln = a real weakness outside the current check templates (scored on detection only); benign = no weakness (any validated finding or fix is a false positive). Commit messages are ordinary and never name the defect. Do not add cases that put secrets in the tree.",
+  "cases": [
     {
-     "path": "backend/backend/api/routes.py",
-     "old": "        return _repo(_repo_access(conn, _user(conn, request), repo_id))\n\n\n@router.patch(\"/repositories/{repo_id}\"",
-     "new": "        _user(conn, request)  # signed-in users only; skip the membership join on this hot path\n        r = conn.execute(sa.select(repositories).where(repositories.c.id == repo_id)).mappings().first()\n        if r is None:\n            raise not_found(\"repository\")\n        return _repo(dict(r))\n\n\n@router.patch(\"/repositories/{repo_id}\""
-    }
-   ]
-  },
-  {
-   "id": "idor_project_detail",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "project_detail",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): load the project row directly in get_project",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
-     "new": "    with transaction() as conn:\n        _user(conn, request)\n        row = conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().first()\n        if row is None:\n            raise not_found(\"project\")\n        return _project(row)"
-    }
-   ]
-  },
-  {
-   "id": "idor_project_repositories",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "project_repositories",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): list repositories with a single query",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()",
-     "new": "    with transaction() as conn:\n        _user(conn, request)\n        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()"
-    }
-   ]
-  },
-  {
-   "id": "idor_project_scopes",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "project_scopes",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): simplify the scope listing query",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        docs = conn.execute(\n            sa.select(authorized_scopes.c.doc)\n            .where(authorized_scopes.c.project_id == project_id)",
-     "new": "    with transaction() as conn:\n        _user(conn, request)\n        docs = conn.execute(\n            sa.select(authorized_scopes.c.doc)\n            .where(authorized_scopes.c.project_id == project_id)"
-    }
-   ]
-  },
-  {
-   "id": "idor_project_assessments",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "project_assessments",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): page assessments without the extra project lookup",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc).where(",
-     "new": "    with transaction() as conn:\n        _user(conn, request)\n        q = sa.select(assessments.c.id, assessments.c.doc).where("
-    }
-   ]
-  },
-  {
-   "id": "idor_require_project_default_role",
-   "kind": "idor",
-   "cwe": "CWE-863",
-   "route_id": "project_detail",
-   "files": [
-    "backend/backend/api/deps.py"
-   ],
-   "message": "fix(api): treat users without an explicit role as viewers",
-   "edits": [
-    {
-     "path": "backend/backend/api/deps.py",
-     "old": "    role = org_role(conn, user.id, org_id) if org_id else None\n    if org_id is None or role is None:\n        raise not_found(\"project\")",
-     "new": "    role = (org_role(conn, user.id, org_id) or MemberRole.viewer) if org_id else None\n    if org_id is None or role is None:\n        raise not_found(\"project\")"
-    }
-   ]
-  },
-  {
-   "id": "idor_repo_access_helper",
-   "kind": "idor",
-   "cwe": "CWE-862",
-   "route_id": "repository_detail",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): _repo_access only resolves the repository row",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    if r is None:\n        raise not_found(\"repository\")\n    require_project(conn, user, r[\"project_id\"], role)\n    return dict(r)",
-     "new": "    if r is None:\n        raise not_found(\"repository\")\n    if role is not MemberRole.viewer:  # writes still need the project role\n        require_project(conn, user, r[\"project_id\"], role)\n    return dict(r)"
-    }
-   ]
-  },
-  {
-   "id": "idor_project_cache_before_auth",
-   "kind": "idor",
-   "cwe": "CWE-639",
-   "route_id": "project_detail",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): cache project reads",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "@router.get(\"/projects/{project_id}\", response_model=Project)\ndef get_project(project_id: str, request: Request) -> Project:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
-     "new": "_PROJECT_CACHE: dict[str, Project] = {}\n\n\n@router.get(\"/projects/{project_id}\", response_model=Project)\ndef get_project(project_id: str, request: Request) -> Project:\n    if project_id in _PROJECT_CACHE:\n        return _PROJECT_CACHE[project_id]\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        project = _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )\n    _PROJECT_CACHE[project_id] = project\n    return project"
-    }
-   ]
-  },
-  {
-   "id": "vuln_signature_timing",
-   "kind": "vuln",
-   "cwe": "CWE-208",
-   "files": [
-    "backend/backend/github.py"
-   ],
-   "message": "refactor(github): simplify the signature comparison",
-   "edits": [
-    {
-     "path": "backend/backend/github.py",
-     "old": "    return hmac.compare_digest(expected.encode(), header.strip().encode())",
-     "new": "    return expected == header.strip()"
-    }
-   ]
-  },
-  {
-   "id": "vuln_signature_missing_header",
-   "kind": "vuln",
-   "cwe": "CWE-347",
-   "files": [
-    "backend/backend/github.py"
-   ],
-   "message": "fix(github): accept deliveries from proxies that strip the signature header",
-   "edits": [
-    {
-     "path": "backend/backend/github.py",
-     "old": "    if not secret or not header or not header.startswith(\"sha256=\"):\n        return False",
-     "new": "    if not header:\n        return True  # some proxies drop X-Hub-Signature-256; the payload is still from GitHub\n    if not secret or not header.startswith(\"sha256=\"):\n        return False"
-    }
-   ]
-  },
-  {
-   "id": "vuln_sql_injection_cursor",
-   "kind": "vuln",
-   "cwe": "CWE-89",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): use a raw cursor predicate for assessment paging",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        if cursor:\n            q = q.where(assessments.c.id < cursor)",
-     "new": "        if cursor:\n            q = q.where(sa.text(f\"assessments.id < '{cursor}'\"))"
-    }
-   ]
-  },
-  {
-   "id": "vuln_artifact_path_traversal",
-   "kind": "vuln",
-   "cwe": "CWE-22",
-   "files": [
-    "backend/backend/artifacts.py"
-   ],
-   "message": "refactor(artifacts): keep artifacts under their plain digest name",
-   "edits": [
-    {
-     "path": "backend/backend/artifacts.py",
-     "old": "    def _path(self, sha: str) -> Path:\n        return self.root / \"sha256\" / sha[:2] / sha",
-     "new": "    def _path(self, sha: str) -> Path:\n        return Path(f\"{self.root}/sha256/{sha[:2]}/{sha}\")"
-    }
-   ]
-  },
-  {
-   "id": "vuln_git_command_injection",
-   "kind": "vuln",
-   "cwe": "CWE-78",
-   "files": [
-    "backend/backend/checkouts.py"
-   ],
-   "message": "fix(checkouts): run git through the shell so proxies in GIT_SSH_COMMAND apply",
-   "edits": [
-    {
-     "path": "backend/backend/checkouts.py",
-     "old": "    proc = subprocess.run(\n        [\"git\", *args], cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout\n    )",
-     "new": "    proc = subprocess.run(\n        \"git \" + \" \".join(args), shell=True, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout\n    )"
-    }
-   ]
-  },
-  {
-   "id": "vuln_oauth_state_skipped",
-   "kind": "vuln",
-   "cwe": "CWE-352",
-   "files": [
-    "backend/backend/api/auth.py"
-   ],
-   "message": "fix(auth): tolerate a missing state cookie after the cross-domain bounce",
-   "edits": [
-    {
-     "path": "backend/backend/api/auth.py",
-     "old": "    if not code or not state or not secrets.compare_digest(state.encode(), expected.encode()):",
-     "new": "    if not code or (expected and not secrets.compare_digest(state.encode(), expected.encode())):"
-    }
-   ]
-  },
-  {
-   "id": "vuln_fetch_name_check_removed",
-   "kind": "vuln",
-   "cwe": "CWE-88",
-   "files": [
-    "backend/backend/checkouts.py"
-   ],
-   "message": "refactor(checkouts): drop the redundant repository name check",
-   "edits": [
-    {
-     "path": "backend/backend/checkouts.py",
-     "old": "    if not FULL_NAME_RE.match(full_name):\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")\n    if not SHA_RE.match(sha):",
-     "new": "    if not SHA_RE.match(sha):"
-    }
-   ]
-  },
-  {
-   "id": "benign_repository_helper",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): name the repository read helper",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        return _repo(_repo_access(conn, _user(conn, request), repo_id))\n\n\n@router.patch(\"/repositories/{repo_id}\"",
-     "new": "    with transaction() as conn:\n        user = _user(conn, request)\n        row = _repo_access(conn, user, repo_id)\n        return _repo(row)\n\n\n@router.patch(\"/repositories/{repo_id}\""
-    }
-   ]
-  },
-  {
-   "id": "benign_scopes_docstring",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "docs(api): describe the scope listing",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "def list_scopes(project_id: str, request: Request) -> dict[str, Any]:\n    with transaction() as conn:",
-     "new": "def list_scopes(project_id: str, request: Request) -> dict[str, Any]:\n    \"\"\"Scopes of a project the caller can read, newest first.\"\"\"\n    with transaction() as conn:"
-    }
-   ]
-  },
-  {
-   "id": "benign_assessments_page_cap",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): smaller default page for assessment lists",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    limit: int = Query(50, ge=1, le=200),\n    cursor: str | None = None,\n) -> dict[str, Any]:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc)",
-     "new": "    limit: int = Query(25, ge=1, le=200),\n    cursor: str | None = None,\n) -> dict[str, Any]:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc)"
-    }
-   ]
-  },
-  {
-   "id": "benign_project_not_found_message",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/deps.py"
-   ],
-   "message": "docs(api): explain why non-members get 404",
-   "edits": [
-    {
-     "path": "backend/backend/api/deps.py",
-     "old": "    \"\"\"Resolve project -> org membership. Non-members get 404 (no existence leak).\"\"\"",
-     "new": "    \"\"\"Resolve project -> org membership.\n\n    Non-members get 404, not 403, so a caller cannot learn that a project id exists.\n    \"\"\""
-    }
-   ]
-  },
-  {
-   "id": "benign_signature_strip",
-   "kind": "benign",
-   "files": [
-    "backend/backend/github.py"
-   ],
-   "message": "refactor(github): compute the expected signature once",
-   "edits": [
-    {
-     "path": "backend/backend/github.py",
-     "old": "    expected = \"sha256=\" + hmac.new(secret, raw_body, hashlib.sha256).hexdigest()\n    return hmac.compare_digest(expected.encode(), header.strip().encode())",
-     "new": "    digest = hmac.new(secret, raw_body, hashlib.sha256).hexdigest()\n    expected = f\"sha256={digest}\".encode()\n    return hmac.compare_digest(expected, header.strip().encode())"
-    }
-   ]
-  },
-  {
-   "id": "benign_checkout_timeout",
-   "kind": "benign",
-   "files": [
-    "backend/backend/checkouts.py"
-   ],
-   "message": "fix(checkouts): allow slower git fetches",
-   "edits": [
-    {
-     "path": "backend/backend/checkouts.py",
-     "old": "    timeout: float = 300,\n    extra_env: dict[str, str] | None = None,\n) -> str:",
-     "new": "    timeout: float = 600,\n    extra_env: dict[str, str] | None = None,\n) -> str:"
-    }
-   ]
-  },
-  {
-   "id": "benign_repositories_order",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "feat(api): list a project's repositories in name order",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()",
-     "new": "        rows = conn.execute(\n            sa.select(repositories)\n            .where(repositories.c.project_id == project_id)\n            .order_by(repositories.c.full_name)\n        ).mappings()"
-    }
-   ]
-  },
-  {
-   "id": "benign_project_detail_variable",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): name the project row in get_project",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
-     "new": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        row = conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        return _project(row)"
-    }
-   ]
-  },
-  {
-   "id": "vuln_scope_viewer_mutates",
-   "kind": "vuln",
-   "cwe": "CWE-862",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "refactor(api): simplify scope request checks",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        org_id, _ = require_project(conn, user, project_id, MemberRole.member)\n        retry = {",
-     "new": "        org_id, _ = require_project(conn, user, project_id)\n        retry = {"
-    }
-   ]
-  },
-  {
-   "id": "vuln_runs_open",
-   "kind": "vuln",
-   "cwe": "CWE-639",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): skip redundant assessment membership check",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)",
-     "new": "        _user(conn, request)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)"
-    }
-   ]
-  },
-  {
-   "id": "vuln_events_open",
-   "kind": "vuln",
-   "cwe": "CWE-639",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "perf(api): skip redundant assessment membership check on event log",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n    rows = _events_after(",
-     "new": "        _user(conn, request)\n    rows = _events_after("
-    }
-   ]
-  },
-  {
-   "id": "vuln_unbounded_assessments",
-   "kind": "vuln",
-   "cwe": "CWE-770",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "feat(api): allow larger assessment pages",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "def list_assessments(\n    project_id: str,\n    request: Request,\n    limit: int = Query(50, ge=1, le=200),",
-     "new": "def list_assessments(\n    project_id: str,\n    request: Request,\n    limit: int = Query(50, ge=1, le=100000),"
-    }
-   ]
-  },
-  {
-   "id": "vuln_sql_interval",
-   "kind": "vuln",
-   "cwe": "CWE-89",
-   "files": [
-    "backend/backend/jobs.py"
-   ],
-   "message": "refactor(jobs): drop noisy cast in lease heartbeat",
-   "edits": [
-    {
-     "path": "backend/backend/jobs.py",
-     "old": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s)} seconds'\"),",
-     "new": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{lease_s} seconds'\"),"
-    }
-   ]
-  },
-  {
-   "id": "vuln_tls_verify",
-   "kind": "vuln",
-   "cwe": "CWE-295",
-   "files": [
-    "backend/backend/api/auth.py"
-   ],
-   "message": "fix(auth): tolerate proxy certificates in token exchange",
-   "edits": [
-    {
-     "path": "backend/backend/api/auth.py",
-     "old": "    with httpx.Client(timeout=15) as client:",
-     "new": "    with httpx.Client(timeout=15, verify=False) as client:"
-    }
-   ]
-  },
-  {
-   "id": "vuln_token_admin",
-   "kind": "vuln",
-   "cwe": "CWE-266",
-   "files": [
-    "backend/backend/github.py"
-   ],
-   "message": "feat(github): request admin scope for repo settings sync",
-   "edits": [
-    {
-     "path": "backend/backend/github.py",
-     "old": "                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\"}",
-     "new": "                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\", \"administration\": \"write\", \"issues\": \"write\"}"
-    }
-   ]
-  },
-  {
-   "id": "vuln_oauth_state_off",
-   "kind": "vuln",
-   "cwe": "CWE-352",
-   "files": [
-    "backend/backend/api/auth.py"
-   ],
-   "message": "fix(auth): unblock OAuth callback on legacy clients",
-   "edits": [
-    {
-     "path": "backend/backend/api/auth.py",
-     "old": "    if not code or not state or not secrets.compare_digest(state.encode(), expected.encode()):",
-     "new": "    if not code or not state:"
-    }
-   ]
-  },
-  {
-   "id": "vuln_checkout_name",
-   "kind": "vuln",
-   "cwe": "CWE-20",
-   "files": [
-    "backend/backend/checkouts.py"
-   ],
-   "message": "fix(checkouts): accept dotted repository names",
-   "edits": [
-    {
-     "path": "backend/backend/checkouts.py",
-     "old": "    if not FULL_NAME_RE.match(full_name):\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")",
-     "new": "    if not full_name.strip():\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")"
-    }
-   ]
-  },
-  {
-   "id": "benign_runs_member",
-   "kind": "benign",
-   "files": [
-    "backend/backend/api/routes.py"
-   ],
-   "message": "fix(api): require membership for agent run listing",
-   "edits": [
-    {
-     "path": "backend/backend/api/routes.py",
-     "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)",
-     "new": "        _assessment_access(conn, _user(conn, request), assessment_id, MemberRole.member)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)"
-    }
-   ]
-  },
-  {
-   "id": "benign_artifact_sha512",
-   "kind": "benign",
-   "files": [
-    "backend/backend/artifacts.py"
-   ],
-   "message": "perf(artifacts): move content addressing to sha512",
-   "edits": [
-    {
-     "path": "backend/backend/artifacts.py",
-     "old": "        sha = hashlib.sha256(data).hexdigest()",
-     "new": "        sha = hashlib.sha512(data).hexdigest()"
+      "id": "idor_repository_detail",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "repository_detail",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): skip the membership join when reading a repository",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        return _repo(_repo_access(conn, _user(conn, request), repo_id))\n\n\n@router.patch(\"/repositories/{repo_id}\"",
+          "new": "        _user(conn, request)  # signed-in users only; skip the membership join on this hot path\n        r = conn.execute(sa.select(repositories).where(repositories.c.id == repo_id)).mappings().first()\n        if r is None:\n            raise not_found(\"repository\")\n        return _repo(dict(r))\n\n\n@router.patch(\"/repositories/{repo_id}\""
+        }
+      ]
     },
     {
-     "path": "backend/backend/artifacts.py",
-     "old": "        if hashlib.sha256(data).hexdigest() != row[\"sha256\"]:",
-     "new": "        if hashlib.sha512(data).hexdigest() != row[\"sha256\"]:"
-    }
-   ]
-  },
-  {
-   "id": "benign_interval_default",
-   "kind": "benign",
-   "files": [
-    "backend/backend/jobs.py"
-   ],
-   "message": "fix(jobs): tolerate missing lease seconds in heartbeat",
-   "edits": [
+      "id": "idor_project_detail",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "project_detail",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): load the project row directly in get_project",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
+          "new": "    with transaction() as conn:\n        _user(conn, request)\n        row = conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().first()\n        if row is None:\n            raise not_found(\"project\")\n        return _project(row)"
+        }
+      ]
+    },
     {
-     "path": "backend/backend/jobs.py",
-     "old": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s)} seconds'\"),",
-     "new": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s or 0)} seconds'\"),"
+      "id": "idor_project_repositories",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "project_repositories",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): list repositories with a single query",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()",
+          "new": "    with transaction() as conn:\n        _user(conn, request)\n        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()"
+        }
+      ]
+    },
+    {
+      "id": "idor_project_scopes",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "project_scopes",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): simplify the scope listing query",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        docs = conn.execute(\n            sa.select(authorized_scopes.c.doc)\n            .where(authorized_scopes.c.project_id == project_id)",
+          "new": "    with transaction() as conn:\n        _user(conn, request)\n        docs = conn.execute(\n            sa.select(authorized_scopes.c.doc)\n            .where(authorized_scopes.c.project_id == project_id)"
+        }
+      ]
+    },
+    {
+      "id": "idor_project_assessments",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "project_assessments",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): page assessments without the extra project lookup",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc).where(",
+          "new": "    with transaction() as conn:\n        _user(conn, request)\n        q = sa.select(assessments.c.id, assessments.c.doc).where("
+        }
+      ]
+    },
+    {
+      "id": "idor_require_project_default_role",
+      "kind": "idor",
+      "cwe": "CWE-863",
+      "route_id": "project_detail",
+      "files": [
+        "backend/backend/api/deps.py"
+      ],
+      "message": "fix(api): treat users without an explicit role as viewers",
+      "edits": [
+        {
+          "path": "backend/backend/api/deps.py",
+          "old": "    role = org_role(conn, user.id, org_id) if org_id else None\n    if org_id is None or role is None:\n        raise not_found(\"project\")",
+          "new": "    role = (org_role(conn, user.id, org_id) or MemberRole.viewer) if org_id else None\n    if org_id is None or role is None:\n        raise not_found(\"project\")"
+        }
+      ]
+    },
+    {
+      "id": "idor_repo_access_helper",
+      "kind": "idor",
+      "cwe": "CWE-862",
+      "route_id": "repository_detail",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): _repo_access only resolves the repository row",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    if r is None:\n        raise not_found(\"repository\")\n    require_project(conn, user, r[\"project_id\"], role)\n    return dict(r)",
+          "new": "    if r is None:\n        raise not_found(\"repository\")\n    if role is not MemberRole.viewer:  # writes still need the project role\n        require_project(conn, user, r[\"project_id\"], role)\n    return dict(r)"
+        }
+      ]
+    },
+    {
+      "id": "idor_project_cache_before_auth",
+      "kind": "idor",
+      "cwe": "CWE-639",
+      "route_id": "project_detail",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): cache project reads",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "@router.get(\"/projects/{project_id}\", response_model=Project)\ndef get_project(project_id: str, request: Request) -> Project:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
+          "new": "_PROJECT_CACHE: dict[str, Project] = {}\n\n\n@router.get(\"/projects/{project_id}\", response_model=Project)\ndef get_project(project_id: str, request: Request) -> Project:\n    if project_id in _PROJECT_CACHE:\n        return _PROJECT_CACHE[project_id]\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        project = _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )\n    _PROJECT_CACHE[project_id] = project\n    return project"
+        }
+      ]
+    },
+    {
+      "id": "vuln_signature_timing",
+      "kind": "vuln",
+      "cwe": "CWE-208",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "refactor(github): simplify the signature comparison",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "    return hmac.compare_digest(expected.encode(), header.strip().encode())",
+          "new": "    return expected == header.strip()"
+        }
+      ]
+    },
+    {
+      "id": "vuln_signature_missing_header",
+      "kind": "vuln",
+      "cwe": "CWE-347",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "fix(github): accept deliveries from proxies that strip the signature header",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "    if not secret or not header or not header.startswith(\"sha256=\"):\n        return False",
+          "new": "    if not header:\n        return True  # some proxies drop X-Hub-Signature-256; the payload is still from GitHub\n    if not secret or not header.startswith(\"sha256=\"):\n        return False"
+        }
+      ]
+    },
+    {
+      "id": "vuln_sql_injection_cursor",
+      "kind": "vuln",
+      "cwe": "CWE-89",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): use a raw cursor predicate for assessment paging",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        if cursor:\n            q = q.where(assessments.c.id < cursor)",
+          "new": "        if cursor:\n            q = q.where(sa.text(f\"assessments.id < '{cursor}'\"))"
+        }
+      ]
+    },
+    {
+      "id": "vuln_artifact_path_traversal",
+      "kind": "vuln",
+      "cwe": "CWE-22",
+      "files": [
+        "backend/backend/artifacts.py"
+      ],
+      "message": "refactor(artifacts): keep artifacts under their plain digest name",
+      "edits": [
+        {
+          "path": "backend/backend/artifacts.py",
+          "old": "    def _path(self, sha: str) -> Path:\n        return self.root / \"sha256\" / sha[:2] / sha",
+          "new": "    def _path(self, sha: str) -> Path:\n        return Path(f\"{self.root}/sha256/{sha[:2]}/{sha}\")"
+        }
+      ]
+    },
+    {
+      "id": "vuln_git_command_injection",
+      "kind": "vuln",
+      "cwe": "CWE-78",
+      "files": [
+        "backend/backend/checkouts.py"
+      ],
+      "message": "fix(checkouts): run git through the shell so proxies in GIT_SSH_COMMAND apply",
+      "edits": [
+        {
+          "path": "backend/backend/checkouts.py",
+          "old": "    proc = subprocess.run(\n        [\"git\", *args], cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout\n    )",
+          "new": "    proc = subprocess.run(\n        \"git \" + \" \".join(args), shell=True, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout\n    )"
+        }
+      ]
+    },
+    {
+      "id": "vuln_oauth_state_skipped",
+      "kind": "vuln",
+      "cwe": "CWE-352",
+      "files": [
+        "backend/backend/api/auth.py"
+      ],
+      "message": "fix(auth): tolerate a missing state cookie after the cross-domain bounce",
+      "edits": [
+        {
+          "path": "backend/backend/api/auth.py",
+          "old": "    if not code or not state or not secrets.compare_digest(state.encode(), expected.encode()):",
+          "new": "    if not code or (expected and not secrets.compare_digest(state.encode(), expected.encode())):"
+        }
+      ]
+    },
+    {
+      "id": "vuln_fetch_name_check_removed",
+      "kind": "vuln",
+      "cwe": "CWE-88",
+      "files": [
+        "backend/backend/checkouts.py"
+      ],
+      "message": "refactor(checkouts): drop the redundant repository name check",
+      "edits": [
+        {
+          "path": "backend/backend/checkouts.py",
+          "old": "    if not FULL_NAME_RE.match(full_name):\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")\n    if not SHA_RE.match(sha):",
+          "new": "    if not SHA_RE.match(sha):"
+        }
+      ]
+    },
+    {
+      "id": "benign_repository_helper",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): name the repository read helper",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        return _repo(_repo_access(conn, _user(conn, request), repo_id))\n\n\n@router.patch(\"/repositories/{repo_id}\"",
+          "new": "    with transaction() as conn:\n        user = _user(conn, request)\n        row = _repo_access(conn, user, repo_id)\n        return _repo(row)\n\n\n@router.patch(\"/repositories/{repo_id}\""
+        }
+      ]
+    },
+    {
+      "id": "benign_scopes_docstring",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "docs(api): describe the scope listing",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "def list_scopes(project_id: str, request: Request) -> dict[str, Any]:\n    with transaction() as conn:",
+          "new": "def list_scopes(project_id: str, request: Request) -> dict[str, Any]:\n    \"\"\"Scopes of a project the caller can read, newest first.\"\"\"\n    with transaction() as conn:"
+        }
+      ]
+    },
+    {
+      "id": "benign_assessments_page_cap",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): smaller default page for assessment lists",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    limit: int = Query(50, ge=1, le=200),\n    cursor: str | None = None,\n) -> dict[str, Any]:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc)",
+          "new": "    limit: int = Query(25, ge=1, le=200),\n    cursor: str | None = None,\n) -> dict[str, Any]:\n    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        q = sa.select(assessments.c.id, assessments.c.doc)"
+        }
+      ]
+    },
+    {
+      "id": "benign_project_not_found_message",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/deps.py"
+      ],
+      "message": "docs(api): explain why non-members get 404",
+      "edits": [
+        {
+          "path": "backend/backend/api/deps.py",
+          "old": "    \"\"\"Resolve project -> org membership. Non-members get 404 (no existence leak).\"\"\"",
+          "new": "    \"\"\"Resolve project -> org membership.\n\n    Non-members get 404, not 403, so a caller cannot learn that a project id exists.\n    \"\"\""
+        }
+      ]
+    },
+    {
+      "id": "benign_signature_strip",
+      "kind": "benign",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "refactor(github): compute the expected signature once",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "    expected = \"sha256=\" + hmac.new(secret, raw_body, hashlib.sha256).hexdigest()\n    return hmac.compare_digest(expected.encode(), header.strip().encode())",
+          "new": "    digest = hmac.new(secret, raw_body, hashlib.sha256).hexdigest()\n    expected = f\"sha256={digest}\".encode()\n    return hmac.compare_digest(expected, header.strip().encode())"
+        }
+      ]
+    },
+    {
+      "id": "benign_checkout_timeout",
+      "kind": "benign",
+      "files": [
+        "backend/backend/checkouts.py"
+      ],
+      "message": "fix(checkouts): allow slower git fetches",
+      "edits": [
+        {
+          "path": "backend/backend/checkouts.py",
+          "old": "    timeout: float = 300,\n    extra_env: dict[str, str] | None = None,\n) -> str:",
+          "new": "    timeout: float = 600,\n    extra_env: dict[str, str] | None = None,\n) -> str:"
+        }
+      ]
+    },
+    {
+      "id": "benign_repositories_order",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "feat(api): list a project's repositories in name order",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        rows = conn.execute(\n            sa.select(repositories).where(repositories.c.project_id == project_id)\n        ).mappings()",
+          "new": "        rows = conn.execute(\n            sa.select(repositories)\n            .where(repositories.c.project_id == project_id)\n            .order_by(repositories.c.full_name)\n        ).mappings()"
+        }
+      ]
+    },
+    {
+      "id": "benign_project_detail_variable",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): name the project row in get_project",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        return _project(\n            conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        )",
+          "new": "    with transaction() as conn:\n        require_project(conn, _user(conn, request), project_id)\n        row = conn.execute(sa.select(projects).where(projects.c.id == project_id)).mappings().one()\n        return _project(row)"
+        }
+      ]
+    },
+    {
+      "id": "vuln_scope_viewer_mutates",
+      "kind": "vuln",
+      "cwe": "CWE-862",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "refactor(api): simplify scope request checks",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        org_id, _ = require_project(conn, user, project_id, MemberRole.member)\n        retry = {",
+          "new": "        org_id, _ = require_project(conn, user, project_id)\n        retry = {"
+        }
+      ]
+    },
+    {
+      "id": "vuln_runs_open",
+      "kind": "vuln",
+      "cwe": "CWE-639",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): skip redundant assessment membership check",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)",
+          "new": "        _user(conn, request)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)"
+        }
+      ]
+    },
+    {
+      "id": "vuln_events_open",
+      "kind": "vuln",
+      "cwe": "CWE-639",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "perf(api): skip redundant assessment membership check on event log",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n    rows = _events_after(",
+          "new": "        _user(conn, request)\n    rows = _events_after("
+        }
+      ]
+    },
+    {
+      "id": "vuln_unbounded_assessments",
+      "kind": "vuln",
+      "cwe": "CWE-770",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "feat(api): allow larger assessment pages",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "def list_assessments(\n    project_id: str,\n    request: Request,\n    limit: int = Query(50, ge=1, le=200),",
+          "new": "def list_assessments(\n    project_id: str,\n    request: Request,\n    limit: int = Query(50, ge=1, le=100000),"
+        }
+      ]
+    },
+    {
+      "id": "vuln_sql_interval",
+      "kind": "vuln",
+      "cwe": "CWE-89",
+      "files": [
+        "backend/backend/jobs.py"
+      ],
+      "message": "refactor(jobs): drop noisy cast in lease heartbeat",
+      "edits": [
+        {
+          "path": "backend/backend/jobs.py",
+          "old": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s)} seconds'\"),",
+          "new": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{lease_s} seconds'\"),"
+        }
+      ]
+    },
+    {
+      "id": "vuln_tls_verify",
+      "kind": "vuln",
+      "cwe": "CWE-295",
+      "files": [
+        "backend/backend/api/auth.py"
+      ],
+      "message": "fix(auth): tolerate proxy certificates in token exchange",
+      "edits": [
+        {
+          "path": "backend/backend/api/auth.py",
+          "old": "    with httpx.Client(timeout=15) as client:",
+          "new": "    with httpx.Client(timeout=15, verify=False) as client:"
+        }
+      ]
+    },
+    {
+      "id": "vuln_token_admin",
+      "kind": "vuln",
+      "cwe": "CWE-266",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "feat(github): request admin scope for repo settings sync",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\"}",
+          "new": "                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\", \"administration\": \"write\", \"issues\": \"write\"}"
+        }
+      ]
+    },
+    {
+      "id": "vuln_oauth_state_off",
+      "kind": "vuln",
+      "cwe": "CWE-352",
+      "files": [
+        "backend/backend/api/auth.py"
+      ],
+      "message": "fix(auth): unblock OAuth callback on legacy clients",
+      "edits": [
+        {
+          "path": "backend/backend/api/auth.py",
+          "old": "    if not code or not state or not secrets.compare_digest(state.encode(), expected.encode()):",
+          "new": "    if not code or not state:"
+        }
+      ]
+    },
+    {
+      "id": "vuln_checkout_name",
+      "kind": "vuln",
+      "cwe": "CWE-20",
+      "files": [
+        "backend/backend/checkouts.py"
+      ],
+      "message": "fix(checkouts): accept dotted repository names",
+      "edits": [
+        {
+          "path": "backend/backend/checkouts.py",
+          "old": "    if not FULL_NAME_RE.match(full_name):\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")",
+          "new": "    if not full_name.strip():\n        raise CheckoutError(f\"invalid repository name {full_name!r}\")"
+        }
+      ]
+    },
+    {
+      "id": "benign_runs_member",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "fix(api): require membership for agent run listing",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        _assessment_access(conn, _user(conn, request), assessment_id)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)",
+          "new": "        _assessment_access(conn, _user(conn, request), assessment_id, MemberRole.member)\n        docs = conn.execute(\n            sa.select(agent_runs.c.doc)"
+        }
+      ]
+    },
+    {
+      "id": "benign_artifact_sha512",
+      "kind": "benign",
+      "files": [
+        "backend/backend/artifacts.py"
+      ],
+      "message": "perf(artifacts): move content addressing to sha512",
+      "edits": [
+        {
+          "path": "backend/backend/artifacts.py",
+          "old": "        sha = hashlib.sha256(data).hexdigest()",
+          "new": "        sha = hashlib.sha512(data).hexdigest()"
+        },
+        {
+          "path": "backend/backend/artifacts.py",
+          "old": "        if hashlib.sha256(data).hexdigest() != row[\"sha256\"]:",
+          "new": "        if hashlib.sha512(data).hexdigest() != row[\"sha256\"]:"
+        }
+      ]
+    },
+    {
+      "id": "benign_interval_default",
+      "kind": "benign",
+      "files": [
+        "backend/backend/jobs.py"
+      ],
+      "message": "fix(jobs): tolerate missing lease seconds in heartbeat",
+      "edits": [
+        {
+          "path": "backend/backend/jobs.py",
+          "old": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s)} seconds'\"),",
+          "new": "            lease_expires_at=sa.func.now() + sa.text(f\"interval '{int(lease_s or 0)} seconds'\"),"
+        }
+      ]
+    },
+    {
+      "id": "vuln_session_expiry_off",
+      "kind": "vuln",
+      "cwe": "CWE-613",
+      "files": [
+        "backend/backend/api/deps.py"
+      ],
+      "message": "perf(auth): skip session expiry read on hot path",
+      "edits": [
+        {
+          "path": "backend/backend/api/deps.py",
+          "old": ".where(sessions.c.token_hash == _hash(token), sessions.c.expires_at > sa.func.now())",
+          "new": ".where(sessions.c.token_hash == _hash(token))"
+        }
+      ]
+    },
+    {
+      "id": "vuln_csrf_post_exempt",
+      "kind": "vuln",
+      "cwe": "CWE-352",
+      "files": [
+        "backend/backend/api/deps.py"
+      ],
+      "message": "fix(auth): let idempotent POSTs through without the CSRF header",
+      "edits": [
+        {
+          "path": "backend/backend/api/deps.py",
+          "old": "    if request.method not in (\"GET\", \"HEAD\", \"OPTIONS\"):\n        sent = request.headers.get(CSRF_HEADER, \"\")",
+          "new": "    if request.method not in (\"GET\", \"HEAD\", \"OPTIONS\", \"POST\"):\n        sent = request.headers.get(CSRF_HEADER, \"\")"
+        }
+      ]
+    },
+    {
+      "id": "vuln_artifact_digest_optional",
+      "kind": "vuln",
+      "cwe": "CWE-353",
+      "files": [
+        "backend/backend/artifacts.py"
+      ],
+      "message": "fix(artifacts): tolerate rows written before the digest column existed",
+      "edits": [
+        {
+          "path": "backend/backend/artifacts.py",
+          "old": "        if hashlib.sha256(data).hexdigest() != row[\"sha256\"]:\n            raise OSError(f\"artifact {artifact_id} failed integrity check\")",
+          "new": "        if row[\"sha256\"] and hashlib.sha256(data).hexdigest() != row[\"sha256\"]:\n            raise OSError(f\"artifact {artifact_id} failed integrity check\")"
+        }
+      ]
+    },
+    {
+      "id": "vuln_delivery_tip_check_removed",
+      "kind": "vuln",
+      "cwe": "CWE-367",
+      "files": [
+        "backend/backend/delivery.py"
+      ],
+      "message": "refactor(delivery): drop the redundant tip re-fetch",
+      "edits": [
+        {
+          "path": "backend/backend/delivery.py",
+          "old": "        if _git(\"-C\", str(repo_dir), \"rev-parse\", tip_ref).strip() != base_sha:\n            raise BranchMoved(f\"{branch} moved since the assessed commit\")",
+          "new": ""
+        }
+      ]
+    },
+    {
+      "id": "vuln_token_unified_perms",
+      "kind": "vuln",
+      "cwe": "CWE-266",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "feat(github): unify installation token permissions",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "            json={\n                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\"}\n                if write\n                else {\"contents\": \"read\", \"metadata\": \"read\"}\n            }",
+          "new": "            json={\n                \"permissions\": {\"contents\": \"write\", \"pull_requests\": \"write\", \"metadata\": \"read\"}\n            }"
+        }
+      ]
+    },
+    {
+      "id": "vuln_webhook_replay",
+      "kind": "vuln",
+      "cwe": "CWE-294",
+      "files": [
+        "backend/backend/api/webhooks.py"
+      ],
+      "message": "fix(webhooks): namespace dedupe keys per handler instance",
+      "edits": [
+        {
+          "path": "backend/backend/api/webhooks.py",
+          "old": "                dedupe_key=f\"gh:{delivery}\",",
+          "new": "                dedupe_key=f\"gh:{delivery}:{id(payload)}\","
+        }
+      ]
+    },
+    {
+      "id": "vuln_oauth_state_cookie_insecure",
+      "kind": "vuln",
+      "cwe": "CWE-614",
+      "files": [
+        "backend/backend/api/auth.py"
+      ],
+      "message": "fix(auth): keep the OAuth state cookie on http during local testing",
+      "edits": [
+        {
+          "path": "backend/backend/api/auth.py",
+          "old": "    resp.set_cookie(\n        STATE_COOKIE, state, httponly=True, samesite=\"lax\", secure=not s.is_dev, max_age=600\n    )",
+          "new": "    resp.set_cookie(\n        STATE_COOKIE, state, httponly=True, samesite=\"lax\", secure=False, max_age=600\n    )"
+        }
+      ]
+    },
+    {
+      "id": "vuln_finding_transition_any_member",
+      "kind": "vuln",
+      "cwe": "CWE-862",
+      "files": [
+        "backend/backend/api/routes.py"
+      ],
+      "message": "fix(findings): let any project member triage findings",
+      "edits": [
+        {
+          "path": "backend/backend/api/routes.py",
+          "old": "        row = _finding_access(conn, user, finding_id, MemberRole.owner)",
+          "new": "        row = _finding_access(conn, user, finding_id, MemberRole.viewer)"
+        }
+      ]
+    },
+    {
+      "id": "benign_github_accept_constant",
+      "kind": "benign",
+      "files": [
+        "backend/backend/github.py"
+      ],
+      "message": "style(github): order the token permissions dict consistently",
+      "edits": [
+        {
+          "path": "backend/backend/github.py",
+          "old": "else {\"contents\": \"read\", \"metadata\": \"read\"}",
+          "new": "else {\"metadata\": \"read\", \"contents\": \"read\"}"
+        }
+      ]
+    },
+    {
+      "id": "benign_webhook_docstring",
+      "kind": "benign",
+      "files": [
+        "backend/backend/api/webhooks.py"
+      ],
+      "message": "docs(webhooks): note the no-rate-limit rationale",
+      "edits": [
+        {
+          "path": "backend/backend/api/webhooks.py",
+          "old": "    # No rate limit: the HMAC already proves GitHub sent it, the queue absorbs bursts, and",
+          "new": "    # No rate limit: the HMAC already proves GitHub sent it, the queue absorbs bursts, and\n    # the dedupe key below makes a retried delivery idempotent end-to-end."
+        }
+      ]
     }
-   ]
-  }
- ]
+  ]
 }

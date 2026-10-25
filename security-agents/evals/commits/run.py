@@ -78,15 +78,21 @@ def score(cases: list[dict], shas: dict[str, str]) -> dict:
 
 
 def cleanup(run_tag: str, cases: list[dict]) -> None:
-    prs = json.loads(
-        subprocess.run(
-            ["gh", "pr", "list", "--state", "open", "--json", "number,headRefName"],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout
-    )
+    try:
+        prs = json.loads(
+            subprocess.run(
+                ["gh", "pr", "list", "--state", "open", "--json", "number,headRefName"],
+                cwd=REPO,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        # gh needs interactive auth; without it skip PR housekeeping — branch
+        # deletion below still runs and stale ari/fix-* PRs can be closed later.
+        print(f"  cleanup: gh unavailable ({exc}); skipping PR close", flush=True)
+        prs = []
     for pr in prs:
         if pr["headRefName"].startswith("ari/fix-"):
             subprocess.run(

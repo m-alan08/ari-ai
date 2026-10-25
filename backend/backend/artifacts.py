@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from backend.db import artifacts
-from backend.redaction import redact, redact_text
+from backend.redaction import redact, redact_code, redact_text
 from backend.settings import get_settings
 from shared.evidence import ArtifactKind, ArtifactRef
 from shared.ids import IdPrefix, new_id
@@ -97,9 +97,10 @@ class ArtifactStore:
         project_id: str | None,
         media_type: str = "text/plain",
     ) -> ArtifactRef:
+        redactor = redact_code if kind is ArtifactKind.diff else redact_text
         return self.put_bytes(
             conn,
-            redact_text(text).encode(),
+            redactor(text).encode(),
             kind=kind,
             project_id=project_id,
             media_type=media_type,

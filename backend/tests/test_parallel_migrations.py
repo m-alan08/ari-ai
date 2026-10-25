@@ -60,4 +60,4 @@ def test_repository_has_a_single_migration_head():
     """Merged branches must leave one head (add a merge revision when two land)."""
     cfg = Config()
     cfg.set_main_option("script_location", str(MIGRATIONS))
-    assert ScriptDirectory.from_config(cfg).get_heads() == ["0015"]
+    assert ScriptDirectory.from_config(cfg).get_heads() == ["0016"]

@@ -37,7 +37,11 @@ def test_roe_is_built_from_the_active_scope():
     assert [t.target_id for t in roe.targets] == [TARGET_ID]
     assert roe.requested_by == "usr_requester" and roe.approved_by == "usr_approver"
     assert roe.valid_from == scope.approved_at and roe.valid_until == scope.expires_at
-    assert roe.permitted_check_templates == ["access_control.ownership@1", "input_validation.bounds@1"]
+    assert roe.permitted_check_templates == [
+        "access_control.authentication@1",
+        "access_control.ownership@1",
+        "input_validation.bounds@1",
+    ]
     assert set(roe.permitted_agents) == {AgentName.PROBE, AgentName.VERIFY}
     assert roe.prohibited_actions and roe.stop_conditions and roe.data_handling
     assert roe.audit_event_ids == ["aud_01SCOPECHECK"]

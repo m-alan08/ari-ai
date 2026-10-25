@@ -1,6 +1,6 @@
 | Agent | Model | Metric (test) | Model | Best baseline | Baseline score | Δ | Δ 95% CI | Promoted |
 |---|---|---|---|---|---|---|---|---|
-| scout | `ari-scout-vulnclass@1.1.0` | macro_f1 | 0.374 | static_analyze_patterns | 0.099 | +0.275 | [+0.259, +0.291] (significant) | yes |
+| scout | `ari-scout-vulnclass@1.1.0` | macro_f1 | 0.349 | static_analyze_patterns | 0.084 | +0.266 | [+0.252, +0.299] (significant) | yes |
 | probe | `ari-probe-strategy@1.1.0` | accuracy | 0.631 | cwe_lookup | 0.606 | +0.025 | [+0.004, +0.048] (significant) | yes |
 | trace | `ari-trace-tactics@1.1.0` | f1_at_k | 0.468 | prior_top3 | 0.454 | +0.014 | [-0.030, +0.060] | no |
 | diagnose | `ari-diagnose-rootcause@1.1.0` | macro_f1 | 0.601 | cwe_lookup | 0.525 | +0.076 | [+0.025, +0.130] (significant) | yes |
