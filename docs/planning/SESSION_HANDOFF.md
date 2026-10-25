@@ -18,6 +18,12 @@ adds an entry before ending.
 
 ---
 
+### 2026-10-25 — Devin (agent, Alan) — N4 read-side secret redaction (Codex RC2)
+- Did: owned the N4 read surfaces per `coordination/messages/2026-10-25-rc2-n-findings-owner-fixes.md`. `GET /api/v1/jobs/{id}` now `redact()`s `last_error` (minus `trace`) and `result`; `GET /api/v1/audit` redacts each returned `AuditEvent` doc (owner gate unchanged); observability `error_code` fields (`InvocationJobView`, diagnostics `recent_errors`) go through `redact_text` (messages already did). `backend/redaction.py` gained DSN-userinfo (`postgres|mysql|mongodb|redis|amqp` `://user:pass@` → `scheme://[REDACTED:dsn_credentials]@`) and `key=value`/`key: value` secret patterns — same regexes as the richer `integration/2026-11-02-release` copy, so the merge resolves to the union. Redaction is at read time, so previously stored unsanitized rows are covered.
+- Coordination: `coordination/messages/20261025T063000Z-devin-to-reliability-n4-read-side-redaction-split.md` — asked Reliability Devin to wrap `execution.history()` in `redact()` inside `api/execution.py` (`/jobs/{id}/history` lives on their branch; editing it here would add/add-conflict) and to sanitize `job_events.reason`/`details`/`recovery_notes` at write. Could not post on upstream #559 (no upstream write).
+- Commands run and results (executed): `pytest backend/tests/test_live_defense_investigations.py` (19/19, incl. ported RC2 probe `test_job_api_does_not_expose_infrastructure_credentials`, viewer-surface, stored-events-shape, and audit redaction tests), `make check` (ruff + contract freshness clean), `uv run mypy` clean.
+- Warnings: `api/routes.py::get_job` now wraps values in `redact()` — when the reliability branch merges, its new fields (`recovery`, `error_category`, …) should also flow through `redact`; verify at merge. Do not merge PR m-alan08/ari-ai#3.
+
 ### 2026-10-24 — Devin (agent, Adam) — leaked Vercel snapshot cleanup, push→agents verification
 - Did: verified the named-sandbox snapshot-leak fix already on main (`persistent: False` on run boxes + `destroy` in teardown + `_sweep_stale`); opened PR #495 making the sweep also delete stale run boxes' orphan snapshots so leaked quota is actually freed. Confirmed `delete_orphan_snapshots` only removes snapshots created *by* the destroyed sandbox — the shared `ari-base-*` snapshot can never be an orphan of a run box. Verified on main: security-agents suite 581 passed / 24 skipped, frontend typecheck + 330 vitest + lint clean, standards smoke (CWE/OWASP/CVSS/ATT&CK/D3FEND/SARIF/SP 800-115) passes. Confirmed agents are standards-grounded in code: Scout CWE/OWASP, Probe CWE, Trace ATT&CK/CVSS, Diagnose D3FEND, Fortify CWE/D3FEND; Patch/Verify get standards context via the tagged finding + remediation plan, not prompts.
 - State of the code: push→agents path gates are code-verified (`pipeline.process_github_delivery` → `auto_commits.schedule` → `assess_github_commit`): `repositories.automatic_assessments` (per-repo opt-in, UI switch exists), `GITHUB_AUTO_COMMIT_AUTHORS` (Railway entrypoint defaults `*`), `monitoring_policy.enabled` (project setting, UI switch), active `AuthorizedScope`. All four must be on for pushes to spawn runs — they are product gates, not bugs.
@@ -1696,6 +1702,26 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Prod: enabled `automatic_assessments` on adamissac/mypypath (ari-ai already on), enabled `monitoring_policy` on the `derv` project, approved mypypath's sandbox scope (active to 2026-11-18), stamped delivery authorization on both projects. Push→agents chain verified live: monitoring assessments COMPLETED within ~1-2 min of each push.
 - Branch `feat/adam/agent-visibility-not-needed`: relay/team list now label skipped agents 'Not needed' (with the recorded skip note) or 'Not reached' on failed/cancelled runs. `earlyEndNote` in `frontend/lib/relay.ts` reads the reason from persisted `state_changed` events.
 - Next: expand `security-agents/evals/commits/cases.json` toward ~40 cases, add check templates to lift `vuln validated` off 0/7 (only ownership + bounds templates exist).
+
+## 2026-10-24 — Devin: F6 canonical state precedence + F9 schema coordination
+
+- Codex review (`docs/reviews/first-responder-integration/REPORT.md` @ `6e882045`) findings owned: F6 implemented on `feat/devin-investigation-observability`, F9 coordinated via `coordination/messages/20261024T230000Z-devin-to-all-f6-state-precedence-f9-schema-compat.md`.
+- F6: `FirstResponderInvocationView.effective_state` is the canonical combined state — terminal invocation statuses are authoritative; non-terminal invocations inherit the joined job row (`dead`→`failed`; `waiting`/`timed_out`/`recovery_required`/`cancelled` pass through). `final_state` precedence: cancelled decision → recovery_required → timed_out → failed → cancelled → in_progress → waiting → queued → completed/skipped → evidence_state. Unresolved effects are never shown as success.
+- List API: `InvestigationSummary.job_statuses` rollup from `jobs` (batched GROUP BY). Diagnostics: `jobs_waiting`/`jobs_timed_out`/`jobs_recovery_required`, `WaitingJobView.status`, waiting list covers queued+waiting, latency spans all finished states. Executions UI renders effective_state with job-state notes and new stat cards/badges.
+- Forward-compatible with the execution-reliability branch: new statuses aren't writeable on main (`ck_jobs_status` has the 6-state list); tests widen the constraint exactly like migration 0016 and restore it, exercising the read paths against real persisted rows.
+- F9: #458's `test_live_defense_phase7c.py:130` pins `SCHEMA_VERSION == "0.22.0"` — asked Grok via the message above to change it to a capability/`>=` check; contracts stay 0.23.0, no downgrade. JSON Schema + TS exports verified (`make contracts`, `shared.export --check`, 35/35 transport tests).
+- Evidence: backend 15/15 (precedence matrix, timed_out, recovery_required, waiting, cancelled, partial failure, job_statuses rollup, diagnostics counters), frontend unit 9/9 + full vitest 346/346, transport 35/35, `make check` + `mypy` clean.
+- Next: PR https://github.com/m-alan08/ari-ai/pull/3 stays open; do not merge from the agent.
+
+## 2026-10-24 — Devin: first-responder observability (Executions tab, schema 0.23.0)
+
+- Branch `feat/devin-investigation-observability` (on `m-alan08/ari-ai` fork; upstream push denied): read-only investigation observability over Phase 7A persisted records.
+- New shared DTOs in `shared/live_defense.py` at schema 0.23.0 — 0.20.0 stays reserved for open #412, 0.22.0 for open #458. `AgentExecutionView` mirrors the 7C `AgentExecutionRecord` with all fields optional: works today, populates automatically when #458 lands.
+- New read-only API (`backend/api/live_defense_investigations.py`): bounded investigations list (keyset, limit<=200), decision timeline (events, application, deploy mapping, snapshot resolution, invocations + joined job state, handoff, final state), invocation detail, project diagnostics (stalled leases, status distribution, missing prerequisites, waiting jobs, redacted recent errors, wall-clock latency, cost rollup = unavailable until 7C).
+- New Live Defense "Executions" tab: list + timeline + diagnostics; every missing field renders "unavailable"; no mutation controls.
+- Evidence: `backend/tests/test_live_defense_investigations.py` (9 pass), `frontend/tests/unit/live-defense-executions.test.tsx` (7 pass), `frontend/tests/e2e/live-defense-investigations.spec.ts`, transport methods + node tests.
+- Coordination: `coordination/messages/20261024T182202Z-devin-to-all-live-defense-observability-schema-0-23.md`; status `coordination/status/DEVIN.md`.
+- Next: PR review/merge by a human; do not merge from the agent.
 
 ## 2026-10-24 — Devin (Adam): specialist eval-brain + live eval harness
 

@@ -16,6 +16,21 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
         "[REDACTED:private_key]",
     ),
     (re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._\-]{16,}"), r"\1 [REDACTED:bearer]"),
+    # credentials inside DSN userinfo: scheme://user:pass@host -> scheme://[REDACTED]@host
+    (
+        re.compile(
+            r"(?i)\b(postgres(?:ql)?(?:\+\w+)?|mysql(?:\+\w+)?|mongodb(?:\+srv)?|redis|amqp)://[^\s:/@]+:[^\s@]+@"
+        ),
+        r"\1://[REDACTED:dsn_credentials]@",
+    ),
+    # key=value / key: value secrets in prose (password=..., api_key: ...)
+    (
+        re.compile(
+            r"(?i)\b\w*(?:password|passwd|pwd|api_key|apikey|secret|token)\w*\s*[=:]\s*"
+            r"(?:'[^'\n]*'|\"[^\"\n]*\"|[^\s'\"]+)"
+        ),
+        "[REDACTED:kv]",
+    ),
 ]
 
 _SENSITIVE_KEYS = re.compile(

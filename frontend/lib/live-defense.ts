@@ -7,7 +7,7 @@
 import type { Incident, MonitoringEvent } from '@hackatl/frontend-transport';
 
 export type LiveDefenseMode = 'live' | 'layout-preview';
-export type LiveDefenseTab = 'overview' | 'incidents' | 'explain' | 'apps' | 'controls' | 'first-responder';
+export type LiveDefenseTab = 'overview' | 'incidents' | 'explain' | 'apps' | 'controls' | 'first-responder' | 'executions';
 
 export const PREVIEW_QUERY = 'preview';
 export const PREVIEW_VALUE = 'layout';
@@ -54,7 +54,7 @@ export function withLiveDefenseMode(href: string, mode: LiveDefenseMode): string
 
 export function liveDefenseHref(projectId: string | null, tab: LiveDefenseTab = 'overview', mode: LiveDefenseMode = 'live'): string {
   const base = projectId === null ? '/live-defense-pilot' : `/projects/${projectId}/live-defense`;
-  const suffix = tab === 'overview' ? '' : tab === 'incidents' ? '/incidents' : tab === 'explain' ? '/explain' : tab === 'controls' ? '/controls' : tab === 'first-responder' ? '/first-responder' : '/apps';
+  const suffix = tab === 'overview' ? '' : tab === 'incidents' ? '/incidents' : tab === 'explain' ? '/explain' : tab === 'controls' ? '/controls' : tab === 'first-responder' ? '/first-responder' : tab === 'executions' ? '/executions' : '/apps';
   const path = `${base}${suffix}`;
   return projectId === null ? path : withLiveDefenseMode(path, mode);
 }
@@ -64,6 +64,7 @@ export function liveDefenseTab(pathname: string): LiveDefenseTab {
   if (/live-defense(?:-pilot)?\/incidents(?:\/|$)/.test(pathname)) return 'incidents';
   if (/live-defense(?:-pilot)?\/controls(?:\/|$)/.test(pathname)) return 'controls';
   if (/live-defense(?:-pilot)?\/first-responder(?:\/|$)/.test(pathname)) return 'first-responder';
+  if (/live-defense(?:-pilot)?\/executions(?:\/|$)/.test(pathname)) return 'executions';
   if (/live-defense(?:-pilot)?\/apps(?:\/|$)/.test(pathname)) return 'apps';
   return 'overview';
 }
@@ -73,6 +74,10 @@ export const USED_LIVE_APIS = [
   { method: 'GET', path: '/projects/{id}', use: '24/7 defense switch and project name' },
   { method: 'PATCH', path: '/projects/{id}', use: 'owner toggle of monitoring_policy.enabled' },
   { method: 'GET', path: '/projects/{id}/events', use: 'recorded webhook and runtime events' },
+  { method: 'GET', path: '/projects/{id}/first-responder/investigations', use: 'bounded investigation list (Executions tab)' },
+  { method: 'GET', path: '/first-responder/investigations/{decisionId}', use: 'investigation timeline: events, mapping, snapshot, invocations, handoff' },
+  { method: 'GET', path: '/first-responder/invocations/{invocationId}', use: 'agent execution detail: queue state + optional execution record' },
+  { method: 'GET', path: '/projects/{id}/first-responder/diagnostics', use: 'operational diagnostics: stalled jobs, failures, waiting queue, redacted errors' },
   { method: 'GET', path: '/projects/{id}/reassessments', use: 're-checks those events requested' },
   { method: 'GET', path: '/projects/{id}/incidents', use: 'NIST incident list' },
   { method: 'GET', path: '/incidents/{id}', use: 'incident timeline and linked evidence' },

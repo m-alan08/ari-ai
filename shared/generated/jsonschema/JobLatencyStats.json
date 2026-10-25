@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "Wall-clock job durations (queue + run). Not model latency.",
+  "properties": {
+    "avg_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Avg Ms"
+    },
+    "max_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Ms"
+    },
+    "samples": {
+      "minimum": 0,
+      "title": "Samples",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "samples"
+  ],
+  "title": "JobLatencyStats",
+  "type": "object"
+}
