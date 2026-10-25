@@ -157,7 +157,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     onboarding.OnboardingStatus,
     onboarding.OnboardingTestEventCreate,
     onboarding.OnboardingTestEventResult,
->>>>>>> transfer/customer-onboarding    # rl
+    # rl
     rl.NodeSignals,
     rl.PlatformFacts,
     rl.ActionScore,

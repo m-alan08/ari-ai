@@ -21,9 +21,8 @@ from backend.api import (
     live_defense,
     live_defense_controls,
     live_defense_first_responder,
-<
     onboarding,
->>>>>>> transfer/customer-onboarding    routes,
+    routes,
     runtime,
     webhooks,
 )
@@ -186,9 +185,8 @@ def create_app() -> FastAPI:
         live_defense_controls.router,
         live_defense_first_responder.router,
         ops_api.router,
-<
         onboarding.router,
->>>>>>> transfer/customer-onboarding    ):
+    ):
         app.include_router(r, prefix="/api/v1")
     return app
 
