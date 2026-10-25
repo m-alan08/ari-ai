@@ -1,9 +1,0 @@
-category: bad_patch
-title: "Fix: refunds can exceed the payment amount"
-body: |
-  Fixes the bug where a payment could be refunded for more than it was worth.
-  refund() now raises RefundTooLarge when the refund is larger than the payment.
-expected:
-  defect: true
-  kind: functional
-  root_cause: {path: payments/refunds.py, symbol: refund}

@@ -1,7 +1,0 @@
-steps: 1000000
-eps_decay_steps: 300000
-buffer_size: 200000
-lr: 0.0003
-adversary_scale: [0.5, 2.5]
-select_every: 50000
-select_start: 300000

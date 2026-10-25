@@ -1,4 +1,0 @@
-steps: 500000
-eps_decay_steps: 150000
-target_update: soft
-tau: 0.005

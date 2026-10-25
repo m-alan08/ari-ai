@@ -1,2 +1,0 @@
-from_run: r3/r3_1m_dr_nstep3_sel  # v1 setting, validation seeds 10-14 (post hoc, no retraining)
-disruption_margin: 0.15

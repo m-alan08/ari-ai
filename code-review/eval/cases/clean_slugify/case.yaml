@@ -1,7 +1,0 @@
-category: clean
-title: "Add slugify for product URLs"
-body: |
-  slugify() lowercases, turns runs of non-alphanumerics into a single hyphen and
-  trims hyphens from both ends, as described in its docstring.
-expected:
-  defect: false

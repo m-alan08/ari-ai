@@ -1,7 +1,0 @@
-category: clean
-title: "Add capped exponential backoff for webhook retries"
-body: |
-  backoff(attempt) doubles from 1s and never exceeds the 60s cap documented
-  in the module docstring.
-expected:
-  defect: false

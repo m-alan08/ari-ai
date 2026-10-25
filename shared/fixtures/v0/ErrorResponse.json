@@ -1,8 +1,0 @@
-{
-  "error": {
-    "code": "SCOPE_DENIED",
-    "details": {},
-    "message": "Scope scp_\u2026 is not active",
-    "request_id": "req_01JFIXTURE0000000000000REQ"
-  }
-}

@@ -1,4 +1,0 @@
-steps: 500000
-eps_decay_steps: 150000
-lr: 0.0003
-adversary_scale: [0.5, 2.5]

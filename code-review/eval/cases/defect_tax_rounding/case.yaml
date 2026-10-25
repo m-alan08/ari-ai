@@ -1,8 +1,0 @@
-category: functional_defect
-title: "Add sales tax calculation"
-body: |
-  Adds sales_tax(subtotal, rate). Rounding follows the README money rules.
-expected:
-  defect: true
-  kind: functional
-  root_cause: {path: tax/calc.py, symbol: sales_tax}

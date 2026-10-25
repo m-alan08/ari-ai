@@ -1,8 +1,0 @@
-{
- "cvss-v3.1-specification.html": "4155ee499564a21a406d11d67e8e44c2066bb4d7a4abe7771b46afe474412f37",
- "nist-sp800-115-csrc.html": "862d6141aa6407f4ad6f203fe7ea66d3f7cbcf9472c1962f5da6f4ecae743060",
- "nist-sp800-115.pdf": "58e5ed41e5c8ca34ce14fd80b70f118f2c6d613d1647bc307edca30bcc45f063",
- "owasp-api-2023/0x11-t10.md": "c396a9fc70a64ea6bccba608b482a99750f00f0ad6c283d6fbdd5c4d936040a3",
- "sarif-schema-2.1.0.json": "c3b4bb2d6093897483348925aaa73af03b3e3f4bd4ca38cef26dcb4212a2682e",
- "sarif-v2.1.0-errata01-os-complete.html": "1b08d024b25cfb26948fca9ede7606ca0c543c6deb279954646f50e3f26ebf97"
-}

@@ -1,8 +1,0 @@
-category: bad_patch
-title: "Fix: escape customer names in HTML"
-body: |
-  Customer names were inserted into HTML unescaped. render_name now escapes them.
-expected:
-  defect: true
-  kind: security
-  root_cause: {path: web/render.py, symbol: render_name}

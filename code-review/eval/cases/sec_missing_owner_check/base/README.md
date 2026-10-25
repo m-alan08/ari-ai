@@ -1,3 +1,0 @@
-# billing
-
-Invoices for customers.

@@ -1,3 +1,0 @@
-steps: 1000000
-eps_decay_steps: 300000
-buffer_size: 200000

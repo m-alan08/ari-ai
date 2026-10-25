@@ -1,9 +1,0 @@
-category: security_regression
-title: "Allow nested export folders"
-body: |
-  Customers can now organise exports in sub-folders, so export_path accepts
-  names like "2026/march.csv".
-expected:
-  defect: true
-  kind: security
-  root_cause: {path: exports/files.py, symbol: export_path}

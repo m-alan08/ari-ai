@@ -1,9 +1,0 @@
-category: security_regression
-title: "Return invoice copies instead of store objects"
-body: |
-  get_invoice now returns a copy so handlers cannot mutate the in-memory store.
-  No behavior change otherwise.
-expected:
-  defect: true
-  kind: security
-  root_cause: {path: billing/invoices.py, symbol: get_invoice}

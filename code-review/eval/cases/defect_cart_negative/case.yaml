@@ -1,9 +1,0 @@
-category: functional_defect
-title: "Support fixed-amount coupons"
-body: |
-  Adds total_with_coupon(prices, coupon). A coupon larger than the cart just
-  makes the order free.
-expected:
-  defect: true
-  kind: functional
-  root_cause: {path: cart/totals.py, symbol: total_with_coupon}

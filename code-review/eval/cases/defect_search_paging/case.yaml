@@ -1,9 +1,0 @@
-category: functional_defect
-title: "Add product search with paging"
-body: |
-  Adds search(items, term, number, per_page). Results are paged the same way
-  as page(): 1-based, see the README paging rules.
-expected:
-  defect: true
-  kind: functional
-  root_cause: {path: catalog/paging.py, symbol: search}

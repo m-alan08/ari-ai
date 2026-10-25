@@ -1,3 +1,0 @@
-# web
-
-HTML rendering helpers.
