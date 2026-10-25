@@ -1,0 +1,37 @@
+{
+  "agent": "devin-pipeline-fixer",
+  "human_owner": "Adam",
+  "workstream": "pilot readiness: merge chain landed; sealed-diff delivery fix (pilot C9)",
+  "state": "AWAITING_REVIEW",
+  "task": "PR #580 sealed verified-diff delivery — awaiting Adam security review (trust-boundary, no merge without it)",
+  "branch": "fix/adam/sealed-diff-delivery",
+  "latest_sha": "994165dd",
+  "prs": [
+    580,
+    527,
+    532,
+    533,
+    535,
+    536,
+    537,
+    538,
+    441,
+    555,
+    564,
+    572
+  ],
+  "claims": [
+    "delivery.py verified-bytes path",
+    "host.store_sealed",
+    "host_adapter binding doc",
+    "test_auto_delivery e2e"
+  ],
+  "depends_on": [
+    "Adam review of #580 (trust-boundary)",
+    "prod deploy after merge → commander re-runs ledgerlite delivery leg (C9)"
+  ],
+  "blockers": [],
+  "last_update_utc": "2026-10-25T03:35:00Z",
+  "tests": "24/24 backend delivery + 32/32 adapter green; e2e bearer-literal diff delivers exact Verify bytes; member reads redacted; sealed artifact 404s",
+  "next_action": "watch #580 CI; on merge+deploy ping commander for C9 re-run"
+}

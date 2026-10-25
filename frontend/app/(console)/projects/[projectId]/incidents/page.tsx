@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { ClosurePanel } from '@/components/incident-closure';
 import { useProject } from '@/components/project';
 import { useSession } from '@/components/session';
-import { Async, Button, Empty, ErrorState, Field, inputClass, Mono, Panel, Tag, Time } from '@/components/ui';
+import { Async, Button, Empty, ErrorState, Field, inputClass, Mono, PageTitle, Panel, Tag, Time } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useActionKeys } from '@/lib/action-key';
 import { CREATE_INCIDENT_NOTE } from '@/lib/create-incident';
@@ -18,6 +18,8 @@ export default function IncidentsPage() {
   const list = useResource(`incidents:${project.id}`, s => api().incidents(project.id, { signal: s }), 15000);
   const [selected, setSelected] = useState<string | null>(null);
   return (
+    <>
+      <PageTitle eyebrow="Defend" title="Incidents" subtitle="Opened from monitoring events, findings or drills — one thread per incident." />
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_3fr]">
       <div className="flex flex-col gap-4">
         <Panel title="Incidents">
@@ -44,6 +46,7 @@ export default function IncidentsPage() {
       </div>
       {selected ? <IncidentDetailView key={selected} id={selected} onChange={list.reload} /> : <Panel title="Incident"><Empty>Select an incident to see its lifecycle and timeline.</Empty></Panel>}
     </div>
+    </>
   );
 }
 

@@ -376,10 +376,31 @@ class PythonExtractor:
                 "api_route",
             }:
                 continue
-            if not decorator.args or not isinstance(decorator.args[0], ast.Constant):
+            arg = decorator.args[0] if decorator.args else None
+            if arg is None or not (isinstance(arg, ast.Constant) and isinstance(arg.value, str)):
+                self.issues.append(
+                    IndexIssue(
+                        path=symbol.path,
+                        reason=(
+                            f"Route decorator @{verb} at line {decorator.lineno} on "
+                            f"{symbol.qualified_name} uses a non-literal path"
+                            + (f" ({ast.unparse(arg)[:200]})" if arg is not None else "")
+                            + "; route not indexed"
+                        ),
+                    )
+                )
                 continue
-            path = decorator.args[0].value
-            if not isinstance(path, str) or len(path) > 500:
+            path = arg.value
+            if len(path) > 500:
+                self.issues.append(
+                    IndexIssue(
+                        path=symbol.path,
+                        reason=(
+                            f"Route decorator @{verb} at line {decorator.lineno} on "
+                            f"{symbol.qualified_name} has an overlong path; route not indexed"
+                        ),
+                    )
+                )
                 continue
             methods = [verb.upper()] if verb not in {"route", "api_route"} else ["GET"]
             dependencies = list(auth)

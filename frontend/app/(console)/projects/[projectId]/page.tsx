@@ -8,7 +8,7 @@ import { PillarLoop } from '@/components/pillar-loop';
 import { RepoCommits } from '@/components/repo-commits';
 import { RepoPicker } from '@/components/repo-picker';
 import { useProject } from '@/components/project';
-import { Async, Badge, Button, Empty, ErrorState, Field, inputClass, Mono, Panel, Stat, Time } from '@/components/ui';
+import { Async, Badge, Button, Empty, ErrorState, Field, inputClass, Mono, PageTitle, Panel, Stat, Time } from '@/components/ui';
 import { api, idempotencyKey } from '@/lib/api';
 import { CONNECT_REPOSITORY_NOTE } from '@/lib/connect';
 import { INDEX_COMMIT_NOTE } from '@/lib/index-commit';
@@ -67,7 +67,7 @@ export default function ProjectOverview() {
           </>
         ) : <p className="text-sm text-muted">Loading the current project records…</p>}
       </section>
-      <div className="flex items-end justify-between gap-4"><div><h1 className="text-2xl font-semibold">7 agents</h1><p className="mt-2 text-sm text-muted">Start a security check, then open a run to replay the work and review its findings.</p></div></div>
+      <PageTitle eyebrow="Review" title="7 Agents" subtitle="Start a security check, then open a run to replay the work and review its findings." />
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4">
         <StartAssessment onStarted={assessments.reload} />
@@ -330,7 +330,7 @@ function StartAssessment({ onStarted }: { onStarted: () => void }) {
               {repos.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
             </select>
           </Field>
-          <Field label="Authorized scope" hint={scopes.status === 'ready' && active.length === 0 ? 'No active scope — request and approve one under More → Authorized scopes.' : undefined}>
+          <Field label="Authorized scope" hint={scopes.status === 'ready' && active.length === 0 ? 'No active scope — request and approve one under Defend → Authorized scopes in the project sidebar.' : undefined}>
             <select className={inputClass} value={scopeId} onChange={e => setScopeId(e.target.value)} required name="scope">
               <option value="">Select…</option>
               {active.filter(s => !repoId || s.targets.some(t => t.repo_id === repoId)).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}

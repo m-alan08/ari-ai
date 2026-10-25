@@ -40,6 +40,7 @@ From the repo root:
 #    and the real Vercel sandbox driver.
 APP_ENV=development AUTH_DEV_LOGIN_ENABLED=true \
 SECURITY_SANDBOX=vercel VERCEL_TOKEN=$VERCEL_TOKEN \
+VERCEL_PROJECT_ID=$VERCEL_PROJECT_ID VERCEL_TEAM_ID=$VERCEL_TEAM_ID \
 ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
 REPOSITORY_BINDINGS_FILE=scripts/rehearsal/bindings.json \
 make dev
@@ -47,6 +48,10 @@ make dev
 # 2. In a second shell, run the driver.
 .venv/bin/python scripts/rehearsal/run_rehearsal.py --base-url http://127.0.0.1:8000
 ```
+
+`VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID` are required by the Vercel Sandbox SDK
+(alongside `VERCEL_TOKEN`) — resolve them read-only via `GET /v9/projects`
+(`accountId` is the `team_*` id even on a personal account).
 
 `scripts/rehearsal/bindings.json` maps the rehearsal repo id to the local
 `target-app` checkout (trusted local binding — no clone needed):

@@ -15,7 +15,8 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
-from backend.db import jobs
+from backend.db import jobs, worker_heartbeats
+from backend.redaction import redact
 from shared.base import utcnow
 from shared.errors import ErrorCode
 from shared.ids import IdPrefix, new_id
@@ -112,10 +113,12 @@ def claim(conn: Connection, owner: str, lease_s: int, kinds: list[str] | None = 
                 status="dead",
                 lease_owner=None,
                 updated_at=sa.func.now(),
-                last_error={
-                    "code": ErrorCode.JOB_LEASE_EXPIRED.value,
-                    "message": "attempts exhausted (lease expired or repeated failure)",
-                },
+                last_error=redact(
+                    {
+                        "code": ErrorCode.JOB_LEASE_EXPIRED.value,
+                        "message": "attempts exhausted (lease expired or repeated failure)",
+                    }
+                ),
             )
         )
         return None
@@ -211,7 +214,7 @@ def fail(
         .values(
             status=status,
             run_after=run_after,
-            last_error=error,
+            last_error=redact(error),
             lease_owner=None,
             lease_expires_at=None,
             updated_at=sa.func.now(),
@@ -236,3 +239,82 @@ def request_cancel(conn: Connection, job_id: str) -> None:
 def queue_reachable(conn: Connection) -> bool:
     conn.execute(sa.select(sa.func.count()).select_from(jobs).where(jobs.c.status == "queued"))
     return True
+
+
+# --------------------------------------------------------------- worker liveness
+
+
+def worker_heartbeat(
+    conn: Connection, worker_id: str, job_id: str | None = None, *, poll: bool = False
+) -> None:
+    """Upsert this worker's liveness row.
+
+    ``heartbeat_at`` is written by the claim loop (each poll) and by the lease-heartbeat
+    thread while a job runs — it proves the process is alive. ``last_poll_at`` is written
+    ONLY by the claim loop itself (``poll=True``), so a worker whose main loop stopped
+    still beats while it holds a job but cannot fake idle-alive: liveness requires
+    ``heartbeat_at`` fresh AND (``last_poll_at`` fresh OR ``current_job_id`` set)."""
+    values: dict[str, Any] = {
+        "worker_id": worker_id,
+        "heartbeat_at": sa.func.now(),
+        "current_job_id": job_id,
+    }
+    set_: dict[str, Any] = {"heartbeat_at": sa.func.now(), "current_job_id": job_id}
+    if poll:
+        values["last_poll_at"] = sa.func.now()
+        set_["last_poll_at"] = sa.func.now()
+    conn.execute(
+        sa.dialects.postgresql.insert(worker_heartbeats)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=[worker_heartbeats.c.worker_id],
+            set_=set_,
+        )
+    )
+
+
+def worker_stopped(conn: Connection, worker_id: str) -> None:
+    conn.execute(sa.delete(worker_heartbeats).where(worker_heartbeats.c.worker_id == worker_id))
+
+
+def live_workers(conn: Connection, liveness_s: float) -> list[dict[str, Any]]:
+    """Workers counted alive for readiness, oldest heartbeat first.
+
+    A row counts when the process beat recently AND is verifiably processing: either the
+    claim loop polled inside the liveness window (``last_poll_at`` fresh — only the main
+    loop writes it) or the worker holds a claimed job (``current_job_id``). A process
+    that is alive but whose claim loop stopped fails both tests; a worker mid-job keeps
+    qualifying via ``current_job_id`` even though it is not polling."""
+    cutoff = utcnow() - timedelta(seconds=liveness_s)
+    rows = (
+        conn.execute(
+            sa.select(worker_heartbeats)
+            .where(worker_heartbeats.c.heartbeat_at > cutoff)
+            .where(
+                sa.or_(
+                    worker_heartbeats.c.last_poll_at > cutoff,
+                    worker_heartbeats.c.current_job_id.is_not(None),
+                )
+            )
+            .order_by(worker_heartbeats.c.heartbeat_at)
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(r) for r in rows]
+
+
+def prune_worker_heartbeats(conn: Connection, older_than_s: float = 86400.0) -> None:
+    conn.execute(
+        sa.delete(worker_heartbeats).where(
+            worker_heartbeats.c.heartbeat_at < utcnow() - timedelta(seconds=older_than_s)
+        )
+    )
+
+
+def queue_counts(conn: Connection) -> dict[str, int]:
+    """Job counts by coarse status for diagnostics (exact, the queue is small)."""
+    rows = conn.execute(sa.select(jobs.c.status, sa.func.count()).group_by(jobs.c.status)).all()
+    counts = {s: 0 for s in ("queued", "running", "succeeded", "failed", "cancelled", "dead")}
+    counts.update({s: n for s, n in rows})
+    return counts

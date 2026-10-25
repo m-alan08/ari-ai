@@ -1695,7 +1695,6 @@ body:has(.commit-stage) main { color: #fff; }
 .footer-links h2 { margin-bottom: 16px; font: 10px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: #d2b9ac; }
 .footer-links a { display: block; width: fit-content; padding-block: 8px; color: #fff7f2; font-size: 13px; line-height: 1.5; }
 .footer-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
-.footer-horizon { position: absolute; z-index: 0; pointer-events: none; inset: 0; background: radial-gradient(ellipse at 15% 120%, #c2452d22, transparent 65%); }
 .footer-bottom { position: relative; z-index: 1; margin-top: 36px; padding-top: 18px; border-top: 1px solid #e2b79e26; display: flex; align-items: center; justify-content: space-between; gap: 24px; color: #d2b9ac; font: 10px var(--font-mono); }
 .footer-top-link { display: inline-flex; align-items: center; gap: 12px; min-height: 36px; }
 @media (max-width: 767px) {
@@ -1808,3 +1807,33 @@ body:has(.commit-stage) main { color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   .hero-stage[data-fx="on"] .hero-headline .hero-line::after { animation: none; }
 }
+
+/* ================= Home landing polish (.home-deep) =================
+   Kairo-inspired restraint on the homepage only, in ARI's own warm palette:
+   pixel-face numbers, kicker eyebrows, blurred inactive steps — everything
+   scroll-driven. The console is untouched. */
+
+/* Mono eyebrow marker — square dot + tracked caps. */
+.kicker { display: inline-flex; align-items: center; gap: 9px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--color-brand-deep); }
+.kicker::before { content: ""; width: 6px; height: 6px; background: var(--color-brand); box-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 80%, transparent); }
+.kicker-ghost { color: #ff9b78; }
+.kicker-dark { color: #ffb89d; }
+.hero-ink .kicker-dark { color: #ffb89d; }
+
+/* Pixel-face figures (Sixtyfour, OFL) — card numbers and stats. */
+.home-deep .story-card-num { font-family: var(--font-sixtyfour), var(--font-mono), monospace; font-weight: 400; letter-spacing: 0.04em; color: rgba(255, 150, 120, 0.30); }
+.home-deep .stat-num { font-family: var(--font-sixtyfour), var(--font-mono), monospace; font-weight: 400; letter-spacing: 0.02em; color: #fff0e6;
+  font-size: clamp(2.25rem, 15vw, 3.75rem); font-size: clamp(2.25rem, 15.5cqw, 4.5rem); }
+/* Sixtyfour is very wide ("Never" ≈ 6.1px per font-px): size the stat to its card, not the
+   viewport, so it can never push the page wider. */
+.home-deep .story-stat { container-type: inline-size; }
+
+/* Inactive steps soften to a blur while the walkthrough stage is pinned. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  .home-deep .story-step { filter: blur(1.6px); opacity: 0.55; transition: color 300ms, border-color 300ms, filter 450ms var(--ease-quad), opacity 450ms; }
+  .home-deep .story-step[data-active] { filter: none; opacity: 1; }
+  .home-deep .story-step[data-done] { filter: blur(0.6px); opacity: 0.8; }
+}
+
+
+

@@ -54,11 +54,15 @@ Repositories must be registered by the operator:
 ## Evidence status
 
 * **Precision / recall:** the independent corpus exists and its 10 labels are proven by execution
-  (`test_eval_corpus.py`), and the scorer is tested. **No live corpus run yet**: real precision/recall
-  needs an approved paid run of `test_live_corpus.py`.
+  (`test_eval_corpus.py`), and the scorer is tested. **No live corpus run yet** on the 10-case
+  corpus: real precision/recall needs an approved paid run of `test_live_corpus.py`.
+  The live 45-case commit eval through the production pipeline ran on 2026-10-24 —
+  see [eval/REVIEWER_EVAL_2026-10-24.md](eval/REVIEWER_EVAL_2026-10-24.md) for the
+  executed corpus report, the functional-vs-security performance table, and the
+  supported-language/framework scope.
 
-* Executed (FakeTransport, real tools): `uv run pytest -q code-review/tests` → 60 passed,
-  3 skipped (the live test and the two opt-in Docker tests, which run in the `docker-reviewer` CI job). Coverage: labeled scenarios (discount rounding, a fix that
+* Executed (FakeTransport, real tools): `uv run pytest -q code-review/tests` → 90 passed,
+  4 skipped (the live tests and the opt-in Docker tests, which run in the `docker-reviewer` CI job). Coverage: labeled scenarios (discount rounding, a fix that
   weakens tenant auth, the payments-lite refund bound and IDOR), the review → approval →
   repair → fresh replay flow on the real `AssessmentHost` with PostgreSQL, Verify
   independence, human expectation decisions from the real intelligence memory, tolerant

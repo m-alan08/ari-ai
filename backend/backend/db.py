@@ -310,6 +310,23 @@ jobs = sa.Table(
 )
 sa.Index("ix_jobs_claim", jobs.c.status, jobs.c.priority, jobs.c.run_after)
 
+# One row per live worker process: upserted while polling and while running a job, so
+# /readyz can tell "the API is up" from "a worker is actually draining the queue". Rows of
+# dead workers age out by heartbeat_at; workers prune their own row on a clean exit.
+worker_heartbeats = sa.Table(
+    "worker_heartbeats",
+    metadata,
+    sa.Column("worker_id", sa.String(120), primary_key=True),
+    sa.Column("started_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.Column("heartbeat_at", TS, nullable=False, server_default=sa.func.now()),
+    # Written only by the worker's main claim loop (never the lease-heartbeat
+    # thread): a process whose claim loop stopped still beats via the lease thread
+    # while it holds a job, but last_poll_at goes stale — the "stopped processing"
+    # signal.
+    sa.Column("last_poll_at", TS, nullable=False, server_default=sa.func.now()),
+    sa.Column("current_job_id", sa.String(80)),
+)
+
 webhook_deliveries = sa.Table(
     "webhook_deliveries",
     metadata,
@@ -755,9 +772,11 @@ def _engine(url: str) -> Engine:
     )
 
 
-def get_engine() -> Engine:
+def get_engine(url: str | None = None) -> Engine:
     from backend.settings import get_settings
 
+    if url is not None:
+        return _engine(url)
     return _engine(get_settings().database_url)
 
 

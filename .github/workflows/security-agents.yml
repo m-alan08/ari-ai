@@ -3,31 +3,47 @@ name: security-agents
 # Pillar 2 runtime: the seven-agent suite (scripted FakeLLM, real tool registry,
 # scope_guard and local sandbox against the owned payments-lite target). Live
 # provider tests never run here.
+#
+# Release gate: runs on every PR and push to main so `secagents-tests` and
+# `docker-sandbox` always report; unrelated diffs are marked SKIPPED.
 on:
   pull_request:
-    paths: ["standards/**", "specialists/**", "security-agents/**", "shared/**", "code-intelligence/**", "examples/payments-lite/**", "pyproject.toml", "uv.lock", ".github/workflows/security-agents.yml"]
   push:
     branches: [main]
-    paths: ["standards/**", "specialists/**", "security-agents/**", "shared/**", "code-intelligence/**", "examples/payments-lite/**", "pyproject.toml", "uv.lock", ".github/workflows/security-agents.yml"]
 
 permissions:
   contents: read
 
+env:
+  GATE_GLOBS: "standards/**,specialists/**,security-agents/**,shared/**,code-intelligence/**,examples/payments-lite/**,pyproject.toml,uv.lock,.github/workflows/security-agents.yml"
+
 jobs:
-  test:
+  secagents-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv (pinned)
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Lint
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv run ruff check security-agents/security_agents security-agents/tests
       - name: Tests
+        if: steps.gate.outputs.run == 'true'
         working-directory: security-agents
         run: ~/.local/bin/uv run pytest -q
 
@@ -38,15 +54,28 @@ jobs:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv (pinned)
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Build sandbox image (base pinned by digest)
+        if: steps.gate.outputs.run == 'true'
         run: docker build -t hackatl-sandbox:ci security-agents/sandbox
       - name: Build payments-lite target image (base pinned by digest)
+        if: steps.gate.outputs.run == 'true'
         run: docker build -t hackatl-target:ci -f security-agents/sandbox/target.Dockerfile examples/payments-lite/target
       - name: Real Docker sandbox tests
+        if: steps.gate.outputs.run == 'true'
         working-directory: security-agents
         env:
           RUN_DOCKER_SANDBOX: "1"
@@ -55,6 +84,7 @@ jobs:
           SANDBOX_ALLOW_UNPINNED_IMAGE: "1"
         run: ~/.local/bin/uv run pytest -q -rA tests/test_docker_sandbox_live.py
       - name: Hosted run on PostgreSQL with Docker and the http probe transport
+        if: steps.gate.outputs.run == 'true'
         env:
           RUN_DOCKER_SANDBOX: "1"
           SANDBOX_IMAGE: hackatl-sandbox:ci

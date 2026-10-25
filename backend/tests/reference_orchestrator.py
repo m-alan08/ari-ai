@@ -65,8 +65,18 @@ def _loop(host: AssessmentHost, agent: AgentName, step: str, prompt: str) -> tup
 
 
 class ReferenceOrchestrator:
-    def __init__(self, *, verify_with_patch_run: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        verify_with_patch_run: bool = False,
+        diff_text: str | None = None,
+        bind_verified_bytes: bool = False,
+        seal_verified_diff: bool = False,
+    ) -> None:
         self.verify_with_patch_run = verify_with_patch_run
+        self.diff_text = diff_text
+        self.bind_verified_bytes = bind_verified_bytes or seal_verified_diff
+        self.seal_verified_diff = seal_verified_diff
 
     def run(self, host: AssessmentHost) -> None:
         a = host.assessment
@@ -151,11 +161,17 @@ class ReferenceOrchestrator:
         f = host.findings()[0]
         host.transition(S.REMEDIATION)
         patch_run, _ = _loop(host, AgentName.patch, f"patch:{f.id}", "write minimal diff")
+        diff_text = self.diff_text or (
+            "--- a/app/invoices.py\n+++ b/app/invoices.py\n+ .filter(tenant=user.tenant)\n"
+        )
         diff = host.store_text(
-            "--- a/app/invoices.py\n+++ b/app/invoices.py\n+ .filter(tenant=user.tenant)\n",
+            diff_text,
             ArtifactKind.diff,
             media_type="text/x-diff",
         )
+        import hashlib
+
+        verified_sha = hashlib.sha256(diff_text.encode()).hexdigest()
         patch = PatchCandidate(
             id=new_id(IdPrefix.pat),
             finding_id=f.id,
@@ -184,13 +200,38 @@ class ReferenceOrchestrator:
                 provenance="agent:verify",
             )
         ]
+        binding_evidence: list[EvidenceRef] = []
+        if self.bind_verified_bytes:
+            binding_doc = {
+                "patch_id": patch.id,
+                "verified_diff_sha256": verified_sha,
+                "stored_diff_artifact_id": diff.id,
+                "stored_diff_sha256": diff.sha256,
+                "redacted": verified_sha != diff.sha256,
+            }
+            if self.seal_verified_diff:
+                sealed = host.seal_diff(diff_text, verified_sha)
+                binding_doc["sealed_diff_artifact_id"] = sealed.id
+            binding = host.store_json(binding_doc)
+            binding_evidence = [
+                EvidenceRef(
+                    kind=EvidenceKind.artifact,
+                    artifact_id=binding.id,
+                    sha256=binding.sha256,
+                    provenance="agent:verify",
+                )
+            ]
         host.record_verification(
             VerificationResult(
                 id=new_id(IdPrefix.ver),
                 patch_id=patch.id,
                 verdict=VerificationVerdict.accepted,
                 checks=[
-                    VerificationCheck(name=n, passed=True, evidence=ev)
+                    VerificationCheck(
+                        name=n,
+                        passed=True,
+                        evidence=[*ev, *(binding_evidence if n.value == "diff_scope_ok" else [])],
+                    )
                     for n in VerificationCheckName
                 ],
                 sandbox_run_ids=["sbx-test"],
@@ -214,6 +255,37 @@ def build_orchestrator() -> ReferenceOrchestrator:
 
 def build_cheating_orchestrator() -> ReferenceOrchestrator:
     return ReferenceOrchestrator(verify_with_patch_run=True)
+
+
+def build_sealed_diff_orchestrator() -> ReferenceOrchestrator:
+    return ReferenceOrchestrator(
+        diff_text=(
+            "--- a/app/invoices.py\n+++ b/app/invoices.py\n"
+            "+ tokens: dict[str, str]\n"
+            "+ assert headers == 'Bearer fixture-token-alice'\n"
+        ),
+        seal_verified_diff=True,
+    )
+
+
+def build_secret_diff_orchestrator() -> ReferenceOrchestrator:
+    return ReferenceOrchestrator(
+        diff_text=(
+            "--- a/app/invoices.py\n+++ b/app/invoices.py\n"
+            "+ github_token = '" + "ghp_" + ("a" * 36) + "'\n"
+        ),
+        seal_verified_diff=True,
+    )
+
+
+def build_legacy_redacted_diff_orchestrator() -> ReferenceOrchestrator:
+    return ReferenceOrchestrator(
+        diff_text=(
+            "--- a/app/invoices.py\n+++ b/app/invoices.py\n"
+            "+ assert headers == 'Bearer fixture-token-alice'\n"
+        ),
+        bind_verified_bytes=True,
+    )
 
 
 def scripted_transport() -> Any:

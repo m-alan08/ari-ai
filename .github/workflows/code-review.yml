@@ -1,17 +1,20 @@
 name: code-review
 
+# Release gate: runs on every PR and push to main so `review-tests` and
+# `docker-reviewer` always report; unrelated diffs are marked SKIPPED.
 on:
   pull_request:
-    paths: ["standards/**", "code-review/**", "shared/**", "backend/**", "code-intelligence/**", "security-agents/security_agents/sandbox/**", "security-agents/sandbox/**", "examples/payments-lite/**", "pyproject.toml", "uv.lock", ".github/workflows/code-review.yml"]
   push:
     branches: [main]
-    paths: ["standards/**", "code-review/**", "shared/**", "backend/**", "code-intelligence/**", "security-agents/security_agents/sandbox/**", "security-agents/sandbox/**", "examples/payments-lite/**", "pyproject.toml", "uv.lock", ".github/workflows/code-review.yml"]
 
 permissions:
   contents: read
 
+env:
+  GATE_GLOBS: "standards/**,code-review/**,shared/**,backend/**,code-intelligence/**,security-agents/security_agents/sandbox/**,security-agents/sandbox/**,examples/payments-lite/**,pyproject.toml,uv.lock,.github/workflows/code-review.yml"
+
 jobs:
-  test:
+  review-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -30,18 +33,31 @@ jobs:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install locked workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Lint, format and strict types
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv run ruff check code-review
           ~/.local/bin/uv run ruff format --check code-review
           ~/.local/bin/uv run mypy --config-file code-review/pyproject.toml code-review/code_review
       - name: Reviewer suite (FakeTransport; real git, pytest and PostgreSQL; no live key)
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv run pytest -ra code-review/tests
       - name: Reviewer through the shared security_agents sandbox driver
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv pip install -e security-agents --no-deps
           ~/.local/bin/uv run --no-sync pytest -ra code-review/tests/test_shared_sandbox.py
@@ -53,13 +69,25 @@ jobs:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv (pinned)
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install locked workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Build sandbox image (base pinned by digest)
+        if: steps.gate.outputs.run == 'true'
         run: docker build -t hackatl-sandbox:ci security-agents/sandbox
       - name: Reviewer through the real Docker sandbox
+        if: steps.gate.outputs.run == 'true'
         env:
           RUN_DOCKER_SANDBOX: "1"
           SANDBOX_IMAGE: hackatl-sandbox:ci

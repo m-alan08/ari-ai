@@ -1,6 +1,24 @@
 {
   "additionalProperties": false,
   "properties": {
+    "git_sha": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Sha"
+    },
+    "schema_version": {
+      "maxLength": 500,
+      "title": "Schema Version",
+      "type": "string"
+    },
     "status": {
       "maxLength": 500,
       "title": "Status",
@@ -14,7 +32,8 @@
   },
   "required": [
     "status",
-    "version"
+    "version",
+    "schema_version"
   ],
   "title": "HealthStatus",
   "type": "object"

@@ -6,7 +6,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { createContext, useContext, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { useResource } from '@/lib/use-resource';
-import { Crumbs, ErrorState, Loading } from '@/components/ui';
+import { ErrorState, Loading } from '@/components/ui';
 
 interface ProjectValue { project: Project; repos: Repository[]; reloadRepos: () => void; reloadProject: () => void }
 const ProjectContext = createContext<ProjectValue | null>(null);
@@ -24,41 +24,65 @@ export function useParam(name: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-const PRIMARY = [
-  { href: '/commits', label: 'Code review' },
-  { href: '', label: '7 agents' },
+interface RailItem { href: string; label: string }
+const GROUPS: { label: string; items: RailItem[] }[] = [
+  {
+    label: 'Review',
+    items: [
+      { href: '', label: '7 Agents' },
+      { href: '/commits', label: 'Code review' },
+      { href: '/findings', label: 'Findings' },
+      { href: '/approvals', label: 'Approvals' },
+    ],
+  },
+  {
+    label: 'Defend',
+    items: [
+      { href: '/live-defense', label: 'Live Defense' },
+      { href: '/incidents', label: 'Incidents' },
+      { href: '/monitoring', label: 'Monitoring' },
+      { href: '/scopes', label: 'Authorized scopes' },
+      { href: '/expectations', label: 'Expectations' },
+    ],
+  },
+  {
+    label: 'Configure',
+    items: [
+      { href: '/simulate', label: 'Simulate' },
+      { href: '/settings', label: 'Settings' },
+    ],
+  },
 ];
-const TOOLS = [
-  { href: '/live-defense', label: 'Live Defense' },
-  { href: '/findings', label: 'Findings' },
-  { href: '/approvals', label: 'Approvals' },
-  { href: '/monitoring', label: 'Monitoring' },
-  { href: '/incidents', label: 'Incidents' },
-  { href: '/scopes', label: 'Authorized scopes' },
-  { href: '/expectations', label: 'Expectations' },
-  { href: '/settings', label: 'Settings' },
-];
+
+const isActive = (pathname: string, base: string, href: string) =>
+  href === ''
+    ? pathname === base || pathname.startsWith(`${base}/assessments/`)
+    : pathname.startsWith(base + href);
 
 export function ProjectNavigation({ base }: { base: string }) {
   const pathname = usePathname();
-  const currentTool = TOOLS.find(t => pathname.startsWith(base + t.href));
-  return <nav aria-label="Project" className="project-navigation mb-8">
-    <div className="project-tabs">
-      {PRIMARY.map(t => {
-        const href = base + t.href;
-        const active = t.href === '' ? pathname === base || pathname.startsWith(base + '/assessments/') : pathname.startsWith(href);
-        return <Link key={t.label} href={href} aria-current={active ? 'page' : undefined} className="project-tab label-mono">{t.label}</Link>;
-      })}
-    </div>
-    <details key={pathname} className="project-tools" onKeyDown={event => {
-      if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); }
-    }}>
-      <summary className="project-tab label-mono" aria-label={currentTool ? `More: ${currentTool.label}` : undefined} aria-current={currentTool ? 'page' : undefined} data-active={currentTool ? true : undefined}>More <span aria-hidden="true">⌄</span></summary>
-      <div className="project-tools-links">
-        {TOOLS.map(t => <Link key={t.href} href={base + t.href} aria-current={currentTool === t ? 'page' : undefined}>{t.label}</Link>)}
-      </div>
-    </details>
-  </nav>;
+  return (
+    <nav aria-label="Project" className="rail-nav">
+      {GROUPS.map(group => (
+        <div key={group.label} className="rail-group">
+          <p className="rail-group-label">{group.label}</p>
+          {group.items.map(item => {
+            const active = isActive(pathname, base, item.href);
+            return (
+              <Link
+                key={item.label}
+                href={base + item.href}
+                aria-current={active ? 'page' : undefined}
+                className="rail-link"
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
 }
 
 export function ProjectShell({ children }: { children: ReactNode }) {
@@ -69,23 +93,28 @@ export function ProjectShell({ children }: { children: ReactNode }) {
   if (project.status === 'error') return <ErrorState error={project.error} onRetry={project.reload} context="Could not load project" />;
   if (repos.status === 'error') return <ErrorState error={repos.error} onRetry={repos.reload} context="Could not load repositories" />;
   const base = `/projects/${project.data.id}`;
+  const monitoring = project.data.settings.monitoring_policy.enabled;
   return (
     <ProjectContext.Provider value={{ project: project.data, repos: repos.data.items, reloadRepos: repos.reload, reloadProject: project.reload }}>
-      <Crumbs items={[{ href: '/projects', label: 'Projects' }, { href: base, label: project.data.name }]} />
-      <header className="hero-ink project-head mb-2 rounded-2xl px-6 py-7 md:px-8">
-        <p className="label-mono text-white/60">Project</p>
-        <p className="display mt-2 text-3xl font-semibold md:text-4xl" data-testid="project-title">{project.data.name}</p>
-        <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/70">
-          {repos.data.items.length === 0
-            ? <span>No repository connected</span>
-            : repos.data.items.map(r => <span key={r.id} className="font-mono text-xs text-white/85">{r.full_name}<span className="text-white/50"> · {r.default_branch}</span></span>)}
-          <span className="flex items-center gap-1.5">
-            Monitoring {project.data.settings.monitoring_policy.enabled ? 'on' : 'off'}
-          </span>
-        </p>
-      </header>
-      <ProjectNavigation base={base} />
-      {children}
+      <div className="project-layout">
+        <aside className="project-rail">
+          <div className="rail-head">
+            <Link href="/connect" className="rail-back label-mono">← Projects</Link>
+            <p className="rail-name" data-testid="project-title">{project.data.name}</p>
+            <div className="rail-meta">
+              {repos.data.items.length === 0
+                ? <span>No repository connected</span>
+                : repos.data.items.map(r => <span key={r.id} className="rail-repo">{r.full_name}<span className="rail-branch"> · {r.default_branch}</span></span>)}
+            </div>
+          </div>
+          <ProjectNavigation base={base} />
+          <div className="rail-foot">
+            <span className={`rail-status ${monitoring ? 'is-on' : ''}`} aria-hidden="true" />
+            Monitoring {monitoring ? 'on' : 'off'}
+          </div>
+        </aside>
+        <div className="project-body">{children}</div>
+      </div>
     </ProjectContext.Provider>
   );
 }

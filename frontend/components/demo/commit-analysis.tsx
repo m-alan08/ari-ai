@@ -17,20 +17,20 @@ import { analyze, type AgentId, type AgentRunView, type Analysis } from '@/lib/d
 const UNDERSTAND_TICKS = 2;
 const REVIEW_TICKS = 3;
 
-type Status = 'queued' | 'running' | 'done' | 'skipped';
+type Status = 'queued' | 'running' | 'done' | 'skipped' | 'failed';
 type Tab = 'review' | 'agents';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'review', label: 'Code review' },
   { id: 'agents', label: '7 agents' },
 ];
 
-interface Timeline {
+export interface Timeline {
   total: number;
   agentsStart: number;
   spans: Record<AgentId, { start: number; end: number }>;
 }
 
-function timeline(analysis: Analysis): Timeline {
+export function timeline(analysis: Analysis): Timeline {
   let cursor = UNDERSTAND_TICKS + REVIEW_TICKS;
   const spans = {} as Timeline['spans'];
   for (const agent of analysis.agents) {
@@ -40,7 +40,7 @@ function timeline(analysis: Analysis): Timeline {
   return { total: cursor, agentsStart: UNDERSTAND_TICKS + REVIEW_TICKS, spans };
 }
 
-function agentStatus(agent: AgentRunView, t: Timeline, position: number): Status {
+export function agentStatus(agent: AgentRunView, t: Timeline, position: number): Status {
   const span = t.spans[agent.agent];
   if (position < span.start) return 'queued';
   if (agent.status === 'skipped') return 'skipped';

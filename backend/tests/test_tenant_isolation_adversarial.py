@@ -536,6 +536,15 @@ def test_purge_project_deletes_every_surface(two_tenants, tmp_path) -> None:
         art = ArtifactStore().put_text(
             conn, "log with sk-ant-SECRETKEY", kind=ArtifactKind.log, project_id=pid
         )
+        sealed = ArtifactStore().put_bytes(
+            conn,
+            b"sealed diff bytes",
+            kind=ArtifactKind.sealed_diff,
+            project_id=pid,
+            media_type="text/x-diff",
+            redacted=False,
+        )
+        sealed_path = ArtifactStore()._path(sealed.sha256)
     workdir = tmp_path / "wd"
     clone = workdir / "repos" / f"{two_tenants['repo']}.git"
     clone.mkdir(parents=True)
@@ -548,11 +557,13 @@ def test_purge_project_deletes_every_surface(two_tenants, tmp_path) -> None:
         f"/api/v1/projects/{pid}",
         f"/api/v1/findings/{two_tenants['fnd']}",
         f"/api/v1/artifacts/{art.id}",
+        f"/api/v1/artifacts/{sealed.id}",
         f"/api/v1/jobs/{two_tenants['job']}",
     ):
         assert alice.get(path).status_code == 404, path
     with pytest.raises(PermissionError):
         store.get_payload(ref, "file", "s.py")
     assert not clone.exists()
+    assert not sealed_path.exists()
     # tenant B's data is untouched
     assert len(eve.get("/api/v1/projects").json()["items"]) == 1

@@ -1,0 +1,66 @@
+[
+  {
+    "scenario": "S1_graceful_drain",
+    "ok": true,
+    "worker_exit": 0,
+    "job_status": "succeeded",
+    "assessment_state": "AWAITING_APPROVAL",
+    "checkpoint_artifact": "art_01M5QZQHF34MSFTT7S44AG1EC1",
+    "artifact_file_on_disk": true,
+    "job_attempts": 1
+  },
+  {
+    "scenario": "S2_hard_kill_honest_failure",
+    "ok": true,
+    "assessment_state": "FAILED",
+    "job_status": "failed",
+    "job_attempts": 2,
+    "job_error": "{\"code\": \"CONFLICT_STATE\", \"message\": \"CONFLICT_STATE: cannot resume from RECON: paused orchestrator state was lost (worker restarted or another worker); start a new assessment\"}"
+  },
+  {
+    "scenario": "S3_checkpoint_resume",
+    "ok": true,
+    "assessment_state": "COMPLETED",
+    "approvals_decided": 2,
+    "checkpoint_artifact_still_on_disk": true,
+    "artifact_store_objects": 49
+  },
+  {
+    "scenario": "S7_post_crash_new_assessment",
+    "ok": true,
+    "prior_failure_state": "FAILED",
+    "new_assessment_state": "AWAITING_APPROVAL",
+    "new_job_status": "succeeded",
+    "checkpoint_artifact": true
+  },
+  {
+    "scenario": "S4_exactly_once_drain",
+    "ok": true,
+    "probe_jobs_succeeded": 11,
+    "rows_total": 11,
+    "all_attempts_1": true,
+    "dedupe_rows": 1
+  },
+  {
+    "scenario": "S5_migration_rollback",
+    "ok": true,
+    "table_dropped_at_0015": true,
+    "table_back_at_head": true
+  },
+  {
+    "scenario": "S6_backup_restore",
+    "ok": true,
+    "restored_counts": {
+      "assessments": 3,
+      "jobs": 18,
+      "assessment_events": 110,
+      "worker_heartbeats": 0
+    },
+    "source_counts": {
+      "assessments": 3,
+      "jobs": 18,
+      "assessment_events": 110,
+      "worker_heartbeats": 0
+    }
+  }
+]

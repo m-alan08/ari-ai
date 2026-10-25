@@ -5,15 +5,21 @@ import sqlalchemy as sa
 from helpers import HEAD, post_webhook, push_payload, setup_project
 
 from backend import worker
-from backend.db import assessments, jobs, repositories, transaction
+from backend.db import (
+    assessments,
+    jobs,
+    monitoring_events,
+    reassessment_requests,
+    repositories,
+    transaction,
+)
+from shared.assessment import AssessmentTrigger
 
 
 @pytest.fixture
 def automatic(client_factory, settings_override, monkeypatch):
     settings_override(
         github_auto_commit_authors="adamissac",
-        automatic_assessments_per_hour="100",
-        automatic_assessments_per_day="100",
     )
     alice, bob = client_factory("alice"), client_factory("bob")
     ids = setup_project(alice, bob, approve=False)
@@ -47,6 +53,45 @@ def push(client, *shas):
 def records():
     with transaction() as conn:
         return list(conn.execute(sa.select(assessments.c.commit_sha)).scalars())
+
+
+def seed_assessments(alice, ids, triggers, *, created_at=None, spend=None):
+    from backend.services import create_assessment
+
+    seeded = []
+    with transaction() as conn:
+        for index, trigger in enumerate(triggers):
+            assessment, _ = create_assessment(
+                conn,
+                project_id=ids["project"],
+                repo_id=ids["repo"],
+                scope_id=ids["scope"],
+                commit_sha=f"{index + 1:040x}",
+                trigger=trigger,
+                budget=None,
+                created_by=alice.me["user"]["id"],
+            )
+            doc = conn.execute(
+                sa.select(assessments.c.doc).where(assessments.c.id == assessment.id)
+            ).scalar_one()
+            doc["state"] = "FAILED"
+            if spend is not None and index == 0:
+                doc.setdefault("usage", {})["usd"] = spend
+            values = {"state": "FAILED", "doc": doc}
+            if created_at is not None:
+                values["created_at"] = created_at
+            conn.execute(
+                sa.update(assessments).where(assessments.c.id == assessment.id).values(**values)
+            )
+            seeded.append(assessment.id)
+    return seeded
+
+
+def manual_start(alice, ids, sha):
+    return alice.post(
+        f"/api/v1/projects/{ids['project']}/assessments",
+        json={"repo_id": ids["repo"], "scope_id": ids["scope"], "commit_sha": sha},
+    )
 
 
 def test_each_commit_runs_even_docs_only_active_and_duplicate_delivery(automatic):
@@ -141,8 +186,9 @@ def test_wrong_installation_never_enqueues(automatic):
         ).first()
 
 
-def test_truncated_push_enumerates_all_commits(automatic, monkeypatch):
+def test_truncated_push_enumerates_all_commits(automatic, monkeypatch, settings_override):
     alice, bob, ids, _ = automatic
+    settings_override(project_assessments_per_hour="50", project_assessments_per_day="100")
     shas = [f"{i:040x}" for i in range(1, 26)]
     monkeypatch.setattr(
         "backend.auto_commits.GitHubApp.compare_commits", lambda *args: shas, raising=False
@@ -281,44 +327,138 @@ def test_spoofed_author_does_not_authorize_an_unlisted_push_sender(automatic):
     assert records() == []
 
 
-@pytest.mark.parametrize(
-    "limit_name", ["automatic_assessments_per_hour", "automatic_assessments_per_day"]
-)
-def test_quota_defers_excess_commits_without_dropping_them(
-    automatic, settings_override, limit_name
-):
-    from datetime import timedelta
+def test_ten_mixed_assessments_skip_automatic_and_block_manual_start(automatic):
+    from datetime import datetime, timedelta
 
-    from backend.db import reassessment_requests
     from shared.base import utcnow
 
     alice, bob, ids, _ = automatic
-    settings_override(**{limit_name: "2"})
-    bob.post(f"/api/v1/scopes/{ids['scope']}/approve")
-    push(alice, HEAD, "c" * 40, "d" * 40)
-    assert sorted(records()) == [HEAD, "c" * 40]
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seeded_at = utcnow()
+    seed_assessments(
+        alice,
+        ids,
+        [AssessmentTrigger.manual] * 6 + [AssessmentTrigger.monitoring] * 4,
+        created_at=seeded_at,
+    )
+
+    pushed_sha = "e" * 40
+    push(alice, pushed_sha)
+    assert len(records()) == 10
     with transaction() as conn:
-        queued = conn.execute(
-            sa.select(reassessment_requests.c.doc).where(reassessment_requests.c.status == "queued")
+        rrq = conn.execute(
+            sa.select(reassessment_requests.c.doc).where(
+                reassessment_requests.c.doc["head_sha"].astext == pushed_sha
+            )
         ).scalar_one()
-        assert queued["head_sha"] == "d" * 40 and queued["assessment_id"] is None
-        delayed = (
-            conn.execute(sa.select(jobs).where(jobs.c.dedupe_key.like("github:deferred:%")))
-            .mappings()
-            .one()
-        )
-        assert delayed["status"] == "queued" and delayed["run_after"] > utcnow()
-        # Advance the quota window without waiting an hour/day; the push itself is now old,
-        # which must not make the deferred commit look like a stale backlog.
-        conn.execute(sa.update(assessments).values(created_at=utcnow() - timedelta(days=2)))
-        old = (utcnow() - timedelta(days=2)).isoformat()
-        conn.execute(
-            sa.update(jobs)
-            .where(jobs.c.id == delayed["id"])
-            .values(run_after=utcnow(), payload={**delayed["payload"], "received_at": old})
-        )
-    worker.drain(kinds=["assess_github_commit"])
-    assert sorted(records()) == [HEAD, "c" * 40, "d" * 40]
+        deferred_jobs = conn.execute(
+            sa.select(sa.func.count())
+            .select_from(jobs)
+            .where(jobs.c.dedupe_key.like("github:deferred:%"))
+        ).scalar_one()
+    assert rrq["status"] == "skipped"
+    assert rrq["reason"] == "skipped: project review limit reached (10/hour)"
+    assert deferred_jobs == 0
+
+    response = manual_start(alice, ids, "f" * 40)
+    assert response.status_code == 429
+    error = response.json()["error"]
+    assert error["code"] == "RATE_LIMITED"
+    assert error["message"].startswith("project review limit reached (10 per hour); resets at ")
+    resets_at = error["details"]["resets_at"]
+    assert datetime.fromisoformat(resets_at) == seeded_at + timedelta(hours=1)
+
+
+@pytest.mark.parametrize("start_kind", ["manual", "automatic"])
+def test_nine_recent_assessments_allow_next_start(automatic, start_kind):
+    alice, bob, ids, _ = automatic
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seed_assessments(
+        alice,
+        ids,
+        [AssessmentTrigger.manual] * 5 + [AssessmentTrigger.monitoring] * 4,
+    )
+
+    if start_kind == "manual":
+        response = manual_start(alice, ids, "f" * 40)
+        assert response.status_code == 202
+    else:
+        pushed_sha = "e" * 40
+        push(alice, pushed_sha)
+        with transaction() as conn:
+            rrq = conn.execute(
+                sa.select(reassessment_requests.c.doc).where(
+                    reassessment_requests.c.doc["head_sha"].astext == pushed_sha
+                )
+            ).scalar_one()
+        assert rrq["status"] == "started"
+    with transaction() as conn:
+        count = conn.execute(
+            sa.select(sa.func.count())
+            .select_from(assessments)
+            .where(assessments.c.project_id == ids["project"])
+        ).scalar_one()
+    assert count == 10
+
+
+def test_fifty_daily_assessments_block_by_day_quota(automatic):
+    from datetime import datetime, timedelta
+
+    from shared.base import utcnow
+
+    alice, bob, ids, _ = automatic
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seeded_at = utcnow() - timedelta(hours=2)
+    seed_assessments(
+        alice,
+        ids,
+        [AssessmentTrigger.manual] * 50,
+        created_at=seeded_at,
+    )
+
+    pushed_sha = "e" * 40
+    push(alice, pushed_sha)
+    with transaction() as conn:
+        rrq = conn.execute(
+            sa.select(reassessment_requests.c.doc).where(
+                reassessment_requests.c.doc["head_sha"].astext == pushed_sha
+            )
+        ).scalar_one()
+    assert rrq["status"] == "skipped"
+    assert rrq["reason"] == "skipped: project review limit reached (50/day)"
+
+    response = manual_start(alice, ids, "f" * 40)
+    assert response.status_code == 429
+    error = response.json()["error"]
+    assert "project review limit reached (50 per day); resets at " in error["message"]
+    assert datetime.fromisoformat(error["details"]["resets_at"]) == seeded_at + timedelta(days=1)
+
+
+def test_global_spend_from_any_trigger_blocks_automatic_and_manual(automatic):
+    alice, bob, ids, _ = automatic
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seed_assessments(alice, ids, [AssessmentTrigger.manual], spend=50.0)
+
+    pushed_sha = "e" * 40
+    push(alice, pushed_sha)
+    with transaction() as conn:
+        rrq = conn.execute(
+            sa.select(reassessment_requests.c.doc).where(
+                reassessment_requests.c.doc["head_sha"].astext == pushed_sha
+            )
+        ).scalar_one()
+        local_count = conn.execute(
+            sa.select(sa.func.count())
+            .select_from(assessments)
+            .where(assessments.c.project_id == ids["project"])
+        ).scalar_one()
+    assert rrq["status"] == "skipped"
+    assert rrq["reason"] == "skipped: daily spend cap reached"
+    assert local_count == 1
+
+    response = manual_start(alice, ids, "f" * 40)
+    assert response.status_code == 429
+    assert response.json()["error"]["message"].startswith("daily spend cap reached; resets at ")
 
 
 def test_reuses_inflight_manual_assessment(automatic):
@@ -394,31 +534,150 @@ def test_github_client_is_reused_across_commits(automatic, monkeypatch):
     assert len(calls) == 1
 
 
-def test_deferred_commit_is_finalized_when_automation_is_off(automatic, settings_override):
-    from backend.db import reassessment_requests
+def test_legacy_deferred_job_is_skipped_under_quota_without_new_job(automatic):
     from shared.base import utcnow
+    from shared.ids import IdPrefix, new_id
+    from shared.monitoring import (
+        CommitRange,
+        EventSource,
+        EventStatus,
+        EventType,
+        MonitoringEvent,
+        ReassessmentRequest,
+        ReassessmentScope,
+        ReassessmentStatus,
+    )
 
     alice, bob, ids, _ = automatic
-    settings_override(automatic_assessments_per_hour="1")
-    bob.post(f"/api/v1/scopes/{ids['scope']}/approve")
-    push(alice, HEAD, "c" * 40)
-    alice.patch(f"/api/v1/repositories/{ids['repo']}", json={"automatic_assessments": False})
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seed_assessments(
+        alice,
+        ids,
+        [AssessmentTrigger.manual] * 6 + [AssessmentTrigger.monitoring] * 4,
+    )
+    pushed_sha = "e" * 40
+    payload = push_payload(["README.md"], head=pushed_sha)
+    payload["sender"] = {"login": "adamissac"}
+    payload["commits"] = [
+        {"id": pushed_sha, "modified": ["README.md"], "author": {"username": "adamissac"}}
+    ]
+    assert post_webhook(alice, payload).status_code == 202
+    worker.drain(kinds=["process_github_delivery"])
+
     with transaction() as conn:
+        job = (
+            conn.execute(
+                sa.select(jobs).where(
+                    jobs.c.dedupe_key == f"github:commit:{ids['repo']}:{pushed_sha}"
+                )
+            )
+            .mappings()
+            .one()
+        )
         conn.execute(
             sa.update(jobs)
-            .where(jobs.c.dedupe_key.like("github:deferred:%"))
-            .values(run_after=utcnow())
+            .where(jobs.c.id == job["id"])
+            .values(dedupe_key="github:deferred:legacy-job", run_after=utcnow())
         )
+        event = MonitoringEvent(
+            id=new_id(IdPrefix.evt),
+            project_id=ids["project"],
+            repo_id=ids["repo"],
+            source=EventSource.github,
+            type=EventType(job["payload"]["event_type"]),
+            occurred_at=job["payload"]["occurred_at"],
+            received_at=job["payload"]["received_at"],
+            dedupe_key=f"github:commit:{ids['repo']}:{pushed_sha}",
+            payload_artifact_id=job["payload"]["payload_artifact_id"],
+            commit_range=CommitRange(base_sha=None, head_sha=pushed_sha),
+            ref=job["payload"]["ref"],
+            status=EventStatus.processed,
+            status_reason="queued by an earlier quota implementation",
+        )
+        conn.execute(
+            sa.insert(monitoring_events).values(
+                id=event.id,
+                project_id=event.project_id,
+                repo_id=event.repo_id,
+                dedupe_key=event.dedupe_key,
+                status=event.status.value,
+                doc=event.model_dump(mode="json"),
+            )
+        )
+        rrq = ReassessmentRequest(
+            id=new_id(IdPrefix.rrq),
+            project_id=ids["project"],
+            repo_id=ids["repo"],
+            event_ids=[event.id],
+            scope=ReassessmentScope.full,
+            head_sha=pushed_sha,
+            status=ReassessmentStatus.queued,
+            reason="queued: waiting for project automatic-run capacity",
+            created_at=utcnow(),
+        )
+        conn.execute(
+            sa.insert(reassessment_requests).values(
+                id=rrq.id,
+                project_id=rrq.project_id,
+                repo_id=rrq.repo_id,
+                status=rrq.status.value,
+                doc=rrq.model_dump(mode="json"),
+            )
+        )
+        jobs_before = conn.execute(sa.select(sa.func.count()).select_from(jobs)).scalar_one()
+
     worker.drain(kinds=["assess_github_commit"])
+
     with transaction() as conn:
-        row = conn.execute(
+        jobs_after = conn.execute(sa.select(sa.func.count()).select_from(jobs)).scalar_one()
+        job_status = conn.execute(
+            sa.select(jobs.c.status).where(jobs.c.id == job["id"])
+        ).scalar_one()
+        saved = conn.execute(
+            sa.select(reassessment_requests.c.doc).where(reassessment_requests.c.id == rrq.id)
+        ).scalar_one()
+    assert jobs_after == jobs_before
+    assert job_status != "queued"
+    assert saved["status"] == "skipped"
+    assert saved["reason"] == "skipped: project review limit reached (10/hour)"
+    assert len(records()) == 10
+
+
+def test_legacy_monitoring_pipeline_obeys_shared_quota(automatic, settings_override, monkeypatch):
+    from monitoring.api import Action, Decision
+    from shared.monitoring import ReassessmentScope
+
+    alice, bob, ids, _ = automatic
+    settings_override(github_auto_commit_authors="")
+    assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+    seed_assessments(
+        alice,
+        ids,
+        [AssessmentTrigger.manual] * 6 + [AssessmentTrigger.monitoring] * 4,
+    )
+    monkeypatch.setattr(
+        "backend.pipeline._impact_provider",
+        lambda: (None, "test impact provider"),
+    )
+    monkeypatch.setattr(
+        "backend.pipeline.decide",
+        lambda *args, **kwargs: Decision(
+            Action.assess, "test assessment", scope=ReassessmentScope.full
+        ),
+    )
+
+    pushed_sha = "d" * 40
+    push(alice, pushed_sha)
+
+    with transaction() as conn:
+        rrq = conn.execute(
             sa.select(reassessment_requests.c.doc).where(
-                reassessment_requests.c.doc["head_sha"].astext == "c" * 40
+                reassessment_requests.c.doc["head_sha"].astext == pushed_sha
             )
         ).scalar_one()
-        assert row["status"] == "skipped"
-        assert "disabled" in row["reason"]
-    assert records() == [HEAD]
+    assert rrq["status"] == "skipped"
+    assert rrq["reason"] == "skipped: project review limit reached (10/hour)"
+    assert len(records()) == 10
 
 
 def test_wildcard_runs_any_pusher_and_unlinked_author(automatic, settings_override):
@@ -434,26 +693,75 @@ def test_wildcard_runs_any_pusher_and_unlinked_author(automatic, settings_overri
     assert records() == [HEAD]
 
 
-def test_global_daily_spend_ceiling_defers_new_runs(automatic, settings_override):
+def test_missing_commit_records_skipped_instead_of_dead_lettering(automatic, monkeypatch):
+    import httpx
+
+    from backend.db import monitoring_events, reassessment_requests
+
     alice, bob, ids, _ = automatic
-    settings_override(automatic_usd_per_day="1")
+
+    def gone(self, installation, repo, sha):
+        request = httpx.Request("GET", f"https://api.github.com/repos/{repo}/commits/{sha}")
+        raise httpx.HTTPStatusError(
+            "404", request=request, response=httpx.Response(404, request=request)
+        )
+
+    monkeypatch.setattr("backend.auto_commits.GitHubApp.commit", gone)
     bob.post(f"/api/v1/scopes/{ids['scope']}/approve")
     push(alice, HEAD)
-    with transaction() as conn:  # the first run already spent the whole day's ceiling
-        conn.execute(
-            sa.update(assessments).values(
-                doc=assessments.c.doc.op("||")(
-                    sa.cast({"usage": {"usd": 1.5}}, sa.dialects.postgresql.JSONB)
-                )
-            )
-        )
-    push(alice, "c" * 40)
-    assert records() == [HEAD]
+    assert records() == []
     with transaction() as conn:
-        delayed = conn.execute(
-            sa.select(jobs.c.payload).where(jobs.c.dedupe_key.like("github:deferred:%"))
-        ).scalar_one()
-    assert delayed["sha"] == "c" * 40
+        job = (
+            conn.execute(sa.select(jobs).where(jobs.c.kind == "assess_github_commit"))
+            .mappings()
+            .one()
+        )
+        assert job["status"] == "succeeded"  # permanent failure: recorded, not retried to dead
+        event = conn.execute(sa.select(monitoring_events.c.status)).scalar_one()
+        rrq = conn.execute(sa.select(reassessment_requests.c.doc)).scalar_one()
+    assert event == "ignored"
+    assert rrq["status"] == "skipped" and "404" in rrq["reason"]
+
+
+def test_transient_commit_lookup_still_retries(automatic, monkeypatch):
+    import httpx
+
+    alice, bob, ids, _ = automatic
+
+    def flaky(self, installation, repo, sha):
+        request = httpx.Request("GET", f"https://api.github.com/repos/{repo}/commits/{sha}")
+        raise httpx.HTTPStatusError(
+            "502", request=request, response=httpx.Response(502, request=request)
+        )
+
+    monkeypatch.setattr("backend.auto_commits.GitHubApp.commit", flaky)
+    bob.post(f"/api/v1/scopes/{ids['scope']}/approve")
+    push(alice, HEAD)
+    with transaction() as conn:
+        row = (
+            conn.execute(sa.select(jobs).where(jobs.c.kind == "assess_github_commit"))
+            .mappings()
+            .one()
+        )
+        assert row["status"] == "queued" and row["attempts"] == 1
+
+
+def test_compare_failure_falls_back_to_payload_commits(automatic, monkeypatch):
+    import httpx
+
+    alice, bob, ids, _ = automatic
+
+    def boom(*args):
+        raise httpx.ConnectError("compare unavailable")
+
+    monkeypatch.setattr("backend.auto_commits.GitHubApp.compare_commits", boom, raising=False)
+    bob.post(f"/api/v1/scopes/{ids['scope']}/approve")
+    p = push_payload(["app.py"])
+    p["sender"] = {"login": "adamissac"}
+    p["commits"] = []  # force-push style payload: compare is the only enumerator
+    assert post_webhook(alice, p).status_code == 202
+    worker.drain(kinds=["process_github_delivery", "assess_github_commit"])
+    assert records() == [HEAD]
 
 
 def test_commit_event_records_its_parent_so_the_reviewer_sees_the_diff(automatic, monkeypatch):

@@ -3,6 +3,7 @@
     "ArtifactKind": {
       "enum": [
         "diff",
+        "sealed_diff",
         "log",
         "test_report",
         "webhook_payload",

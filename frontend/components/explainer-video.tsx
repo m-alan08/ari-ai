@@ -55,7 +55,7 @@ export function ExplainerVideo() {
       <section aria-labelledby="explainer-title" className="story-stage flex flex-col justify-center gap-8 py-16">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] lg:items-end">
           <div>
-            <p className="label-mono text-brand">Watch</p>
+            <p className="kicker">Watch</p>
             <h2 id="explainer-title" className="display mt-3 text-3xl font-semibold md:text-5xl">See {BRAND_NAME} in action.<br /><span className="text-muted">What it is, and how it works.</span></h2>
           </div>
           <p className="max-w-md text-sm text-muted">

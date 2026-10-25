@@ -1,27 +1,42 @@
 name: containers
+
+# Release gate: runs on every PR and push to main so `backend-image` and
+# `compose-stack` always report; unrelated diffs are marked SKIPPED.
 on:
   pull_request:
-    paths: ["backend/Dockerfile", ".dockerignore", "docker-compose.yml", ".env.example", "pyproject.toml", "uv.lock", "shared/**", "backend/**", "code-intelligence/**", "code-review/**", "security-agents/**", "standards/**", "tests/packaging/**", ".github/workflows/containers.yml"]
   push:
     branches: [main]
-    paths: ["backend/Dockerfile", ".dockerignore", "docker-compose.yml", ".env.example", "pyproject.toml", "uv.lock", "shared/**", "backend/**", "code-intelligence/**", "code-review/**", "security-agents/**", "standards/**", "tests/packaging/**", ".github/workflows/containers.yml"]
 permissions:
   contents: read
+env:
+  GATE_GLOBS: "backend/Dockerfile,.dockerignore,docker-compose.yml,.env.example,pyproject.toml,uv.lock,shared/**,backend/**,code-intelligence/**,code-review/**,security-agents/**,standards/**,tests/packaging/**,.github/workflows/containers.yml"
 jobs:
   backend-image:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install pinned uv
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Verify build inputs
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv sync --frozen
           ~/.local/bin/uv run pytest -ra tests/packaging
       - name: Build actual control-plane image
+        if: steps.gate.outputs.run == 'true'
         run: docker build -f backend/Dockerfile -t hackatl-backend:ci .
       - name: Non-root imports without network, credentials or a database
+        if: steps.gate.outputs.run == 'true'
         run: >-
           docker run --rm --network none --read-only --tmpfs /tmp
           hackatl-backend:ci python -c
@@ -32,27 +47,40 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install pinned uv
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Local-only .env from the documented template
+        if: steps.gate.outputs.run == 'true'
         run: |
           cp .env.example .env
           sed -i "s/^GITHUB_WEBHOOK_SECRET=.*/GITHUB_WEBHOOK_SECRET=ci-compose-smoke/; s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
       - name: Start db, migrate, api, worker
+        if: steps.gate.outputs.run == 'true'
         run: docker compose up -d --build --wait
       - name: Readiness reports database, queue and webhook secret
+        if: steps.gate.outputs.run == 'true'
         run: >-
           curl -fsS http://localhost:8000/readyz | python3 -c
           "import json, sys; d = json.load(sys.stdin); print(d); assert d['database'] and d['queue'] and d['webhook_secret_configured'], d"
       - name: Signed webhook is verified, persisted and enqueued
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv sync --frozen
           GITHUB_WEBHOOK_SECRET=ci-compose-smoke ~/.local/bin/uv run python -m backend.replay_webhook \
             --api http://localhost:8000 --repo acme/payments-lite \
             --head 1111111111111111111111111111111111111111 --path app/payments.py
       - name: Compose logs
-        if: always()
+        if: always() && steps.gate.outputs.run == 'true'
         run: docker compose logs --no-color --tail 200
       - name: Tear down
-        if: always()
+        if: always() && steps.gate.outputs.run == 'true'
         run: docker compose down -v

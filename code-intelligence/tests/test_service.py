@@ -299,3 +299,35 @@ def test_batched_blob_reads_refuse_a_missing_object(repository: tuple[Path, str]
         assert f.content == shown, f.path
     with pytest.raises(IntelligenceError, match="blob read failed"):
         GitReader(root)._blobs(["0" * 40], 0)
+
+
+def test_stored_index_payload_contains_no_unredacted_secret_literals(
+    repository: tuple[Path, str], tmp_path: Path
+) -> None:
+    """End-to-end: the StoredIndex JSON is what SQLite/Postgres persist and what
+    context packs are built from — the raw literals must never survive into it."""
+    root, _ = repository
+    secret = "hunter2" + "z" * 12
+    (root / "app/secrets_file.py").write_text(
+        f'DB_PASSWORD = "{secret}"\n'
+        f'r1 = f(password={secret}, user="alice")\n'
+        f"r2 = dict(password={secret})\n"
+        f'r3 = {{"password": {secret}}}\n'
+        "secret_configured = bool(True)\n"
+    )
+    sha = commit(root)
+    db = tmp_path / "index.sqlite"
+    engine = service(root, db)
+    ref = engine.index_repository("prj_fixture00", "rep_fixture00", sha)
+    stored = service(root, db).store.get(ref)
+    blob = stored.model_dump_json()
+    assert secret not in blob
+    assert "[REDACTED]" in blob
+    src = next(f for f in stored.files if f.path == "app/secrets_file.py")
+    assert 'DB_PASSWORD = "[REDACTED]"' in src.content
+    assert "password=[REDACTED]" in src.content
+    # the raw database bytes carry nothing else
+    conn = sqlite3.connect(db)
+    doc = conn.execute("SELECT doc FROM intelligence_indexes").fetchone()[0]
+    conn.close()
+    assert secret not in doc

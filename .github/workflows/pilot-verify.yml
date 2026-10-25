@@ -1,0 +1,315 @@
+name: pilot-verify
+
+# The single pilot verification pipeline. Manual dispatch on an exact ref;
+# every category reports its real status — PASSED / FAILED / SKIPPED — in the
+# final summary. Categories are labelled by execution mode so a report never
+# confuses fake-LLM, replay, simulated, live-provider and live-deployed runs.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA or ref to verify (release candidate)"
+        required: true
+      live_model:
+        description: "Authorize live-provider (Claude) checks — costs money, needs ANTHROPIC_API_KEY"
+        type: boolean
+        required: false
+        default: false
+      hosted_url:
+        description: "Deployed base URL for hosted smoke (empty = skip)"
+        required: false
+        default: ""
+      load_workers:
+        description: "Concurrent workers for the load/recovery probe"
+        required: false
+        default: "4"
+
+permissions:
+  contents: read
+
+jobs:
+  # Category 1 — static analysis + unit tests (no DB, no sandbox, no model)
+  static-unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Install uv
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Static checks (ruff, format, mypy, generated contracts)
+        run: |
+          ~/.local/bin/uv run ruff check shared monitoring backend standards
+          ~/.local/bin/uv run ruff format --check shared monitoring backend standards
+          ~/.local/bin/uv run mypy
+          ~/.local/bin/uv run python -m shared.export --check
+          ~/.local/bin/uv run python -m shared.examples --check
+      - name: Frontend static + unit (lint, strict tsc, Vitest)
+        run: |
+          npm ci --prefix frontend/transport && npm test --prefix frontend/transport
+          npm ci --prefix frontend
+          npm run lint --prefix frontend
+          npm run typecheck --prefix frontend
+          npm test --prefix frontend
+
+  # Category 2 — real PostgreSQL: persistence, migrations, queue, authz
+  real-db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install uv
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Migration proof — single head, upgrade, downgrade, re-upgrade
+        run: ~/.local/bin/uv run pytest -q backend/tests/test_parallel_migrations.py
+      - name: Job lifecycle — leases, retries, idempotency, cursors, artifacts, redelivery
+        run: >-
+          ~/.local/bin/uv run pytest -q
+          backend/tests/test_jobs_queue.py backend/tests/test_assessment_retries.py
+          backend/tests/test_idempotent_mutations.py backend/tests/test_events_log_cursor.py
+          backend/tests/test_list_cursors.py backend/tests/test_artifact_concurrency.py
+          backend/tests/test_redeliver.py backend/tests/test_job_status_api.py
+      - name: Full control-plane suite (real DB, fake LLM transport)
+        run: TSC=$(command -v true) ~/.local/bin/uv run pytest -q
+
+  # Category 3 — real Docker sandbox isolation
+  real-sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install uv
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Build sandbox + target images (base pinned by digest)
+        run: |
+          docker build -t hackatl-sandbox:ci security-agents/sandbox
+          docker build -t hackatl-target:ci -f security-agents/sandbox/target.Dockerfile examples/payments-lite/target
+      - name: Real Docker sandbox tests
+        working-directory: security-agents
+        env:
+          RUN_DOCKER_SANDBOX: "1"
+          SANDBOX_IMAGE: hackatl-sandbox:ci
+          SANDBOX_TARGET_IMAGE: hackatl-target:ci
+          SANDBOX_ALLOW_UNPINNED_IMAGE: "1"
+        run: ~/.local/bin/uv run pytest -q -rA tests/test_docker_sandbox_live.py
+      - name: Reviewer through the real Docker sandbox
+        env:
+          RUN_DOCKER_SANDBOX: "1"
+          SANDBOX_IMAGE: hackatl-sandbox:ci
+          SANDBOX_ALLOW_UNPINNED_IMAGE: "1"
+        run: ~/.local/bin/uv run pytest -q -rA code-review/tests/test_docker_sandbox_reviewer.py
+
+  # Category 4 — browser E2E: real API + Postgres + worker + next start + Playwright.
+  # Model replies are scripted test transports (provider_mode=fake) — replayed, not live.
+  browser-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Install uv
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install locked Python workspace
+        run: ~/.local/bin/uv sync --frozen --all-packages
+      - name: Install transport and app
+        working-directory: frontend
+        run: npm ci --prefix transport && npm run build --prefix transport && npm ci && npx playwright install --with-deps chromium
+      - name: Browser e2e against the real stack
+        working-directory: frontend
+        run: ../.venv/bin/python tests/e2e/stack.py
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 14
+
+  # Category 5 — authorized live-model (real provider, costs money). Runs ONLY
+  # when live_model=true was explicitly authorized on dispatch; otherwise the
+  # job reports SKIPPED — never silently absent from the release report.
+  live-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Record authorization state
+        run: |
+          if [ "${{ inputs.live_model }}" != "true" ]; then
+            echo "**SKIP** — live_model not authorized on this dispatch" >> "$GITHUB_STEP_SUMMARY"
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          fi
+        id: auth
+      - name: Refuse unbudgeted live runs
+        if: steps.auth.outputs.authorized == 'true'
+        run: |
+          if [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "live_model was authorized but ANTHROPIC_API_KEY is not configured" >&2
+            exit 1
+          fi
+      - name: Live reviewer eval (real provider, budget-capped)
+        if: steps.auth.outputs.authorized == 'true'
+        env:
+          RUN_LIVE_LLM_EVAL: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 -m pip install --user "uv==0.11.28"
+          ~/.local/bin/uv sync --frozen
+          ~/.local/bin/uv run pytest -q -m live_llm code-review/tests -s
+
+  # Category 6 — hosted smoke against a deployed environment (live deployment,
+  # not the CI stack). Only when hosted_url is supplied.
+  hosted-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Record hosted target
+        id: target
+        run: |
+          if [ -z "${{ inputs.hosted_url }}" ]; then
+            echo "**SKIP** — no hosted_url supplied" >> "$GITHUB_STEP_SUMMARY"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Smoke the live deployment (readiness + version + auth boundary)
+        if: steps.target.outputs.configured == 'true'
+        env:
+          BASE: ${{ inputs.hosted_url }}
+        run: |
+          set -euo pipefail
+          curl -fsS "$BASE/healthz" | python3 -m json.tool
+          curl -fsS "$BASE/readyz" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d); assert d.get('database') and d.get('queue'), d"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/v1/projects")
+          [ "$code" = "401" ] || { echo "expected 401 unauthenticated, got $code"; exit 1; }
+
+  # Category 7 — bounded load + recovery: queue saturation, lease expiry under
+  # crash, dead-letter visibility, idempotent retries (real PostgreSQL).
+  load-recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+      UV_PYTHON: "3.12"
+      LOAD_WORKERS: ${{ inputs.load_workers }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install uv
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Bounded concurrency + recovery probe
+        run: ~/.local/bin/uv run python scripts/ci/load_probe.py
+      - name: Queue + recovery regression suite
+        run: >-
+          ~/.local/bin/uv run pytest -q
+          backend/tests/test_jobs_queue.py backend/tests/test_artifact_concurrency.py
+
+  # Rollup: every category's verdict lands here — run/skip/fail, never silent.
+  verify-summary:
+    if: always()
+    needs:
+      - static-unit
+      - real-db
+      - real-sandbox
+      - browser-e2e
+      - live-model
+      - hosted-smoke
+      - load-recovery
+    runs-on: ubuntu-24.04
+    env:
+      R1: ${{ needs.static-unit.result }}
+      R2: ${{ needs.real-db.result }}
+      R3: ${{ needs.real-sandbox.result }}
+      R4: ${{ needs.browser-e2e.result }}
+      R5: ${{ needs.live-model.result }}
+      R6: ${{ needs.hosted-smoke.result }}
+      R7: ${{ needs.load-recovery.result }}
+      REF: ${{ inputs.ref }}
+      LIVE: ${{ inputs.live_model }}
+      HOSTED: ${{ inputs.hosted_url }}
+    run: |
+      {
+        echo "## Pilot verification — $REF"
+        echo ""
+        echo "| Category | Mode | Result |"
+        echo "|---|---|---|"
+        echo "| static-unit | static analysis + unit (no DB/model) | $R1 |"
+        echo "| real-db | real PostgreSQL | $R2 |"
+        echo "| real-sandbox | real Docker sandbox | $R3 |"
+        echo "| browser-e2e | real stack + browser; scripted (fake) model | $R4 |"
+        echo "| live-model | authorized live provider | $R5 (live_model=$LIVE) |"
+        echo "| hosted-smoke | live deployed environment | $R6 (hosted_url=${HOSTED:-none}) |"
+        echo "| load-recovery | bounded load + crash recovery, real DB | $R7 |"
+      } | tee -a "$GITHUB_STEP_SUMMARY"
+      for r in "$R1" "$R2" "$R3" "$R4" "$R7"; do
+        [ "$r" = "success" ] || { echo "required category failed/cancelled"; exit 1; }
+      done
+      # live-model and hosted-smoke may legitimately skip; failure is still fatal.
+      for r in "$R5" "$R6"; do
+        case "$r" in success|skipped) ;; *) echo "optional category failed: $r"; exit 1;; esac
+      done

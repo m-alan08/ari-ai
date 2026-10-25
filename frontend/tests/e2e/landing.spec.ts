@@ -14,7 +14,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 76
     await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'ARI — Find the flaw. Prove the fix.');
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toHaveText('FIND THE FLAW.PROVE THE FIX.');
-    await expect(page.locator('.hero-content p')).toHaveCount(0);
+    await expect(page.locator('.hero-content p')).toHaveCount(2);
     // The demo account is not linked publicly; the call to action opens the console.
     await expect(page.getByRole('link', { name: 'Go to projects', exact: true }).first()).toHaveAttribute('href', '/projects');
     await expect(page.getByRole('link', { name: /demo/i })).toHaveCount(0);

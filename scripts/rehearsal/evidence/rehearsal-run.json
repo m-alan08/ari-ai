@@ -1,0 +1,218 @@
+[
+  {
+    "step": "org A project",
+    "ok": true,
+    "detail": {
+      "id": "prj_01M5R4J8SPNXAD2JRF0Q4YSTE1",
+      "org_id": "org_01M5R40AVZVX4ZXGTXWGZPY4TF",
+      "name": "rehearsal-a",
+      "settings": {
+        "default_budget": {
+          "max_tokens": 400000,
+          "max_usd": 10.0,
+          "max_wall_clock_s": 1800
+        },
+        "monitoring_policy": {
+          "enabled": false,
+          "min_interval_s": 600,
+          "ignore_paths_only": [
+            "tests/**",
+            "docs/**",
+            "**/*.md"
+          ],
+          "monitoring_budget": {
+            "max_tokens": 150000,
+            "max_usd": 3.0,
+            "max_wall_clock_s": 900
+          }
+        },
+        "languages": [
+          "python"
+        ],
+        "delivery_mode": "auto",
+        "delivery_authorized_by": "usr_01M5R40AVZET3HYRBHKEH6NB0H"
+      },
+      "created_at": "2026-10-24T23:40:03.765421Z"
+    }
+  },
+  {
+    "step": "org A repository connect",
+    "ok": true,
+    "detail": {
+      "automatic_assessments": false,
+      "id": "rep_01M5R4J8SW59JK4NJH6XFYTFDN",
+      "project_id": "prj_01M5R4J8SPNXAD2JRF0Q4YSTE1",
+      "provider": "github",
+      "full_name": "rehearsal/books-target-1792885203",
+      "default_branch": "main",
+      "installation_id": null,
+      "created_at": "2026-10-24T23:40:03.771356Z"
+    }
+  },
+  {
+    "step": "org A repo binding registered",
+    "ok": true,
+    "detail": {
+      "repo_id": "rep_01M5R4J8SW59JK4NJH6XFYTFDN"
+    }
+  },
+  {
+    "step": "org A scope create",
+    "ok": true,
+    "detail": {
+      "id": "scp_01M5R4J8T323YNYXEG5EEBJMZE",
+      "project_id": "prj_01M5R4J8SPNXAD2JRF0Q4YSTE1",
+      "name": "rehearsal-a-scope",
+      "targets": [
+        {
+          "kind": "sandbox_build",
+          "repo_id": "rep_01M5R4J8SW59JK4NJH6XFYTFDN",
+          "build_recipe_ref": "build_recipe.json",
+          "exposed_ports": [
+            8080
+          ]
+        }
+      ],
+      "allowed_check_categories": [
+        "authorization.ownership",
+        "access_control.role"
+      ],
+      "status": "pending",
+      "requested_by": "usr_01M5R40AVZET3HYRBHKEH6NB0H",
+      "approved_by": null,
+      "approved_at": null,
+      "expires_at": "2026-11-23T23:40:03.775858Z",
+      "notes": null
+    }
+  },
+  {
+    "step": "org A scope self-approve (sandbox-only)",
+    "ok": true,
+    "detail": "active"
+  },
+  {
+    "step": "org A assessment start (real provider+sandbox)",
+    "ok": true,
+    "detail": {
+      "assessment": {
+        "id": "asm_01M5R4J8V92CD1S8CBA0SWMSD8",
+        "project_id": "prj_01M5R4J8SPNXAD2JRF0Q4YSTE1",
+        "snapshot_id": null,
+        "commit_sha": "54f194a59aa6ce6fd237ef84b9a8092095e18843",
+        "repo_id": "rep_01M5R4J8SW59JK4NJH6XFYTFDN",
+        "scope_id": "scp_01M5R4J8T323YNYXEG5EEBJMZE",
+        "trigger": "manual",
+        "reassessment_request_id": null,
+        "state": "CREATED",
+        "budget": {
+          "max_tokens": 400000,
+          "max_usd": 10.0,
+          "max_wall_clock_s": 1800
+        },
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "usd": 0.0,
+          "sandbox_seconds": 0.0,
+          "llm_calls": 0,
+          "tool_calls": 0
+        },
+        "error": null,
+        "created_by": "usr_01M5R40AVZET3HYRBHKEH6NB0H",
+        "created_at": "2026-10-24T23:40:03.817684Z",
+        "updated_at": "2026-10-24T23:40:03.817684Z",
+        "completed_at": null
+      },
+      "job_id": "job_01M5R4J8VB4SVCWYK9C4EK7PNJ"
+    }
+  },
+  {
+    "step": "org A assessment finished",
+    "ok": true,
+    "detail": "completed"
+  },
+  {
+    "step": "org A genuine findings",
+    "ok": true,
+    "detail": [
+      "delete_book deletes any book by id without checking the book's owner, so one user's book can be removed by another authenticated user (may not be enforced in DELETE /books/{book_id}).",
+      "get_book returns the owner's notes for any book id without an ownership check, so one user may read another user's private notes (may not be enforced in GET /books/{book_id}).",
+      "delete_book has no role check, so any authenticated caller (including a read-only role) can delete books (may not be enforced in DELETE /books/{book_id}).",
+      "Deleted seed book is resurrected on the next request",
+      "Documented SQL injection in get_book is not reachable through the route",
+      "Oversized integer book id causes a server error (refuted)",
+      "[unclassified] Forgeable bearer token: any 'Bearer demo-<anything>' is accepted and the suffix becomes the user identity (documented flaw 1)",
+      "[CWE-862] Mutating DELETE route has no authorization or ownership check (documented flaw 5)"
+    ]
+  },
+  {
+    "step": "org B project",
+    "ok": true,
+    "detail": {
+      "id": "prj_01M5R4MQ8MZA3R7SMD887565V4",
+      "org_id": "org_01M5R4EH5ZXWPAM8V9ACBFY3RN",
+      "name": "rehearsal-b",
+      "settings": {
+        "default_budget": {
+          "max_tokens": 400000,
+          "max_usd": 10.0,
+          "max_wall_clock_s": 1800
+        },
+        "monitoring_policy": {
+          "enabled": false,
+          "min_interval_s": 600,
+          "ignore_paths_only": [
+            "tests/**",
+            "docs/**",
+            "**/*.md"
+          ],
+          "monitoring_budget": {
+            "max_tokens": 150000,
+            "max_usd": 3.0,
+            "max_wall_clock_s": 900
+          }
+        },
+        "languages": [
+          "python"
+        ],
+        "delivery_mode": "auto",
+        "delivery_authorized_by": "usr_01M5R4EH5ZMJ35GXT31HHPHMKW"
+      },
+      "created_at": "2026-10-24T23:41:24.115654Z"
+    }
+  },
+  {
+    "step": "org B cannot read org A project",
+    "ok": true,
+    "detail": 404
+  },
+  {
+    "step": "org B cannot read org A assessment",
+    "ok": true,
+    "detail": 404
+  },
+  {
+    "step": "org B cannot list org A repositories",
+    "ok": true,
+    "detail": 404
+  },
+  {
+    "step": "org B owned_test application",
+    "ok": true,
+    "detail": {
+      "id": "app_01M5R4MQ9GXRV7DNAYG4HXFGDJ",
+      "project_id": "prj_01M5R4MQ8MZA3R7SMD887565V4",
+      "name": "books staging",
+      "environment": "owned_test",
+      "ingest_configured": false,
+      "last_ingest_at": null,
+      "verification": "unverified",
+      "shadow_mode": true,
+      "control_channel_configured": false,
+      "disconnected_at": null,
+      "created_by": "usr_01M5R4EH5ZMJ35GXT31HHPHMKW",
+      "created_at": "2026-10-24T23:41:24.144873Z"
+    }
+  }
+]

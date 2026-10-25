@@ -1,0 +1,16 @@
+{
+  "agent": "alan-live-defense",
+  "human_owner": "Alan",
+  "workstream": "security-agents/, live-defense Phase 6.5/7A/7C, interim shared/ contract approver",
+  "state": "BLOCKED",
+  "task": "Phase 7C authorized Scout/Diagnose execution (#458); Phase 6.5 RL-gated pilot infra (#412)",
+  "branch": "feat/alan/live-defense-phase7c-agent-execution, feat/live-defense-phase6-5-rl-gated-pilot",
+  "latest_sha": "9486a5b0",
+  "prs": [458, 412],
+  "claims": ["security-agents/", "backend/backend/live_defense/", "frontend/components/live-defense/", "shared/ contract bumps (interim approver)"],
+  "depends_on": ["Adam's explicit approval required before any live-defense merge"],
+  "blockers": ["#458 and #412 held per owner order", "schema: main moving to 0.22.0 — #412 reserved 0.20.0 must rebase to 0.22.0+"],
+  "last_update_utc": "2026-10-24T23:53:00Z",
+  "tests": "phase7c suite on its branch; enum rename fixed on its branch 2m ago",
+  "next_action": "hold; rebase onto post-integration main when asked"
+}

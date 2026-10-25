@@ -1,0 +1,39 @@
+name: coordination-board
+
+# Re-renders coordination/AGENT_BOARD.md from coordination/status/agents/*.json + open
+# PRs. Manual dispatch and a nightly safety net so agents never concurrently rewrite the
+# shared file — each agent only edits its own JSON record.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *" # nightly UTC
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@82c7e63bb3cdc9106f2ffcac161af8ff57a9f875 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Regenerate board
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/coordination_board.py
+      - name: Commit if the board drifted
+        run: |
+          if git diff --quiet coordination/AGENT_BOARD.md; then
+            echo "board already fresh"
+            exit 0
+          fi
+          git -c user.name='Adam Issac' \
+              -c user.email='62719255+adamissac@users.noreply.github.com' \
+              add coordination/AGENT_BOARD.md
+          git -c user.name='Adam Issac' \
+              -c user.email='62719255+adamissac@users.noreply.github.com' \
+              commit -m 'coord: regenerate AGENT_BOARD.md'
+          git push

@@ -3,7 +3,7 @@
 import type { Project } from '@hackatl/frontend-transport';
 import { useState, type FormEvent } from 'react';
 import { useProject } from '@/components/project';
-import { Button, ErrorState, Field, inputClass, Panel } from '@/components/ui';
+import { Button, ErrorState, Field, inputClass, PageTitle, Panel } from '@/components/ui';
 import { api } from '@/lib/api';
 import { AUTO_WARNING, draftOf, parseSettings, type Draft } from '@/lib/settings';
 
@@ -34,6 +34,8 @@ export default function SettingsPage() {
   };
 
   return (
+    <>
+      <PageTitle eyebrow="Configure" title="Settings" subtitle="Project name, languages, budgets and monitoring policy." />
     <form onSubmit={submit} className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Project settings">
       <Panel title="Project">
         <Field label="Name"><input className={inputClass} value={draft.name} onChange={e => set('name')(e.target.value)} maxLength={200} /></Field>
@@ -97,5 +99,6 @@ export default function SettingsPage() {
       </div>
       {error !== null && <div className="lg:col-span-2"><ErrorState error={error} context="Settings not saved (only project owners can change settings)" /></div>}
     </form>
+    </>
   );
 }

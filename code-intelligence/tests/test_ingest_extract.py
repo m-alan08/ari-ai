@@ -148,3 +148,79 @@ def test_redaction_keeps_python_parseable_and_routes_indexed(
     parser.extract()
     assert not [i for i in parser.issues if i.path == "app/health.py"]
     assert ("GET", "/health/ready") in {(e.method, e.path_template) for e in parser.entries}
+
+
+def test_non_literal_route_paths_are_flagged_not_silently_dropped(
+    repository: tuple[Path, str],
+) -> None:
+    path, _ = repository
+    (path / "app/dynamic_routes.py").write_text(
+        "from fastapi import FastAPI\n"
+        "app = FastAPI()\n"
+        'FIXTURE_ROUTE = "/payments/pay_fixture"\n'
+        'CONTROL_PATH = "/payments/control"\n\n'
+        "@app.get(FIXTURE_ROUTE)\n"
+        "def pay_fixture():\n"
+        "    return {}\n\n"
+        "@app.post(CONTROL_PATH)\n"
+        "def control():\n"
+        "    return {}\n\n"
+        "@app.get()\n"
+        "def no_path():\n"
+        "    return {}\n\n"
+        "@app.delete('/payments/{payment_id}')\n"
+        "def remove(payment_id: str):\n"
+        "    return {}\n"
+    )
+    sha = commit(path)
+    parser = PythonExtractor(ref(sha), GitReader(path).read(sha)[1])
+    parser.extract()
+    reasons = [i.reason for i in parser.issues if i.path == "app/dynamic_routes.py"]
+    assert len(reasons) == 3
+    assert any("FIXTURE_ROUTE" in r and "pay_fixture" in r for r in reasons)
+    assert any("CONTROL_PATH" in r and "control" in r for r in reasons)
+    assert any("no_path" in r for r in reasons)
+    # The literal route is still indexed; the dynamic ones are honestly absent.
+    assert ("DELETE", "/payments/{payment_id}") in {
+        (e.method, e.path_template) for e in parser.entries
+    }
+    handlers = {
+        s.qualified_name
+        for s in parser.symbols
+        if any(e.handler_symbol_id == s.id for e in parser.entries)
+    }
+    assert "app.dynamic_routes.remove" in handlers
+    assert not any(h.endswith(("pay_fixture", "control", "no_path")) for h in handlers)
+
+
+def test_mid_line_secret_values_are_redacted_without_breaking_parse(
+    repository: tuple[Path, str],
+) -> None:
+    path, _ = repository
+    secret = "hunter2" + "z" * 12
+    (path / "app/midline.py").write_text(
+        f"def build(s):\n    return dict(password={secret}, user=s.user)\n"
+    )
+    (path / "app/closers.py").write_text(f"def make():\n    return f(password={secret})\n")
+    (path / "app/still_code.py").write_text(
+        "def sig(secret: bytes, x: int) -> bool:\n"
+        "    return webhook_secret_configured and bool(secret)\n"
+    )
+    sha = commit(path)
+    files = GitReader(path).read(sha)[1]
+    assert secret not in "".join(f.content for f in files)
+    midline = next(f for f in files if f.path == "app/midline.py")
+    closers = next(f for f in files if f.path == "app/closers.py")
+    still = next(f for f in files if f.path == "app/still_code.py")
+    assert "password=[REDACTED], user=s.user" in midline.content
+    assert "password=[REDACTED])" in closers.content
+    # Identifiers that merely look secret-keyed keep their references.
+    assert "secret: bytes" in still.content
+    assert "bool(secret)" in still.content
+    parser = PythonExtractor(ref(sha), files)
+    parser.extract()
+    assert not [
+        i
+        for i in parser.issues
+        if i.path in {"app/midline.py", "app/closers.py", "app/still_code.py"}
+    ]

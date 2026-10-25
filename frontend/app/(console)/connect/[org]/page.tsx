@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Avatar } from '@/components/demo/ui';
-import { Button, ErrorState, Loading, Tag } from '@/components/ui';
+import { ErrorState, Loading, Tag } from '@/components/ui';
 import { api } from '@/lib/api';
 import { connectRepo } from '@/lib/github-connect';
 import { groupByOrg, repoName } from '@/lib/github-orgs';
@@ -30,7 +30,7 @@ export default function ConnectReposPage() {
   };
 
 
-  const org = list.status === 'ready' ? groupByOrg(list.data.items).find(o => o.login === login) : undefined;
+  const org = list.status === 'ready' ? groupByOrg(list.data.items).find(o => o.login.toLowerCase() === login.toLowerCase()) : undefined;
 
   return (
     <div className="workspace-index mx-auto max-w-5xl px-4 py-8" data-testid="connect-repos">
@@ -52,15 +52,18 @@ export default function ConnectReposPage() {
       {org && (
         <ul className="workspace-rows flex flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
           {org.repos.map(repo => (
-            <li key={repo.full_name} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4" data-testid={`connect-repo-${repo.full_name}`}>
-              <span className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="truncate font-semibold">{repoName(repo.full_name)}</span>
-                {repo.private && <Tag>private</Tag>}
-                {repo.connected_repo_id && <span className="flex items-center gap-1.5 text-xs text-ok"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />Connected</span>}
-              </span>
-              <Button variant="primary" aria-label={`Open ${repo.full_name}`} disabled={busy !== null} onClick={() => void open(repo)}>
-                Open
-              </Button>
+            <li key={repo.full_name} data-testid={`connect-repo-${repo.full_name}`}>
+              <button type="button" className="group flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-panel-2 disabled:opacity-60" disabled={busy !== null} onClick={() => void open(repo)}>
+                <span className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="truncate font-semibold group-hover:text-brand">{repoName(repo.full_name)}</span>
+                  {repo.private && <Tag>private</Tag>}
+                  {repo.connected_repo_id && <span className="flex items-center gap-1.5 text-xs text-ok"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />Connected</span>}
+                </span>
+                <span className="flex items-center gap-2 text-sm text-muted">
+                  {busy === repo.full_name ? 'Opening…' : 'Open'}
+                  <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
+                </span>
+              </button>
             </li>
           ))}
         </ul>

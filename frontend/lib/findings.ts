@@ -11,6 +11,12 @@ export function findingGroup(status: string): FindingGroup {
   return 'open';
 }
 
+export function findingGroupCounts(findings: readonly { status: string }[]): Record<FindingGroup, number> {
+  const counts: Record<FindingGroup, number> = { hypothesis: 0, open: 0, fixed: 0, closed: 0 };
+  for (const finding of findings) counts[findingGroup(finding.status)]++;
+  return counts;
+}
+
 /** A fix that independent tests accepted. */
 export function isFixed(status: string): boolean {
   return FIXED.has(status);

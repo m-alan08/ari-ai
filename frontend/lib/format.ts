@@ -11,8 +11,18 @@ export function relativeTime(iso: string | null | undefined, now: number = Date.
   if (!iso) return '—';
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return '—';
-  const s = Math.round((now - t) / 1000);
-  if (s < 0) return 'just now';
+  const secondsFromNow = (now - t) / 1000;
+  const s = Math.round(secondsFromNow);
+  if (secondsFromNow < 0) {
+    const futureSeconds = Math.ceil(-secondsFromNow);
+    if (futureSeconds < 60) return `in ${futureSeconds} ${futureSeconds === 1 ? 'second' : 'seconds'}`;
+    const minutes = Math.floor(futureSeconds / 60);
+    if (futureSeconds < 3600) return `in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    const hours = Math.floor(futureSeconds / 3600);
+    if (futureSeconds < 86400) return `in ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    const days = Math.floor(futureSeconds / 86400);
+    return `in ${days} ${days === 1 ? 'day' : 'days'}`;
+  }
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;

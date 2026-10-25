@@ -25,6 +25,7 @@ from backend.db import (
 from backend.host import AssessmentHost, HostError
 from backend.integrations import load_factory
 from backend.llm import LLMError
+from backend.quota import check_project_quota, skipped_reason
 from backend.services import (
     active_scope_for_repo,
     create_assessment,
@@ -94,12 +95,14 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
             return {"monitoring_event_id": done.id, "idempotent_replay": True}
         _, raw = store.get(conn, d["payload_artifact_id"])
     payload = json.loads(raw)
-    if d["event_name"] in ("installation", "installation_repositories"):
+    if d["event_name"] in ("installation", "installation_repositories", "repository"):
+        from backend.installations import apply_lifecycle
         from backend.recipes import enqueue_for_installation
 
         with transaction() as conn:
+            applied = apply_lifecycle(conn, d["event_name"], payload)
             queued = enqueue_for_installation(conn, d["event_name"], payload, delivery_id)
-        return {"build_recipes_for": queued}
+        return {"build_recipes_for": queued, "lifecycle": applied}
     change = normalize_github(d["event_name"], payload)
     if isinstance(change, Ignored):
         return {"ignored": change.reason}
@@ -163,6 +166,21 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
             open_monitoring_assessment=open_,
         )
         now = utcnow()
+        quota = (
+            check_project_quota(conn, project_id, now)
+            if decision.action is Action.assess and scope is not None
+            else None
+        )
+        reason = skipped_reason(quota) if quota is not None else decision.reason
+        request_status = None
+        if quota is not None:
+            request_status = ReassessmentStatus.skipped
+        elif decision.action is not Action.record_only:
+            request_status = {
+                Action.assess: ReassessmentStatus.started,
+                Action.blocked_no_scope: ReassessmentStatus.blocked_no_scope,
+                Action.coalesced: ReassessmentStatus.coalesced,
+            }[decision.action]
         event = MonitoringEvent(
             id=new_id(IdPrefix.evt),
             project_id=project_id,
@@ -177,10 +195,10 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
             ref=change.ref,
             pr_number=change.pr_number,
             simulated=bool(ctx.job.payload.get("simulated", False)),
-            status=EventStatus.processed
-            if decision.action is not Action.record_only
-            else EventStatus.ignored,
-            status_reason=(decision.reason + ("; " + "; ".join(notes) if notes else ""))[:500],
+            status=EventStatus.ignored
+            if quota is not None or decision.action is Action.record_only
+            else EventStatus.processed,
+            status_reason=(reason + ("; " + "; ".join(notes) if notes else ""))[:500],
             impact=impact,
         )
         inserted = conn.execute(
@@ -200,15 +218,11 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
             return {"idempotent_replay": True}
         result: dict[str, Any] = {
             "monitoring_event_id": event.id,
-            "decision": decision.action.value,
-            "reason": decision.reason,
+            "decision": "skipped" if quota is not None else decision.action.value,
+            "reason": reason,
         }
         if decision.action is not Action.record_only:
-            status = {
-                Action.assess: ReassessmentStatus.started,
-                Action.blocked_no_scope: ReassessmentStatus.blocked_no_scope,
-                Action.coalesced: ReassessmentStatus.coalesced,
-            }[decision.action]
+            assert request_status is not None
             rrq = ReassessmentRequest(
                 id=new_id(IdPrefix.rrq),
                 project_id=project_id,
@@ -217,11 +231,11 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
                 scope=decision.scope or ReassessmentScope.targeted,
                 head_sha=change.head_sha,
                 targets=list(decision.targets or decision.regression_finding_ids),
-                status=status,
-                reason=decision.reason,
+                status=request_status,
+                reason=reason,
                 created_at=now,
             )
-            if decision.action is Action.assess and scope is not None:
+            if decision.action is Action.assess and scope is not None and quota is None:
                 asm, _ = create_assessment(
                     conn,
                     project_id=project_id,
@@ -256,7 +270,7 @@ def process_github_delivery(ctx: JobContext) -> dict[str, Any]:
             subject_id=event.id,
             details={
                 "delivery_id": delivery_id,
-                "decision": decision.action.value,
+                "decision": result["decision"],
                 "head_sha": change.head_sha,
                 "impact_resolution": impact.resolution.value,
             },

@@ -1,0 +1,59 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "2292f350230363cb836b524b460687d113b12234",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.24.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-24T21:01:58.396566+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_depends_on_waits_for_prerequisite",
+      "outcome": "passed",
+      "duration_s": 0.034,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e",
+        "skipif"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_per_project_concurrency_is_fair",
+      "outcome": "passed",
+      "duration_s": 0.009,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e",
+        "skipif"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_execution_deadline_times_out",
+      "outcome": "failed",
+      "duration_s": 0.032,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_exec_reliability_compat.py:108: AssertionError: assert 'queued' == 'timed_out'",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e",
+        "skipif"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

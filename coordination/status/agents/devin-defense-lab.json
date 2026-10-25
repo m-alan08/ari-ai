@@ -1,0 +1,16 @@
+{
+  "agent": "devin-defense-lab",
+  "human_owner": "Adam",
+  "workstream": "Defense Lab pilot audit + two-org rehearsal + live-deployment rehearsal leg",
+  "state": "BLOCKED",
+  "task": "Live leg on adamissac/pilot-rehearsal-target: 2 pushes delivered 202 (recipe merge 256c8e8 @00:40, re-trigger 7cf48de @01:06) — no assessment/fix PR after ~25min; outcome only visible in prod UI/DB",
+  "branch": "feat/adam/defense-lab-pilot-audit",
+  "latest_sha": "6ffaccda",
+  "prs": [532, 541, 544, 549, 556],
+  "claims": ["scripts/rehearsal/run_rehearsal.py driver (shared w/ pipeline-fixer)", "docs/DEFENSE_LAB_*", "backend/backend/live_defense/quarantine.py", "live-deployment rehearsal verification"],
+  "depends_on": ["integration-lead merge order", "owner check of prod Assessments view for pilot-rehearsal-target", "#571 gitleaks allowlist merge (unblocks #532)"],
+  "blockers": ["prod assessment not externally observable — no assessment id/state/findings to report"],
+  "last_update_utc": "2026-10-25T01:33:00Z",
+  "tests": "local two-org rehearsal 13/13 PASS (#556); #532 18/19 green (only gitleaks red — #571 fixes, verified 11 leaks all synthetic redaction-test fixtures); webhooks 202, prod recovered from rollout 500s",
+  "next_action": "owner checks prod project Assessments view; merge #571 then #532 goes green"
+}

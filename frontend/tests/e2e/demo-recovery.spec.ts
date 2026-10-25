@@ -35,8 +35,8 @@ test('project navigation leads with two workflows and keeps tools reachable', as
   const base = `/projects/${env('E2E_PROJECT_ID')}`;
   await page.goto(base);
   const nav = page.getByRole('navigation', { name: 'Project', exact: true });
-  await expect(nav.getByRole('link')).toHaveCount(2);
-  await expect(nav.getByRole('link', { name: '7 agents', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link')).toHaveCount(11);
+  await expect(nav.getByRole('link', { name: '7 Agents', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('pillar-loop')).toBeHidden();
   await expect(page.getByRole('region', { name: 'Runs & replay' })).toBeVisible();
   for (const width of [1440, 390]) {
@@ -45,7 +45,6 @@ test('project navigation leads with two workflows and keeps tools reachable', as
     await expect(page.getByTestId('project-title')).toHaveCSS('opacity', '1');
     await page.screenshot({ path: `/tmp/ari-project-${width}.png`, fullPage: true });
   }
-  await nav.locator('summary').click();
   await expect(nav.getByRole('link', { name: 'Approvals', exact: true })).toBeVisible();
   await nav.getByRole('link', { name: 'Authorized scopes', exact: true }).click();
   await expect(page).toHaveURL(`${base}/scopes`);

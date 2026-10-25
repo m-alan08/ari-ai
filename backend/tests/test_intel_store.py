@@ -41,15 +41,18 @@ def test_write_once_ready_then_read(ref: SnapshotRef) -> None:
     assert store.put_payload(
         ref, "intelligence_index", "index.json", data
     )  # identical rewrite is idempotent
-    with pytest.raises(PayloadConflict):
-        store.put_payload(ref, "intelligence_index", "index.json", b"different")
+    # A not-ready payload is scratch from an unfinished attempt — rewriting it is
+    # what lets a crashed indexer retry the same commit instead of deadlocking.
+    store.put_payload(ref, "intelligence_index", "index.json", b"different")
     with pytest.raises(KeyError):  # invisible until ready
         store.get_payload(ref, "intelligence_index", "index.json")
     with pytest.raises(KeyError):
         store.find_snapshot(ref.project_id, ref.repo_id, SHA, "intel-0.1")
     store.mark_ready(ref, SnapshotStats(files=3, symbols=12))
-    assert store.get_payload(ref, "intelligence_index", "index.json") == data
+    assert store.get_payload(ref, "intelligence_index", "index.json") == b"different"
     assert store.find_snapshot(ref.project_id, ref.repo_id, SHA, "intel-0.1") == ref
+    with pytest.raises(PayloadConflict):
+        store.put_payload(ref, "intelligence_index", "index.json", b"v3")
     with pytest.raises(PayloadConflict, match="ready"):
         store.put_payload(ref, "intelligence_index", "late.json", b"{}")
     with pytest.raises(KeyError):

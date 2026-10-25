@@ -2,18 +2,21 @@ name: backend
 
 # CORE-002 / CORE-003: lint, generated-contract freshness, and the control-plane test
 # suite against a real PostgreSQL service. The live Claude smoke never runs here.
+#
+# Release gate: the workflow runs on every PR and every push to main so the
+# `backend-tests` and `rl-integration` checks always report. When the diff does
+# not touch backend inputs the suite steps are skipped by the gate step and the
+# check passes marked SKIPPED in the job summary — a skip is never silent.
 on:
   pull_request:
-    paths: ["standards/**", "specialists/**", "tests/security/**", "shared/**", "backend/**", "monitoring/**", "pyproject.toml", "uv.lock", "rl-defense/rl_defense/**", "rl-defense/pyproject.toml", "rl-defense/configs/topology/**", ".github/workflows/backend.yml"]
   push:
     branches: [main]
-    paths: ["standards/**", "specialists/**", "tests/security/**", "shared/**", "backend/**", "monitoring/**", "pyproject.toml", "uv.lock", "rl-defense/rl_defense/**", "rl-defense/pyproject.toml", "rl-defense/configs/topology/**", ".github/workflows/backend.yml"]
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  backend-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -29,28 +32,43 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
       UV_PYTHON: "3.12"
+      GATE_GLOBS: "standards/**,specialists/**,tests/security/**,shared/**,backend/**,monitoring/**,pyproject.toml,uv.lock,rl-defense/rl_defense/**,rl-defense/pyproject.toml,rl-defense/configs/topology/**,.github/workflows/backend.yml"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv (pinned)
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Lint and format
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv run ruff check shared monitoring backend standards
           ~/.local/bin/uv run ruff format --check shared monitoring backend standards
           ~/.local/bin/uv run mypy
       - name: Generated contracts are current (CORE-003)
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv run python -m shared.export --check
           ~/.local/bin/uv run python -m shared.examples --check
       - name: TypeScript compiler for the generated-types test
+        if: steps.gate.outputs.run == 'true'
         run: npm install --global --no-audit --no-fund typescript@5.6.3
       - name: Tests (real PostgreSQL; fake LLM transport only)
+        if: steps.gate.outputs.run == 'true'
         run: TSC=$(command -v tsc) ~/.local/bin/uv run pytest -q
 
   # backend/tests/test_rl_integration.py importorskips rl_defense, which the workspace does
-  # not install, so the `test` job above always skips it. This job installs CPU torch and
+  # not install, so the `backend-tests` job above always skips it. This job installs CPU torch and
   # rl-defense into the workspace venv (without touching uv.lock) and runs it for real.
   rl-integration:
     runs-on: ubuntu-24.04
@@ -68,17 +86,29 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
       UV_PYTHON: "3.12"
+      GATE_GLOBS: "standards/**,specialists/**,tests/security/**,shared/**,backend/**,monitoring/**,pyproject.toml,uv.lock,rl-defense/rl_defense/**,rl-defense/pyproject.toml,rl-defense/configs/topology/**,.github/workflows/backend.yml"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv (pinned)
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install workspace + rl-defense (CPU-only torch)
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv sync --frozen
           ~/.local/bin/uv pip install --python .venv/bin/python --index-url https://download.pytorch.org/whl/cpu torch
           ~/.local/bin/uv pip install --python .venv/bin/python gymnasium scipy
           ~/.local/bin/uv pip install --python .venv/bin/python --no-deps -e rl-defense
       - name: Backend <-> rl_defense integration (must run, not skip)
+        if: steps.gate.outputs.run == 'true'
         run: |
           set -o pipefail
           ~/.local/bin/uv run --no-sync pytest -q -rs backend/tests/test_rl_integration.py | tee rl.log

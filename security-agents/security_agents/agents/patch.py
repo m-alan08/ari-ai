@@ -47,7 +47,10 @@ refused by the platform.
 - Keep the diff minimal: no refactors, no renames, no dependency changes. If a \
 dependency change is truly needed, say so in `blocked_reason` instead of doing it.
 - If a retry gives you rejection reasons from verification, address those reasons \
-specifically.
+  specifically.
+- When tests need credentials or tokens, reuse existing repository fixtures or \
+  constants (import them) instead of writing token, password, or secret literals; \
+  never inline credential-shaped strings.
 - Do not weaken, skip or delete any existing test."""
 
 
@@ -82,7 +85,7 @@ class PatchOutput(StrictModel):
 
 SPEC = AgentSpec(
     name=AgentName.PATCH,
-    version="0.1.0",
+    version="0.1.1",
     input_model=PatchInput,
     output_model=PatchOutput,
     tools=frozenset(
@@ -104,7 +107,7 @@ SPEC = AgentSpec(
     step_timeout_s=480,
     max_tool_calls=50,
     max_turns=30,
-    prompt_ref="prompts/patch/v0.1.0.md",
+    prompt_ref="prompts/patch/v0.1.1.md",
     system_prompt=SYSTEM,
     max_calls_per_tool={"tests.run": 6},
     max_output_tokens=16000,  # thinking counts here; whole new test files need room

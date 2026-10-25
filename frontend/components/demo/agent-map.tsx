@@ -6,8 +6,8 @@ import { affected, componentStates, coreComponent, PHASES, plainStep, STATE_LABE
 import { SPEEDS, type Playback } from '@/lib/demo/replay';
 import type { AgentId, AgentRunView, Analysis } from '@/lib/demo/scenarios';
 
-type Status = 'queued' | 'running' | 'done' | 'skipped';
-const STATUS_WORD: Record<Status, string> = { queued: 'Queued', running: 'Working', done: 'Done', skipped: 'Not needed' };
+type Status = 'queued' | 'running' | 'done' | 'skipped' | 'failed';
+const STATUS_WORD: Record<Status, string> = { queued: 'Queued', running: 'Working', done: 'Done', skipped: 'Not needed', failed: 'Failed' };
 
 /**
  * Seven-agent replay as a live map: agents grouped by phase on the left (red team, Trace, blue
@@ -127,6 +127,7 @@ function StatusMark({ status }: { status: Status }) {
       {status === 'running' && <><circle cx="8" cy="8" r="6.25" className="amap-mark-ring" /><path d="M8 1.75a6.25 6.25 0 0 1 6.25 6.25" className="amap-mark-arc" /></>}
       {status === 'queued' && <circle cx="8" cy="8" r="6.25" className="amap-mark-ring" />}
       {status === 'skipped' && <><circle cx="8" cy="8" r="6.25" className="amap-mark-ring" /><path d="M5.5 8h5" className="amap-mark-dash" /></>}
+      {status === 'failed' && <><circle cx="8" cy="8" r="7" className="amap-mark-fill" /><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" className="amap-mark-ink" /></>}
     </svg>
   );
 }
@@ -229,7 +230,7 @@ function SystemMap({ repo, commitSha, states, touched, current, analysis, select
         <div className="amap-hub" data-active={current ? true : undefined} style={current ? { ['--beam' as string]: color } : undefined}>
           <span className="amap-hub-label">This commit</span>
           <span className="mt-1.5 block font-mono text-base text-white">{commitSha.slice(0, 7)}</span>
-          <span className="mt-1 block text-[0.72rem] text-white/50">{files} file{files === 1 ? '' : 's'} · {touched.size} of {repo.components.length} parts</span>
+          <span className="mt-1 block text-[0.72rem] text-white/50">{files > 0 ? `${files} file${files === 1 ? '' : 's'} · ` : ''}{touched.size} of {repo.components.length} parts</span>
         </div>
       </div>
       <ul className="amap-col">{right.map(card)}</ul>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findingGroup } from '@/lib/findings';
+import { findingGroup, findingGroupCounts } from '@/lib/findings';
 
 describe('finding groups', () => {
   it('does not call an inconclusive or rejected fix validated', () => {
@@ -12,5 +12,14 @@ describe('finding groups', () => {
     expect(findingGroup('refuted')).toBe('closed');
     expect(findingGroup('accepted_risk')).toBe('closed');
     expect(findingGroup('closed')).toBe('closed');
+  });
+
+  it('counts findings by state for the empty-list summary', () => {
+    expect(findingGroupCounts([
+      { status: 'verified' },
+      { status: 'hypothesis' },
+      { status: 'refuted' },
+      { status: 'inconclusive' },
+    ])).toEqual({ hypothesis: 1, open: 1, fixed: 1, closed: 1 });
   });
 });

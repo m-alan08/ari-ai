@@ -1,0 +1,30 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "9da5687cbaf03e7c9864cf1d4902a61c87c8307e",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.25.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-24T23:26:12.278791+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_dependency_deferral_is_recorded_in_lifecycle_history",
+      "outcome": "failed",
+      "duration_s": 0.035,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_independent_integration.py:82: AssertionError: assert 'running' == 'queued'",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

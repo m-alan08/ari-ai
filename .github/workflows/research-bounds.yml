@@ -1,10 +1,10 @@
 name: read-only research bounds
+# Release gate: runs on every PR and push to main so `audit` always reports;
+# unrelated diffs are marked SKIPPED.
 on:
   pull_request:
-    paths: ["scripts/research/resource_bounds.py", "tests/research/**", "docs/research/rl-product-thesis/**", ".github/workflows/research-bounds.yml"]
   push:
     branches: [main]
-    paths: ["scripts/research/resource_bounds.py", "tests/research/**", "docs/research/rl-product-thesis/**", ".github/workflows/research-bounds.yml"]
 permissions:
   contents: read
 jobs:
@@ -15,12 +15,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "scripts/research/resource_bounds.py,tests/research/**,docs/research/rl-product-thesis/**,.github/workflows/research-bounds.yml"
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884
+        if: steps.gate.outputs.run == 'true'
       - name: Install analytical test tools only
+        if: steps.gate.outputs.run == 'true'
         run: |
           uv venv --python 3.12 .venv-audit
           uv pip install --python .venv-audit/bin/python pytest==9.1.1 ruff==0.17.2
       - name: Lint and read-only mathematical/provenance tests
+        if: steps.gate.outputs.run == 'true'
         run: |
           .venv-audit/bin/ruff check scripts/research/resource_bounds.py tests/research/test_resource_bounds.py
           .venv-audit/bin/ruff format --check scripts/research/resource_bounds.py tests/research/test_resource_bounds.py

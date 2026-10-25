@@ -1,0 +1,586 @@
+{
+  "assessment_id": "asm_01M5QXE06VSZYP7297NN5SN1EH",
+  "state": "completed",
+  "states": [
+    "scope_check",
+    "indexing",
+    "functional_review",
+    "recon",
+    "validation",
+    "analysis",
+    "diagnosis",
+    "awaiting_approval",
+    "remediation",
+    "hardening",
+    "reporting",
+    "completed"
+  ],
+  "provider_modes": [
+    "live"
+  ],
+  "agents_executed": [
+    "diagnose",
+    "fortify",
+    "patch",
+    "probe",
+    "scout",
+    "trace",
+    "verify"
+  ],
+  "runs": [
+    {
+      "agent": "scout",
+      "step_key": "recon",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 5,
+      "llm_turns": 4,
+      "tokens": 47673,
+      "usd": 0.006412,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 180, \"path\": \"payments_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for payments-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A customer can only read their own profile, payments and refunds.\\n    7  - Total refunds for a payment must never exceed the pay\", \"end_line\": 178, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "expectations.for_subject",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"payments_lite/app.py\"}",
+          "summary": "{\"count\": 2, \"expectations\": \"[{\\\"confidence\\\": \\\"high\\\", \\\"criticality\\\": \\\"high\\\", \\\"data_sensitivity\\\": \\\"financial\\\", \\\"id\\\": \\\"exp_owner_only\\\", \\\"kind\\\": \\\"access_control\\\", \\\"sources\\\": [{\\\"end_line\\\": null, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": null, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": n\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 200, \"path\": \"payments_lite/store.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"In-memory data store seeded with synthetic fixture data. Reset per app instance.\\\"\\\"\\\"\\n    2  \\n    3  from __future__ import annotations\\n    4  \\n    5  from dataclasses import dataclass, field\\n    6  from decimal import Decimal\\n    7  \\n    8  \\n    9  @dataclass\\n   10  class Customer:\\n   11   \", \"end_line\": 63, \"path\": \"payments_lite/store.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"create_refund\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"payments_lite.store.Refund\\\", \\\"payments_lite.app.RefundOut\\\", \\\"get (unresolved)\\\", \\\"payments_lite.store.Store.next_id\\\", \\\"post (unresolved)\\\", \\\"payments_lite.app.create_app.require_owner\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.post('/refunds', response_model=RefundOut, status_code=status.HTTP_201_CREATED)\\\"]\", \"location\": \"[\\\"payments_lite/app.py:144-161\\\"]\", \"params\": \"[\\\"body\\\", \\\"customer\\\", \\\"store\\\"]\", \"query\": \"create_refund\", \"symbol\": \"[\\\"payments_lite.app.create_app.create_refund\\\"]\"}"
+        },
+        {
+          "name": "submit_scout_output",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{}",
+          "summary": "{\"detail\": \"hypotheses.0.weakness_class_note: Extra inputs are not permitted; hypotheses.1.weakness_class: Value error, SCHEMA_INVALID: rejected CWE identifier CWE-840: CWE-840 is a CWE category (Prohibited); map root causes to weaknesses\"}"
+        }
+      ]
+    },
+    {
+      "agent": "probe",
+      "step_key": "validation:0",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 4,
+      "llm_turns": 3,
+      "tokens": 17364,
+      "usd": 0.002137,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "checks.list_templates",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"category\": \"access_control.ownership\"}",
+          "summary": "{\"count\": 1, \"note\": \"Only templates whose category is scope-allowed and runnable can be executed. parameter_values lists the only values the authorized target's build recipe accepts; route_id takes a route id, never an HTTP path.\", \"parameter_index\": \"{\\\"access_control.ownership@1\\\": {\\\"other_identity\\\": [\\\"alice\\\", \\\"bob\\\"], \\\"owner_identity\\\": [\\\"alice\\\", \\\"bob\\\"], \\\"route_id\\\": [\\\"payment_detail\\\", \\\"customer_detail\\\"]}}\", \"scope_allowed_categories\": \"[\\\"access_control.authentication\\\", \\\"access_control.ownership\\\", \\\"input_validation.bounds\\\"]\", \"templates\": \"[{\\\"category\\\": \\\"access_control.ownership\\\", \\\"description\\\": \\\"Confirm a resource owned by one fixture identity is not readable by another, while the owner keeps legitimate access. Parameters: route_id, owner_identity, other_identity.\\\", \\\"expectation_kinds\\\": [\\\"access_control\\\"], \\\"parameter_values\\\": {\\\"other\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 175, \"path\": \"payments_lite/app.py\", \"start_line\": 125}",
+          "summary": "{\"content\": \"  125          store: Store = Depends(get_store),\\n  126      ) -> PaymentOut:\\n  127          p = Payment(store.next_id(\\\"pay\\\"), customer.id, body.amount, body.currency, body.description)\\n  128          store.payments[p.id] = p\\n  129          return payment_out(store, p)\\n  130  \\n  131      @app.get(\\\"/\", \"end_line\": 175, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 125}"
+        },
+        {
+          "name": "expectations.for_subject",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"exp_owner_only\"}",
+          "summary": "{\"count\": 2, \"expectations\": \"[{\\\"confidence\\\": \\\"high\\\", \\\"criticality\\\": \\\"high\\\", \\\"data_sensitivity\\\": \\\"financial\\\", \\\"id\\\": \\\"exp_owner_only\\\", \\\"kind\\\": \\\"access_control\\\", \\\"sources\\\": [{\\\"end_line\\\": null, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": null, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": n\"}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"parameters\": {\"other_identity\": \"bob\", \"owner_identity\": \"alice\", \"route_id\": \"payment_detail\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"access_control.ownership@1\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.545, \"errors\": 0, \"exit_code\": 1, \"failed\": 1, \"failing_tests\": \"[\\\".sandbox/test_generated_check.py::test_other_identity_is_denied\\\"]\", \"isolation_level\": \"process-dev:not-a-security-boundary\", \"matches_expectation\": false, \"network\": \"target-only\", \"parameters\": \"{\\\"other_identity\\\": \\\"bob\\\", \\\"owner_identity\\\": \\\"alice\\\", \\\"route_id\\\": \\\"payment_detail\\\"}\", \"passed\": 1, \"profile\": \"check-runner\", \"route\": \"{\\\"id\\\": \\\"payment_detail\\\", \\\"method\\\": \\\"GET\\\", \\\"path_template\\\": \\\"/payments/{payment_id}\\\"}\", \"sandbox_run_id\": \"sbx_01M5QXEMJAY7FEACQERDCJ602B\", \"target_contacted\": false, \"target_log_sha256\": null, \"target_requests\": \"[]\", \"template_ref\": \"access_control.ownership@1\", \"timed_out\": false, \"transport\": \"inprocess\"}"
+        }
+      ]
+    },
+    {
+      "agent": "diagnose",
+      "step_key": "diagnosis:fnd_01M5QXEJ4E83SN968EC8RY6BDK",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 2,
+      "llm_turns": 2,
+      "tokens": 15654,
+      "usd": 0.002257,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 200, \"path\": \"payments_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for payments-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A customer can only read their own profile, payments and refunds.\\n    7  - Total refunds for a payment must never exceed the pay\", \"end_line\": 178, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"payments_lite.app.create_app.get_payment\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"get (unresolved)\\\", \\\"payments_lite.app.create_app.payment_out\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.get('/payments/{payment_id}', response_model=PaymentOut)\\\"]\", \"location\": \"[\\\"payments_lite/app.py:132-141\\\"]\", \"params\": \"[\\\"payment_id\\\", \\\"customer\\\", \\\"store\\\"]\", \"query\": \"payments_lite.app.create_app.get_payment\", \"symbol\": \"[\\\"payments_lite.app.create_app.get_payment\\\"]\"}"
+        }
+      ]
+    },
+    {
+      "agent": "trace",
+      "step_key": "analysis:fnd_01M5QXEJ4E83SN968EC8RY6BDK",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 6,
+      "llm_turns": 5,
+      "tokens": 52221,
+      "usd": 0.007869,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"payments_lite.app.create_app.get_payment\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"get (unresolved)\\\", \\\"payments_lite.app.create_app.payment_out\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.get('/payments/{payment_id}', response_model=PaymentOut)\\\"]\", \"location\": \"[\\\"payments_lite/app.py:132-141\\\"]\", \"params\": \"[\\\"payment_id\\\", \\\"customer\\\", \\\"store\\\"]\", \"query\": \"payments_lite.app.create_app.get_payment\", \"symbol\": \"[\\\"payments_lite.app.create_app.get_payment\\\"]\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 180, \"path\": \"payments_lite/app.py\", \"start_line\": 100}",
+          "summary": "{\"content\": \"  100      def get_customer(\\n  101          customer_id: str,\\n  102          customer: Customer = Depends(current_customer),\\n  103          store: Store = Depends(get_store),\\n  104      ) -> CustomerOut:\\n  105          \\\"\\\"\\\"A customer can only read their own profile.\\\"\\\"\\\"\\n  106          target = store.c\", \"end_line\": 178, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 100}"
+        },
+        {
+          "name": "findings.history",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"payments_lite/app.py\"}",
+          "summary": "{\"count\": 1, \"records\": \"[{\\\"finding_id\\\": \\\"fnd_01M5QXEJ4E83SN968EC8RY6BDK\\\", \\\"key\\\": \\\"CWE-639:payments_lite/app.py:ent_get_payments_payment_id\\\", \\\"outcome\\\": \\\"confirmed\\\", \\\"title\\\": \\\"GET /payments/{payment_id} returns any payment by id without an ownership check\\\"}]\"}"
+        },
+        {
+          "name": "code.search",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"pattern\": \"def payment_out|class PaymentOut|def require_owner|class Payment\\\\b|def current_customer\"}",
+          "summary": "{\"count\": 5, \"hits\": \"[{\\\"line\\\": 28, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"text\\\": \\\"class PaymentOut(BaseModel):\\\"}, {\\\"line\\\": 63, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"text\\\": \\\"def current_customer(\\\"}, {\\\"line\\\": 75, \\\"path\\\": \\\"payments_lite/app.py\\\", \\\"text\\\": \\\"def require_owner(resource_customer_id: str, customer: Customer) -> None:\\\"}, {\\\"l\", \"pattern\": \"def payment_out|class PaymentOut|def require_owner|class Payment\\\\b|def current_customer\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 90, \"path\": \"payments_lite/app.py\", \"start_line\": 26}",
+          "summary": "{\"content\": \"   26  \\n   27  \\n   28  class PaymentOut(BaseModel):\\n   29      id: str\\n   30      customer_id: str\\n   31      amount: Decimal\\n   32      currency: str\\n   33      description: str\\n   34      refunded: Decimal\\n   35  \\n   36  \\n   37  class RefundIn(BaseModel):\\n   38      payment_id: str\\n   39      amou\", \"end_line\": 90, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 26}"
+        },
+        {
+          "name": "submit_trace_output",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{}",
+          "summary": "{\"detail\": \"impact_summary: String should have at most 2000 characters; cvss_base_metrics: Field required\"}"
+        }
+      ]
+    },
+    {
+      "agent": "fortify",
+      "step_key": "hardening:fnd_01M5QXEJ4E83SN968EC8RY6BDK",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 2,
+      "llm_turns": 2,
+      "tokens": 17556,
+      "usd": 0.002871,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 200, \"path\": \"payments_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for payments-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A customer can only read their own profile, payments and refunds.\\n    7  - Total refunds for a payment must never exceed the pay\", \"end_line\": 178, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"require_owner\"}",
+          "summary": "{\"callees\": \"[\\\"HTTPException (unresolved)\\\"]\", \"callers\": \"[\\\"payments_lite.app.create_app\\\", \\\"payments_lite.app.create_app.get_customer\\\", \\\"payments_lite.app.create_app.create_refund\\\", \\\"payments_lite.app.create_app.get_refund\\\"]\", \"decorators\": \"[]\", \"location\": \"[\\\"payments_lite/app.py:75-78\\\"]\", \"params\": \"[\\\"resource_customer_id\\\", \\\"customer\\\"]\", \"query\": \"require_owner\", \"symbol\": \"[\\\"payments_lite.app.create_app.require_owner\\\"]\"}"
+        }
+      ]
+    },
+    {
+      "agent": "patch",
+      "step_key": "remediation:fnd_01M5QXEJ4E83SN968EC8RY6BDK:patch",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 14,
+      "llm_turns": 8,
+      "tokens": 96935,
+      "usd": 0.011203,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 106, \"path\": \"payments_lite/app.py\", \"start_line\": 60}",
+          "summary": "{\"content\": \"   60      def get_store() -> Store:\\n   61          return app.state.store\\n   62  \\n   63      def current_customer(\\n   64          authorization: Annotated[str | None, Header()] = None,\\n   65          store: Store = Depends(get_store),\\n   66      ) -> Customer:\\n   67          \\\"\\\"\\\"Resolve the bearer t\", \"end_line\": 106, \"path\": \"payments_lite/app.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 60}"
+        },
+        {
+          "name": "code.search",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"max_results\": 40, \"pattern\": \"def test_|import|fixture|def client|def _\"}",
+          "summary": "{\"count\": 38, \"hits\": \"[{\\\"line\\\": 20, \\\"path\\\": \\\"README.md\\\", \\\"text\\\": \\\"Fixture tokens: `fixture-token-alice`, `fixture-token-bob` (synthetic, not secrets).\\\"}, {\\\"line\\\": 6, \\\"path\\\": \\\"build_recipe.json\\\", \\\"text\\\": \\\"\\\\\\\"entry points, its synthetic fixture identities and the fixture resources a\\\\\\\",\\\"}, {\\\"line\\\": 23, \\\"path\\\": \\\"build_recipe.\", \"pattern\": \"def test_|import|fixture|def client|def _\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 40, \"path\": \"tests/test_api.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  from decimal import Decimal\\n    2  \\n    3  from tests.conftest import ALICE, BOB\\n    4  \\n    5  \\n    6  def test_health(client):\\n    7      assert client.get(\\\"/health\\\").json() == {\\\"status\\\": \\\"ok\\\"}\\n    8  \\n    9  \\n   10  def test_requires_token(client):\\n   11      assert client.get(\\\"/me\\\").statu\", \"end_line\": 40, \"path\": \"tests/test_api.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 20, \"path\": \"tests/conftest.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  import pytest\\n    2  from fastapi.testclient import TestClient\\n    3  \\n    4  from payments_lite.app import create_app\\n    5  \\n    6  ALICE = {\\\"Authorization\\\": \\\"[REDACTED]\\\"}\\n    7  BOB = {\\\"Authorization\\\": \\\"[REDACTED]\\\"}\\n    8  \\n    9  \\n   10  @pytest.fixture\\n   11  def client():\\n   12      ret\", \"end_line\": 12, \"path\": \"tests/conftest.py\", \"sha\": \"4b1db3ef7a55bfde05f169696f47c25dbff45630\", \"start_line\": 1}"
+        },
+        {
+          "name": "worktree.write_file",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"content\": \"from tests.conftest import ALICE, BOB\\n\\n\\ndef test_other_identity_is_denied(client):\\n    # pay_a1 belongs to cus_alice; bob must not be able to read it.\\n    assert client.get(\\\"/payments/pay_a1\\\", headers=BOB).status_code == 404\\n\\n\\ndef test_owner_access(client):\\n    r = client.get(\\\"/payments/pay_a1\\\", headers=ALICE)\\n    assert r.status_code == 200\\n    assert r.json()[\\\"customer_id\\\"] == \\\"cus_alice\\\"\\n\\n\\ndef test_missing_payment_still_404(client):\\n    assert client.get(\\\"/payments/pay_does_not_exist\\\", headers=ALICE).status_code == 404\\n\\n\\ndef test_unauthenticated_get_payment_is_401(client):\\n    assert client.get(\\\"/payments/pay_a1\\\").status_code == 401\\n\", \"path\": \"tests/test_payment_ownership.py\"}",
+          "summary": "{\"action\": \"created\", \"bytes\": 644, \"lines\": 20, \"path\": \"tests/test_payment_ownership.py\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"node_ids\": [\"tests/test_payment_ownership.py\"], \"selection\": \"added_tests_unpatched\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.511, \"errors\": 0, \"exit_code\": 1, \"failed\": 1, \"failing_tests\": \"[\\\"tests/test_payment_ownership.py::test_other_identity_is_denied\\\"]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 3, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXG6GNM0X3MRN77NDF223Z\", \"selection\": \"added_tests_unpatched\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"F...                                                                     [100%]\\n=================================== FAILURES ===================================\\n________________________ test_other_identity_is_denied _________________________\\n\\nclient = <starlette.testclient.TestClient object at 0x10b\", \"timed_out\": false}"
+        },
+        {
+          "name": "worktree.edit_file",
+          "ok": false,
+          "error_code": "NO_UNIQUE_MATCH",
+          "args": "{\"new_string\": \"          p = store.payments.get(payment_id)\\n          if p is None:\\n              raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n          require_owner(p.customer_id, customer)\\n          return payment_out(store, p)\", \"old_string\": \"          p = store.payments.get(payment_id)\\n          if p is None:\\n              raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n          return payment_out(store, p)\", \"path\": \"payments_lite/app.py\"}",
+          "summary": "{\"detail\": \"old_string occurs 0 times in payments_lite/app.py; include more surrounding lines\", \"error\": \"NO_UNIQUE_MATCH\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"node_ids\": [\"tests/test_payment_ownership.py\"], \"selection\": \"added_tests\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.52, \"errors\": 0, \"exit_code\": 1, \"failed\": 1, \"failing_tests\": \"[\\\"tests/test_payment_ownership.py::test_other_identity_is_denied\\\"]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 3, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXG8T1072BKMCPPE7XNQX0\", \"selection\": \"added_tests\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"F...                                                                     [100%]\\n=================================== FAILURES ===================================\\n________________________ test_other_identity_is_denied _________________________\\n\\nclient = <starlette.testclient.TestClient object at 0x109\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"project_suite\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.557, \"errors\": 0, \"exit_code\": 1, \"failed\": 1, \"failing_tests\": \"[\\\"tests/test_payment_ownership.py::test_other_identity_is_denied\\\"]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 16, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXG9AWV9Y1NRBK5Y5AQNTC\", \"selection\": \"project_suite\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \".............F...                                                        [100%]\\n=================================== FAILURES ===================================\\n________________________ test_other_identity_is_denied _________________________\\n\\nclient = <starlette.testclient.TestClient object at 0x109\", \"timed_out\": false}"
+        },
+        {
+          "name": "worktree.edit_file",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"new_string\": \"        p = store.payments.get(payment_id)\\n        if p is None:\\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n        require_owner(p.customer_id, customer)\\n        return payment_out(store, p)\", \"old_string\": \"        p = store.payments.get(payment_id)\\n        if p is None:\\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n        return payment_out(store, p)\", \"path\": \"payments_lite/app.py\"}",
+          "summary": "{\"action\": \"edited\", \"lines\": 179, \"path\": \"payments_lite/app.py\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"node_ids\": [\"tests/test_payment_ownership.py\"], \"selection\": \"added_tests\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.38, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 4, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXGD9CA8VPXR711JK881W9\", \"selection\": \"added_tests\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"....                                                                     [100%]\\n4 passed in 0.02s\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"project_suite\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.443, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 17, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXGDNG1HH3X8NJCM4AQC74\", \"selection\": \"project_suite\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \".................                                                        [100%]\\n17 passed in 0.09s\", \"timed_out\": false}"
+        },
+        {
+          "name": "worktree.diff",
+          "ok": true,
+          "error_code": null,
+          "args": "{}",
+          "summary": "{\"diff\": \"diff --git a/payments_lite/app.py b/payments_lite/app.py\\n--- a/payments_lite/app.py\\n+++ b/payments_lite/app.py\\n@@ -138,6 +138,7 @@\\n         p = store.payments.get(payment_id)\\n         if p is None:\\n             raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n+        require_owner(p.cust\", \"diff_sha256\": \"8a75d89e079b9d867fb3db48fdb351aa73056d78412ead31b917500e504c0801\", \"files_changed\": \"[\\\"payments_lite/app.py\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"lines\": 36}"
+        },
+        {
+          "name": "submit_patch_output",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{}",
+          "summary": "{\"detail\": \"local_tests_passed: Field required\"}"
+        }
+      ]
+    },
+    {
+      "agent": "verify",
+      "step_key": "remediation:fnd_01M5QXEJ4E83SN968EC8RY6BDK:verify",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 5,
+      "llm_turns": 4,
+      "tokens": 19944,
+      "usd": 0.002695,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "patch.apply_fresh",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"patch_id\": \"pat_01M5QXGPAQBM36HSSK2G86TZAR\"}",
+          "summary": "{\"applied\": true, \"apply_error\": \"\", \"diff_sha256\": \"8a75d89e079b9d867fb3db48fdb351aa73056d78412ead31b917500e504c0801\", \"files_in_plan\": \"[\\\"payments_lite/app.py\\\", \\\"tests/test_api.py\\\"]\", \"files_touched\": \"[\\\"payments_lite/app.py\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"fresh_checkout\": true, \"new_test_files\": \"[\\\"tests/test_payment_ownership.py\\\"]\", \"out_of_scope_files\": \"[]\", \"patch_id\": \"pat_01M5QXGPAQBM36HSSK2G86TZAR\", \"tampered_protected_tests\": \"[]\"}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"parameters\": {\"other_identity\": \"bob\", \"owner_identity\": \"alice\", \"route_id\": \"payment_detail\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"access_control.ownership@1\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.947, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"isolation_level\": \"process-dev:not-a-security-boundary\", \"matches_expectation\": true, \"network\": \"target-only\", \"parameters\": \"{\\\"other_identity\\\": \\\"bob\\\", \\\"owner_identity\\\": \\\"alice\\\", \\\"route_id\\\": \\\"payment_detail\\\"}\", \"passed\": 2, \"profile\": \"check-runner\", \"route\": \"{\\\"id\\\": \\\"payment_detail\\\", \\\"method\\\": \\\"GET\\\", \\\"path_template\\\": \\\"/payments/{payment_id}\\\"}\", \"sandbox_run_id\": \"sbx_01M5QXH1BNSB8PRB4AJG6PW3DX\", \"target_contacted\": false, \"target_log_sha256\": null, \"target_requests\": \"[]\", \"template_ref\": \"access_control.ownership@1\", \"timed_out\": false, \"transport\": \"inprocess\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"project_suite\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.752, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 17, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXH29HZDC6AHBE1Z9ZEAYZ\", \"selection\": \"project_suite\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \".................                                                        [100%]\\n17 passed in 0.14s\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"added_tests\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.661, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 4, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_payment_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5QXH318A68B1J5FK18JYZP2\", \"selection\": \"added_tests\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"....                                                                     [100%]\\n4 passed in 0.05s\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": false,
+          "error_code": "UNPATCHED_UNAVAILABLE",
+          "args": "{\"selection\": \"added_tests_unpatched\"}",
+          "summary": "{\"detail\": \"only a patch worktree has unpatched code\", \"error\": \"UNPATCHED_UNAVAILABLE\"}"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "fnd_01M5QXEJ4E83SN968EC8RY6BDK",
+      "title": "GET /payments/{payment_id} returns any payment by id without an ownership check",
+      "weakness_class": "CWE-639",
+      "status": "hardened",
+      "severity": "medium",
+      "validation_outcome": "confirmed",
+      "verdicts": [
+        "accepted"
+      ],
+      "patch_candidates": 1,
+      "patch_tests_added": [
+        "tests/test_payment_ownership.py"
+      ],
+      "regression_tests": [
+        "tests/test_payment_ownership.py"
+      ],
+      "notes": [
+        "agent claimed tests ['tests/test_payment_ownership.py::test_other_identity_is_denied', 'tests/test_payment_ownership.py::test_owner_access', 'tests/test_payment_ownership.py::test_missing_payment_still_404', 'tests/test_payment_ownership.py::test_unauthenticated_get_payment_is_401']; new test files are ['tests/test_payment_ownership.py']",
+        "deviation: Regression tests were placed in a new file tests/test_payment_ownership.py instead of tests/test_api.py, because the rules forbid editing existing test files. The new file reuses the client fixture and ALICE/BOB helpers from tests/conftest.py.",
+        "deviation: Added two extra guard tests (missing id returns 404, unauthenticated returns 401) to cover the plan's constraints."
+      ],
+      "standards": {
+        "cwe": "CWE-639",
+        "attack": [
+          "T1190"
+        ],
+        "d3fend": [
+          "D3-AMED"
+        ],
+        "cvss_vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+        "cvss_score": 6.0,
+        "cvss_complete": true,
+        "cvss_missing": [],
+        "exploit_status": "reproduced_in_sandbox",
+        "unmapped": [],
+        "catalog_versions": {
+          "attack": "20.0",
+          "d3fend": "1.6.0",
+          "cwe": "4.20",
+          "capec": "3.9",
+          "owasp_llm": "2025",
+          "owasp_llm2026": "2026",
+          "cvss": "4.0",
+          "nist_800_61": "Rev. 3",
+          "nist_csf": "2.0"
+        }
+      }
+    },
+    {
+      "finding_id": "fnd_01M5QXEJ4ENXVJ0K4T1PWF41CC",
+      "title": "POST /refunds checks each refund against the payment amount but not the running total of prior refunds",
+      "weakness_class": "CWE-841",
+      "status": "hypothesis",
+      "severity": null,
+      "validation_outcome": null,
+      "verdicts": [],
+      "patch_candidates": 0,
+      "patch_tests_added": [],
+      "regression_tests": [],
+      "notes": [],
+      "standards": null
+    }
+  ],
+  "usage": {
+    "input_tokens": 245577,
+    "output_tokens": 21770,
+    "usd": 0.03544270000000001,
+    "sandbox_seconds": 6.336999999999999
+  },
+  "audit_actions": [
+    "assessment.transition",
+    "scope.checked",
+    "roe.issued",
+    "assessment.transition",
+    "assessment.transition",
+    "assessment.transition",
+    "specialist.inference",
+    "tests.baseline",
+    "agent.step",
+    "finding.hypothesis",
+    "finding.hypothesis",
+    "assessment.transition",
+    "specialist.inference",
+    "agent.step",
+    "finding.validation",
+    "finding.classified",
+    "assessment.transition",
+    "specialist.inference",
+    "specialist.inference",
+    "agent.step",
+    "agent.step",
+    "finding.severity",
+    "finding.classified",
+    "assessment.transition",
+    "finding.diagnosed",
+    "assessment.transition",
+    "approval.granted",
+    "assessment.transition",
+    "specialist.inference",
+    "specialist.inference",
+    "agent.step",
+    "agent.step",
+    "patch.candidate",
+    "tests.added_on_unpatched",
+    "agent.step",
+    "specialist.inference",
+    "finding.verification",
+    "assessment.transition",
+    "finding.classified",
+    "finding.hardened",
+    "assessment.transition",
+    "assessment.transition",
+    "assessment.completed"
+  ],
+  "specialist_inferences": [
+    {
+      "agent": "scout",
+      "model": "ari-scout-vulnclass@1.1.0",
+      "source": "model",
+      "top": "[{\"entry_point_id\": \"ent_get_health\", \"path\": \"payments_lite/app.py\", \"lines\": [92, 93], \"suspicion\": 0.3743, \"likely_cwe\": \"CWE-862\", \"likely_cwe_score\": 0.1375}, {\"entry_point_id\": \"ent_get_payments_payment_id\", \"path\": \"payments_lite/app.py\", \"lines\": [132, 141], \"suspicion\": 0.0085, \"likely_cwe\": \"CWE-639\", \"likely_cwe_score\": 0.006}, {\"entry_point_id\": \"ent_post_payments\", \"path\": \"payments_lite/app.py\", \"lines\": [122, 129], \"suspicion\": 0.0067, \"likely_cwe\": \"CWE-1284\", \"likely_cwe_score\": 0.0055}, {\"entry_point_id\": \"ent_post_refunds\", \"path\": \"payments_lite/app.py\", \"lines\": [144, 161], \"suspicion\": 0.0031, \"likely_cwe\": \"CWE-1284\", \"likely_cwe_score\": 0.003}, {\"entry_point_id\": \"ent_get_me\", \"path\": \"payments_lite/app.py\", \"lines\": [96, 97], \"suspicion\": 0.0023, \"likely_cwe\": \"CWE-78\", \"likely_cwe_score\": 0.0005}]",
+      "latency_ms": null,
+      "reason": null
+    },
+    {
+      "agent": "probe",
+      "model": "ari-probe-strategy@1.1.0",
+      "source": "model",
+      "top": "WSTG-ATHZ-04",
+      "latency_ms": 1.603,
+      "reason": null
+    },
+    {
+      "agent": "trace",
+      "model": "ari-trace-tactics@1.1.0",
+      "source": "baseline:prior_top3",
+      "top": "privilege-escalation",
+      "latency_ms": 0.004,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "diagnose",
+      "model": "ari-diagnose-rootcause@1.1.0",
+      "source": "model",
+      "top": "missing_check",
+      "latency_ms": 2.889,
+      "reason": null
+    },
+    {
+      "agent": "fortify",
+      "model": "ari-fortify-d3fend@1.1.0",
+      "source": "baseline:tactic_frequency",
+      "top": "D3-AA",
+      "latency_ms": 0.005,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "patch",
+      "model": "ari-patch-strategy@1.1.0",
+      "source": "baseline:cwe_lookup",
+      "top": "add_ownership_predicate",
+      "latency_ms": 0.004,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "verify",
+      "model": "ari-verify-evidence@1.1.0",
+      "source": "model",
+      "top": "adequate",
+      "latency_ms": 3.532,
+      "reason": null
+    }
+  ],
+  "error_code": null,
+  "error_detail": null
+}

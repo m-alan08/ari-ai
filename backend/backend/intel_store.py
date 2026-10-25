@@ -127,11 +127,22 @@ class PostgresPayloadStore:
                 )
             ).scalar()
             if existing is not None:
-                if existing != digest:
+                if existing == digest:
+                    return digest
+                if ready is not None:
                     raise PayloadConflict(
                         f"{kind}/{key} is immutable and differs from the stored payload"
                     )
-                return digest
+                # Not-ready payload: leftover scratch from an indexing attempt that
+                # never reached ready, so nothing could have read it. Replace it —
+                # otherwise one crashed run permanently poisons the commit's index.
+                conn.execute(
+                    index_payloads.delete().where(
+                        *_ref_where(index_payloads, snapshot_ref),
+                        index_payloads.c.kind == kind,
+                        index_payloads.c.key == key,
+                    )
+                )
             if ready is not None:
                 raise PayloadConflict(
                     "snapshot is already marked ready; it accepts no new payloads"

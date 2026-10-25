@@ -1,0 +1,333 @@
+{
+  "provider_mode": "live",
+  "model_id": "claude-haiku-5-5",
+  "tool_calls": [
+    "checks.list_templates",
+    "code.read_span",
+    "expectations.for_subject",
+    "checks.run_template"
+  ],
+  "check_runs": [
+    {
+      "sandbox_run_id": "sbx_01M5QXDCTZ85MJT6C7CBBBC9FH",
+      "driver": "local-process",
+      "isolation_level": "process-dev:not-a-security-boundary",
+      "profile": "check-runner",
+      "network": "target-only",
+      "exit_code": 1,
+      "timed_out": false,
+      "duration_s": 0.758,
+      "transport": "inprocess",
+      "target_contacted": false,
+      "target_requests": [],
+      "target_log_sha256": null,
+      "target_tree_sha256": null,
+      "template_ref": "access_control.ownership@1",
+      "template_id": "access_control.ownership",
+      "template_version": "1",
+      "category": "access_control.ownership",
+      "target_id": "tgt_payments_lite",
+      "parameters": {
+        "route_id": "payment_detail",
+        "owner_identity": "alice",
+        "other_identity": "bob"
+      },
+      "route": {
+        "id": "payment_detail",
+        "method": "GET",
+        "path_template": "/payments/{payment_id}"
+      },
+      "params_hash": "4b7bcd6640e708bc",
+      "matches_expectation": false,
+      "passed": 1,
+      "failed": 1,
+      "errors": 0,
+      "skipped": 0,
+      "failing_tests": [
+        ".sandbox/test_generated_check.py::test_other_identity_is_denied"
+      ],
+      "failing_truncated": false,
+      "stdout_tail": ".F                                                                       [100%]\n=================================== FAILURES ===================================\n________________________ test_other_identity_is_denied _________________________\n\n    def test_other_identity_is_denied():\n        resp = _client().get(PATH, headers=OTHER_HEADERS)\n        RESULT[\"other_status\"] = resp.status_code\n        RESULT[\"other_leaked_body\"] = resp.status_code == 200\n>       assert resp.status_code in DENIED, (\n            f\"expected one of {DENIED} for a non-owner, observed {resp.status_code}\"\n        )\nE       AssertionError: expected one of [403, 404] for a non-owner, observed 200\nE       assert 200 in [403, 404]\nE        +  where 200 = <Response [200 OK]>.status_code\n\n.sandbox/test_generated_check.py:36: AssertionError\n=========================== short test summary info ============================\nFAILED .sandbox/test_generated_check.py::test_other_identity_is_denied - Asse...\n1 failed, 1 passed in 0.44s",
+      "note": "matches_expectation is computed from the executed assertions; false means the expectation did not hold against the target."
+    }
+  ],
+  "validation": {
+    "id": "val_01M5QXDGNEQXMRYJCGS111WSSK",
+    "hypothesis_id": "hyp_live",
+    "outcome": "confirmed",
+    "check_template_id": "access_control.ownership",
+    "check_template_version": "1",
+    "parameters": {
+      "route_id": "payment_detail",
+      "owner_identity": "alice",
+      "other_identity": "bob"
+    },
+    "sandbox_run_id": "sbx_01M5QXDCTZ85MJT6C7CBBBC9FH",
+    "observations": {
+      "agent_claimed_outcome": "confirmed",
+      "outcome_source": "executed_check",
+      "agent_notes": [
+        "route payment_detail (GET /payments/{payment_id}) run with owner_identity=alice, other_identity=bob",
+        "test_other_identity_is_denied failed: non-owner (bob) got status 200, expected one of [403, 404]",
+        "owner-side test passed (passed=1, failed=1, errors=0)",
+        "matches_expectation=false",
+        "code: payments_lite/app.py lines 131-141 get_payment has no require_owner call; get_refund and create_refund and get_customer do call it",
+        "linked expectation exp_owner_only (access_control, confirmed, high) states a customer can only read payments they own; the hypothesis cited exp_tenant_isolation_payments, which the expectations tool did not return, so the match used exp_owner_only",
+        "target_contacted reported false in the run metadata; the verdict rests on the executed assertion"
+      ],
+      "passed": 1,
+      "failed": 1,
+      "errors": 0,
+      "failing_tests": [
+        ".sandbox/test_generated_check.py::test_other_identity_is_denied"
+      ],
+      "exit_code": 1,
+      "driver": "local-process",
+      "isolation_level": "process-dev:not-a-security-boundary",
+      "network": "target-only",
+      "params_hash": "4b7bcd6640e708bc",
+      "transport": "inprocess",
+      "target_contacted": false,
+      "target_requests": [],
+      "target_log_sha256": null
+    },
+    "evidence": [
+      {
+        "path": null,
+        "sha": null,
+        "span": null,
+        "symbol": "access_control.ownership@1",
+        "artifact_id": "sbx_01M5QXDCTZ85MJT6C7CBBBC9FH",
+        "provenance": "check_run"
+      }
+    ],
+    "interpretation": "GET /payments/{payment_id} (get_payment) returns a payment by id without an owner check. Template run with owner alice and other bob: the non-owner request got HTTP 200 where 403/404 was expected. matches_expectation=false, so the ownership expectation did not hold. The owner-side test passed. Sibling routes enforce ownership, so this is the gap."
+  },
+  "transcript": {
+    "run_id": "run_test",
+    "agent": "probe",
+    "spec_version": "0.1.0",
+    "model": "claude-haiku-5-5",
+    "provider_mode": "live",
+    "turns": [
+      {
+        "index": 0,
+        "stop_reason": "tool_use",
+        "content": [
+          {
+            "id": "toolu_01QFBpdskadLAdeASx82boKW",
+            "caller": {
+              "type": "direct"
+            },
+            "input": {
+              "category": "access_control.ownership"
+            },
+            "name": "checks__list_templates",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_01Wf7CaiWjSufaveH7qQ2GST",
+            "caller": {
+              "type": "direct"
+            },
+            "input": {
+              "path": "payments_lite/app.py",
+              "start_line": 1,
+              "end_line": 200
+            },
+            "name": "code__read_span",
+            "type": "tool_use"
+          },
+          {
+            "id": "toolu_018UB9ochfpaCzK9No527KxB",
+            "caller": {
+              "type": "direct"
+            },
+            "input": {
+              "subject": "exp_tenant_isolation_payments"
+            },
+            "name": "expectations__for_subject",
+            "type": "tool_use"
+          }
+        ],
+        "usage": {
+          "input_tokens": 2867,
+          "output_tokens": 219,
+          "cache_read_input_tokens": 0
+        },
+        "usd": 0.000396,
+        "model": "claude-haiku-5-5"
+      },
+      {
+        "index": 1,
+        "stop_reason": "tool_use",
+        "content": [
+          {
+            "signature": "CAQS/wcKEAgTGAI4AUIIdGhpbmtpbmcSDCiIsiLmwy7GYZUycRoMaLkii+QU6FNPXrb6IjCqk/VZMBaBEvP/zWjRgcav0wDI7mwyE8T+nvv1ICddHJjmgUrSXltYLTUPAqRYiQUqnAd+/Ch+z2koALp752ZJ5shORWEQkDhmBD1MyJwEZb15Bq3PMh8Qgn8XRbfrBc67FXNGrYPCFA6FTC4F1j4PE5oj9sMj3cOdizEXztVSEfDn+HdNf5Gos0roP+HV2GtA5QnmCjnySxwjQJJRGDNtoLNEAYzqSH6hxOdxMYeQKTCkg1RwgA+nmnx6OhrMFpYUdFWlSC5FUAQh59cvyXUw53wpFYnIBJt5TcTr5IZChXI9ZPfmD1rUQxDyddtcd1WzYF2mx4K+GB2KcKmhwljVmodr+UJajwY+mW6XKh3qY5fJmGU3HqNTJlJ4+qcRNrkRqHaIrPvZszDCVaqnQW85DK1Id+zqg8vizfmPa3L5OjIKYQ1/4uzULE4pfFfKhTb7wF1fRPZNmOlOOvqpeh/sms5CwBXvYNUSAZlhO6svwwWE2ScZBW6gxc8CV4CXxEent++8ZmNOug3S8V0RlJPsNY5ax8VvCDofcXsva/fuUA76vjN8txGyvKx3UErYNr+fvL9Dil7yAjkNEmxAE9djo/XMQ8HqHHqX6e4QyEiql7jlKnEeJh97QJgpk4PSkamU1flwu+bsyjBHIEwwAVigwN7zBYKtMvmtTXAsdlhToiDe/q8u6MB54a9+5wpyhmvppwxzYsyH8dZCicOPTOEs2U/kPDyC5uRTxu+a9uP7FsVDMlPbPVGPlYeF9HCDgNUBYKY/E7NO87j69Ic62sU81Y4ihgo0ON7UlYCSVB0r4ezjOdsFZOue9tRLWjtkcA8EFH6b6aCriZcfBy08+p/onfpkpXrZTuZ4+I1r5WBBfauvttJVNqqpsnOKigqZpSiVTF6qgOuSa5fcRaQ86dH0kTbrrg0+xgr1ikp0heLkWApSDXfL2nokngACFlJqMXPU6UQBT8UA9SQSoVX+jjT+/NXs6nFoKfH/2O0sKNfeyoHWwuQrkdckiC0s2ss/qms4ysehl+lE3NkSX06WEVMilDm4W3m8cDrxPC5pEO9laGXoqtMLOOPCT1PZtApheB7AWTmc5Y4kRZ0yCPCZITjya/mpG3nyP2YDRfUkYeP/ZArDDYadQ5QNFXnehrzJyYEVgPCeHRpdoScKIytYfVAb9zue+EdeSJPosfbAS93O6OU/9r6IAAwy3v9nqqdn737QpjpBHAfPKYP94lfniWKBjAU1ji9fLQ4dWQxy1qv8PXvTRGgHqwJxP8qwzbsdPocEqhs+P6I+9kFnTG6RLVoYAQ==",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "text": "The code shows `get_payment` (line 131-141) looks up the payment by id with no `require_owner` check, while `get_customer`, `create_refund` and `get_refund` do enforce ownership. The template `access_control.ownership@1` fits, with `payment_detail` as the route id. I'll run it with alice as owner and bob as the other customer.",
+            "type": "text"
+          },
+          {
+            "id": "toolu_01P28kp3bR3yGvucfY3M97f6",
+            "caller": {
+              "type": "direct"
+            },
+            "input": {
+              "template_ref": "access_control.ownership@1",
+              "target_id": "tgt_payments_lite",
+              "parameters": {
+                "route_id": "payment_detail",
+                "owner_identity": "alice",
+                "other_identity": "bob"
+              }
+            },
+            "name": "checks__run_template",
+            "type": "tool_use"
+          }
+        ],
+        "usage": {
+          "input_tokens": 7335,
+          "output_tokens": 404,
+          "cache_read_input_tokens": 0
+        },
+        "usd": 0.000936,
+        "model": "claude-haiku-5-5"
+      },
+      {
+        "index": 2,
+        "stop_reason": "tool_use",
+        "content": [
+          {
+            "signature": "CAQS7QYKEAgTGAI4AUIIdGhpbmtpbmcSDJORw4idGoDrRcjnAhoMb5U2giiey7Ci68TrIjArLMG3WJ9pDcBSxee2XxKj8MztUycvPyq8Jkulil1bLBG0eJ32qL/OdfTj5U2tWtcqigZaMSXdYMUlqM+MW3Vp3ZwH9bmoL/nSpMtb/q9gGjZsSt9Q/D+KqJORlXgpU+VKnXLsrZGfDFDJQJEgaCKTxyUUYiFMRKFzUaLI2hOBL71KeuzClVIz6baxvxk3G3ttEUqlPAyAT70YL0koEhV1twammlD+vJ/DOv8Mve57OAbXZdeyLe20Ata8IYqjm+SbQ6ueoxtRpSGW5cH/qCdO4X+K8EELsvMSVqdfNmrlp2fCwWTpoFa2BQrAMBrdN/XcT38ZKtGWm2lSd6Vp6ECqT+cTRZ8Ix6T5LCxcJ592RIZUVh13hXBENFKmKhIrexdGGwdSquciEzENYm6uZocDtevSXNbPFCPTwjHXPzpHRntnf8bYcyIL/0Q91tIbvqv4IV6aHIHYFlg7TK4koYyo3DCFK1sl1zOepModBHHreyjaofwJCIRdzKUfYPwzLuCm2js846FnPUiYNCJGcmQlKgUgs/xfagMjr78BoPQuJjIPOFlKbYsYJxBijIyAvKCgQNdWunrOtAUkAN3MnlkaAbAnlflI67YqWWO5SsUns03CUQCBh58UGLclIZGeLsJ0zQToiPjytavldcKPQOQVlUr6gWsE1BDUMCHlv+JS2nQtjp4ihmBzsXIl1337aDXki5pUogi03ssf9RXl+EOyVQ/X1y3emyAW/hiIK0drrtZepjeOUd/vPXBbDPKcTeSMMNj6LbQoela27y/2glouPEa0Yvoxc1EIVyEtXnlLxptg3KduBGu/GDOw+MGAExZiM3QbXXIWs/SVY56V3GAWJAFVGOxYfEoT82BkDMLwYFMV+9YCytJ/3wpwk7j1TnlO8GP+P93xTvlH6uK0+ONQWAoJAQ1kPdaSvMkHIQt4yG/gn603Y1nNOW5bO6pPmwLs3mn6Oni+4zeqE/UC6CAFYjzNSkQ8gP4UjA/5/eWqQGsDMJLIQlPHeAsMsHSPFGB/JXegzdVts27PEwO6a/v1BpUeRE3cdWQZMmnWP+OEf28voRNundAKEDhQkVvFuchOX81xZPv2ACCesjHaGAE=",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "id": "toolu_01YVVkLEM6Dqk7kxWGTWFMMb",
+            "caller": {
+              "type": "direct"
+            },
+            "input": {
+              "outcome": "confirmed",
+              "check_template_ref": "access_control.ownership@1",
+              "sandbox_run_id": "sbx_01M5QXDCTZ85MJT6C7CBBBC9FH",
+              "interpretation": "GET /payments/{payment_id} (get_payment) returns a payment by id without an owner check. Template run with owner alice and other bob: the non-owner request got HTTP 200 where 403/404 was expected. matches_expectation=false, so the ownership expectation did not hold. The owner-side test passed. Sibling routes enforce ownership, so this is the gap.",
+              "observations": [
+                "route payment_detail (GET /payments/{payment_id}) run with owner_identity=alice, other_identity=bob",
+                "test_other_identity_is_denied failed: non-owner (bob) got status 200, expected one of [403, 404]",
+                "owner-side test passed (passed=1, failed=1, errors=0)",
+                "matches_expectation=false",
+                "code: payments_lite/app.py lines 131-141 get_payment has no require_owner call; get_refund and create_refund and get_customer do call it",
+                "linked expectation exp_owner_only (access_control, confirmed, high) states a customer can only read payments they own; the hypothesis cited exp_tenant_isolation_payments, which the expectations tool did not return, so the match used exp_owner_only",
+                "target_contacted reported false in the run metadata; the verdict rests on the executed assertion"
+              ]
+            },
+            "name": "submit_probe_output",
+            "type": "tool_use"
+          }
+        ],
+        "usage": {
+          "input_tokens": 8585,
+          "output_tokens": 647,
+          "cache_read_input_tokens": 0
+        },
+        "usd": 0.001182,
+        "model": "claude-haiku-5-5"
+      }
+    ],
+    "tool_invocations": [
+      {
+        "name": "checks.list_templates",
+        "args": {
+          "category": "access_control.ownership"
+        },
+        "ok": true,
+        "error_code": null,
+        "summary": {
+          "parameter_index": "{\"access_control.ownership@1\": {\"other_identity\": [\"alice\", \"bob\"], \"owner_identity\": [\"alice\", \"bob\"], \"route_id\": [\"payment_detail\", \"customer_detail\"]}}",
+          "count": 1,
+          "templates": "[{\"category\": \"access_control.ownership\", \"description\": \"Confirm a resource owned by one fixture identity is not readable by another, while the owner keeps legitimate access. Parameters: route_id, owner_identity, other_identity.\", \"expectation_kinds\": [\"access_control\"], \"parameter_values\": {\"other",
+          "scope_allowed_categories": "[\"access_control.authentication\", \"access_control.ownership\", \"input_validation.bounds\"]",
+          "note": "Only templates whose category is scope-allowed and runnable can be executed. parameter_values lists the only values the authorized target's build recipe accepts; route_id takes a route id, never an HTTP path."
+        }
+      },
+      {
+        "name": "code.read_span",
+        "args": {
+          "path": "payments_lite/app.py",
+          "start_line": 1,
+          "end_line": 200
+        },
+        "ok": true,
+        "error_code": null,
+        "summary": {
+          "path": "payments_lite/app.py",
+          "start_line": 1,
+          "end_line": 178,
+          "sha": "4b1db3ef7a55bfde05f169696f47c25dbff45630",
+          "content": "    1  \"\"\"HTTP API for payments-lite.\n    2  \n    3  Intended behavior (the platform should discover these from docstrings, tests and\n    4  conventions):\n    5  \n    6  - A customer can only read their own profile, payments and refunds.\n    7  - Total refunds for a payment must never exceed the pay"
+        }
+      },
+      {
+        "name": "expectations.for_subject",
+        "args": {
+          "subject": "exp_tenant_isolation_payments"
+        },
+        "ok": true,
+        "error_code": null,
+        "summary": {
+          "count": 2,
+          "expectations": "[{\"confidence\": \"high\", \"criticality\": \"high\", \"data_sensitivity\": \"financial\", \"id\": \"exp_owner_only\", \"kind\": \"access_control\", \"sources\": [{\"end_line\": null, \"path\": \"payments_lite/app.py\", \"start_line\": null}, {\"end_line\": null, \"path\": \"payments_lite/app.py\", \"start_line\": null}, {\"end_line\": n"
+        }
+      },
+      {
+        "name": "checks.run_template",
+        "args": {
+          "template_ref": "access_control.ownership@1",
+          "target_id": "tgt_payments_lite",
+          "parameters": {
+            "route_id": "payment_detail",
+            "owner_identity": "alice",
+            "other_identity": "bob"
+          }
+        },
+        "ok": true,
+        "error_code": null,
+        "summary": {
+          "route": "{\"id\": \"payment_detail\", \"method\": \"GET\", \"path_template\": \"/payments/{payment_id}\"}",
+          "matches_expectation": false,
+          "exit_code": 1,
+          "timed_out": false,
+          "passed": 1,
+          "failed": 1,
+          "errors": 0,
+          "failing_tests": "[\".sandbox/test_generated_check.py::test_other_identity_is_denied\"]",
+          "template_ref": "access_control.ownership@1",
+          "parameters": "{\"other_identity\": \"bob\", \"owner_identity\": \"alice\", \"route_id\": \"payment_detail\"}",
+          "target_contacted": false,
+          "transport": "inprocess",
+          "sandbox_run_id": "sbx_01M5QXDCTZ85MJT6C7CBBBC9FH",
+          "driver": "local-process",
+          "isolation_level": "process-dev:not-a-security-boundary",
+          "profile": "check-runner",
+          "network": "target-only",
+          "duration_s": 0.758,
+          "target_requests": "[]",
+          "target_log_sha256": null
+        }
+      }
+    ],
+    "usage": {
+      "input_tokens": 18787,
+      "output_tokens": 1270,
+      "usd": 0.0025137,
+      "sandbox_seconds": 0.0
+    },
+    "error_code": null,
+    "error_detail": null
+  }
+}

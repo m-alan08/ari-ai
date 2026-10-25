@@ -162,6 +162,7 @@ class FakeHost:
     verifications: list[Any] = field(default_factory=list)
     approval_requests: list[tuple[str, str]] = field(default_factory=list)
     stored: list[Any] = field(default_factory=list)
+    sealed_diffs: list[tuple[str, str]] = field(default_factory=list)
     progress_messages: list[str] = field(default_factory=list)
     checkpoints: dict[str, dict[str, Any]] = field(default_factory=dict)
     consumed_checkpoints: set[str] = field(default_factory=set)
@@ -276,6 +277,10 @@ class FakeHost:
     def store_json(self, value: Any, kind: Any = None) -> Any:
         self.stored.append(value)
         return type("Art", (), {"id": f"art_{len(self.stored):08d}", "sha256": "0" * 64})()
+
+    def seal_diff(self, diff: str, expected_sha256: str) -> Any:
+        self.sealed_diffs.append((diff, expected_sha256))
+        return type("Art", (), {"id": f"sealed_{len(self.sealed_diffs):08d}"})()
 
     # -- runs
     def start_agent_run(self, agent: Any, step_key: str, **kwargs: Any) -> str:
@@ -498,6 +503,11 @@ def test_resume_after_approval_completes_remediation_and_hardening(host_and_orch
     assert isinstance(patch, shared_findings.PatchCandidate)
     assert "payments_lite/app.py" in patch.files_changed
     assert patch.diff_artifact_id.startswith("art_")
+    assert len(host.sealed_diffs) == 1
+    binding = next(
+        value for value in host.stored if isinstance(value, dict) and value.get("patch_id") == patch.id
+    )
+    assert binding["sealed_diff_artifact_id"] == "sealed_00000001"
     assert len(host.verifications) == 1
     verification = host.verifications[0]
     assert isinstance(verification, shared_findings.VerificationResult)

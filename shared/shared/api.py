@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -28,15 +28,80 @@ from shared.tenancy import Budget, MemberRole, Organization, ProjectSettings, Us
 class HealthStatus(StrictModel):
     status: ShortText
     version: ShortText
+    git_sha: ShortText | None = None
+    schema_version: ShortText
+
+
+class WorkerLiveness(StrictModel):
+    """Live worker processes for /readyz (worker_heartbeats table)."""
+
+    alive: int
+    expected: int | None
+    busy: int
+    queued_jobs: int
+    running_jobs: int
+    freshest_heartbeat_age_s: float | None
+    required: bool
+
+
+class LlmCapability(StrictModel):
+    mode: ShortText = Field(description="live | fake | unavailable | host")
+    model: ShortText
+    configured: bool
+
+
+class GithubCapability(StrictModel):
+    app_configured: bool
+    oauth_configured: bool
+    webhook_secret_configured: bool
+    verified: dict[str, Any] | None = None
+
+
+class SandboxCapability(StrictModel):
+    mode: ShortText
+    configured: bool
+    detail: ShortText = ""
+    sdk_importable: bool | None = None
+    daemon_reachable: bool | None = None
+
+
+class ArtifactStoreCapability(StrictModel):
+    writable: bool
+    detail: ShortText = ""
+
+
+class ReadinessCapabilities(StrictModel):
+    """Can this deployment actually run an assessment, each dependency named separately."""
+
+    llm: LlmCapability
+    github: GithubCapability
+    sandbox: SandboxCapability
+    artifact_store: ArtifactStoreCapability
+    anthropic_key_configured: bool
 
 
 class ReadinessStatus(StrictModel):
-    status: ShortText
+    status: ShortText = Field(description="ready | degraded | not_ready")
     database: bool
     queue: bool
+    workers: WorkerLiveness
+    capabilities: ReadinessCapabilities
+    capabilities_ready: bool
     llm_mode: ShortText = Field(description="live | fake | unavailable")
     github_app_configured: bool
     webhook_secret_configured: bool
+    git_sha: ShortText | None = None
+    schema_version: ShortText
+
+
+class DiagnosticsReport(ReadinessStatus):
+    """GET /diagnostics: readiness plus live verification (GitHub /app, sandbox SDK,
+    migration head, queue counts, worker rows). Ops tooling; values are metadata only."""
+
+    migrations: dict[str, Any]
+    jobs: dict[str, int]
+    worker_rows: list[dict[str, Any]]
+    generated_at: ShortText
 
 
 class MembershipView(StrictModel):

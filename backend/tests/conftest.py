@@ -90,6 +90,7 @@ os.environ.update(
     {
         "APP_ENV": "test",
         "DATABASE_URL": _database_url(),
+        "MIGRATION_DATABASE_URL": "",
         "ARTIFACT_STORE_URI": f"file://{_TMP / 'artifacts'}",
         "AUTH_DEV_LOGIN_ENABLED": "true",
         "GITHUB_WEBHOOK_SECRET": WEBHOOK_SECRET,
@@ -128,6 +129,7 @@ _TABLES = [
     "reassessment_requests",
     "monitoring_events",
     "webhook_deliveries",
+    "worker_heartbeats",
     "jobs",
     "verification_results",
     "patch_candidates",

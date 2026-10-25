@@ -378,7 +378,7 @@ function IntegrationStatus() {
       <h3 className="label-mono mb-2 text-xs text-ink">In use</h3>
       <ul className="mb-4 divide-y divide-line text-sm">
         {USED_LIVE_APIS.map(item => (
-          <li key={item.path} className="flex flex-wrap justify-between gap-2 py-1.5">
+          <li key={`${item.method} ${item.path}`} className="flex flex-wrap justify-between gap-2 py-1.5">
             <Mono>{item.method} {item.path}</Mono>
             <span className="text-xs text-muted">{item.use}</span>
           </li>

@@ -982,6 +982,15 @@ def test_patch_prompt_carries_the_cause_code_and_recipe_test_roots(intel):
     assert "snapshot_files" not in prompt
 
 
+def test_patch_prompt_reuses_repository_credential_fixtures_and_bumps_version() -> None:
+    from security_agents.agents.patch import SPEC, SYSTEM
+
+    assert "reuse existing repository fixtures" in SYSTEM
+    assert "never inline credential-shaped strings" in SYSTEM
+    assert SPEC.version == "0.1.1"
+    assert SPEC.prompt_ref == "prompts/patch/v0.1.1.md"
+
+
 def test_added_tests_can_run_against_the_unpatched_code(intel, tmp_path, driver):
     from security_agents.agents import AgentName
     from security_agents.tools import PatchWorktree

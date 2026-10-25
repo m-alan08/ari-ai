@@ -49,16 +49,20 @@ def push_case(case: dict, run_tag: str) -> str:
 def score(cases: list[dict], shas: dict[str, str]) -> dict:
     payload = json.dumps({"cases": cases, "shas": shas})
     if os.environ.get("ARI_API_BASE"):
-        proc = subprocess.run(
-            [sys.executable, str(HERE / "score_api.py")],
-            input=payload,
-            capture_output=True,
-            text=True,
-        )
-        line = next((ln for ln in proc.stdout.splitlines() if ln.startswith('{"results"')), None)
-        if line:
-            return json.loads(line)
-        raise SystemExit(f"API scorer failed: {proc.stderr[-400:]}")
+        last_err = ""
+        for _ in range(6):
+            proc = subprocess.run(
+                [sys.executable, str(HERE / "score_api.py")],
+                input=payload,
+                capture_output=True,
+                text=True,
+            )
+            line = next((ln for ln in proc.stdout.splitlines() if ln.startswith('{"results"')), None)
+            if line:
+                return json.loads(line)
+            last_err = proc.stderr[-400:]
+            time.sleep(10)  # transient API errors (deploys, 5xx) must not kill the run
+        raise SystemExit(f"API scorer failed: {last_err}")
     ssh = shlex.split(os.environ["ARI_EVAL_SSH"])
     script = (
         "cat > /tmp/ari_eval_score.py <<'PY'\n"
@@ -114,15 +118,41 @@ def cleanup(run_tag: str, cases: list[dict]) -> None:
     )
 
 
+def validate_cases(cases: list[dict]) -> list[str]:
+    """Missing case fields must fail loudly, never score as zero."""
+    bad = []
+    for c in cases:
+        missing = [k for k in ("id", "kind", "files") if not c.get(k)]
+        if missing:
+            bad.append(f"{c.get('id', '<no id>')}: missing {', '.join(missing)}")
+        for e in c.get("edits", []):
+            if not e.get("path") or "old" not in e or "new" not in e:
+                bad.append(f"{c.get('id')}: malformed edit entry")
+                break
+    return bad
+
+
 def summarize(results: list[dict]) -> dict:
+    """Rates are computed over SCORED cases only — a FAILED / CANCELLED /
+    BUDGET_EXHAUSTED / still-running assessment lands in ``unscored`` with its
+    reason and is never counted as a detection miss."""
+
     def rate(rows: list[dict], key: str) -> str:
         return f"{sum(bool(r.get(key)) for r in rows)}/{len(rows)}"
 
-    idor = [r for r in results if r["kind"] == "idor"]
-    vuln = [r for r in results if r["kind"] == "vuln"]
-    benign = [r for r in results if r["kind"] == "benign"]
-    seconds = sorted(r["seconds"] for r in results if "seconds" in r)
+    scored = [r for r in results if r.get("scored")]
+    unscored = [
+        {"case_id": r["case_id"], "state": r["state"], "reason": r.get("unscored_reason")}
+        for r in results
+        if not r.get("scored")
+    ]
+    idor = [r for r in scored if r["kind"] == "idor"]
+    vuln = [r for r in scored if r["kind"] == "vuln"]
+    benign = [r for r in scored if r["kind"] == "benign"]
+    seconds = sorted(r["seconds"] for r in scored if "seconds" in r)
     return {
+        "scored_cases": f"{len(scored)}/{len(results)}",
+        "unscored": unscored,
         "idor_validated": rate(idor, "validated"),
         "idor_fixed": rate(idor, "fixed"),
         "vuln_flagged": rate(vuln, "flagged"),
@@ -142,6 +172,9 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=HERE / "results")
     a = ap.parse_args()
     cases = json.loads((HERE / "cases.json").read_text())["cases"]
+    bad = validate_cases(cases)
+    if bad:
+        raise SystemExit("cases.json is not scoreable; fix before running:\n  " + "\n  ".join(bad))
     if a.only:
         cases = [c for c in cases if c["id"] in set(a.only)]
     if subprocess.run(["git", "-C", str(REPO), "diff", "--quiet"]).returncode:
@@ -156,15 +189,25 @@ def main() -> int:
             shas = {c["id"]: push_case(c, run_tag) for c in batch}
             print(f"batch {i // a.batch + 1}: pushed {', '.join(shas)}", flush=True)
             deadline = time.monotonic() + 900
+            report = None
             while True:
-                report = score(batch, shas)
-                if report["pending"] == 0 or time.monotonic() > deadline:
+                try:
+                    report = score(batch, shas)
+                except SystemExit as exc:
+                    print(f"  scorer failure (will retry until deadline): {exc}", flush=True)
+                if (report and report["pending"] == 0) or time.monotonic() > deadline:
                     break
                 time.sleep(20)
+            if report is None:
+                raise SystemExit(f"scorer never recovered for batch {batch}")
             for r in report["results"]:
+                verdict = (
+                    f"flagged={r.get('flagged')} validated={r.get('validated')} fixed={r.get('fixed')}"
+                    if r.get("scored")
+                    else f"UNSCORED ({r.get('unscored_reason')})"
+                )
                 print(
-                    f"  {r['case_id']:<38} {r['state']:<10} {r.get('seconds')}s "
-                    f"flagged={r.get('flagged')} validated={r.get('validated')} fixed={r.get('fixed')}",
+                    f"  {r['case_id']:<38} {r['state']:<10} {r.get('seconds')}s {verdict}",
                     flush=True,
                 )
             results.extend(report["results"])

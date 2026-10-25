@@ -1,0 +1,22 @@
+[
+  {
+    "repo_id": "repo_books_rehearsal",
+    "local_path": "scripts/rehearsal/target-app",
+    "subdir": null
+  },
+  {
+    "repo_id": "rep_01M5R40AWB9RG9FBZNYB5T2YBP",
+    "local_path": "/Users/devin/repos/ari-ai/scripts/rehearsal/target-app",
+    "subdir": "."
+  },
+  {
+    "repo_id": "rep_01M5R4D4YSDX9HNHY4RYS2SDTY",
+    "local_path": "/Users/devin/repos/ari-ai/scripts/rehearsal/target-app",
+    "subdir": "."
+  },
+  {
+    "repo_id": "rep_01M5R4J8SW59JK4NJH6XFYTFDN",
+    "local_path": "/Users/devin/repos/ari-ai/scripts/rehearsal/target-app",
+    "subdir": "."
+  }
+]

@@ -78,7 +78,7 @@ export function ProblemScene() {
   return (
     <div ref={ref} className="story-track story-track-3 bleed bleed-paper">
       <section aria-labelledby="problem-title" className="story-stage flex flex-col justify-center py-16">
-        <p className="label-mono text-brand">The problem</p>
+        <p className="kicker">The problem</p>
         <h2 id="problem-title" className="sr-only">Why every change needs checking</h2>
         <div className="story-swap mt-4 min-h-[9.5rem] max-w-3xl md:min-h-[8.5rem]">
           {PROBLEM_LINES.map((line, n) => (
@@ -154,7 +154,7 @@ export function HowItWorks() {
       <section aria-labelledby="how-title" className="story-stage story-rain flex flex-col justify-center py-16">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] lg:items-end">
           <div>
-            <p className="label-mono text-white/60">How it works</p>
+            <p className="kicker kicker-ghost">How it works</p>
             <h2 id="how-title" className="display mt-3 text-3xl font-semibold md:text-5xl">Assurance that runs<br /><span className="text-white/60">on every change.</span></h2>
           </div>
           <p className="max-w-md text-sm text-white/70">
@@ -214,7 +214,7 @@ export function Walkthrough() {
     <div ref={ref} className="story-track story-track-4">
       <section aria-labelledby="walk-title" className="story-stage grid content-center gap-10 py-16 lg:grid-cols-[1fr_1.3fr] lg:items-center">
         <div>
-          <p className="label-mono text-brand">One finding, start to proof</p>
+          <p className="kicker">One finding, start to proof</p>
           <h2 id="walk-title" className="display mt-3 text-3xl font-semibold md:text-4xl">Four harmless steps.<br /><span className="text-muted">One verified fix.</span></h2>
           <ol className="mt-8 space-y-1">
             {WALK.map((s, n) => (
@@ -296,7 +296,7 @@ export function ProofStats(): ReactNode {
     <section aria-labelledby="proof-title" className="bleed bleed-ink story-rain py-16 text-white">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] lg:items-end">
         <div>
-          <p className="label-mono text-white/60">Proof, not promises</p>
+          <p className="kicker kicker-ghost">Proof, not promises</p>
           <h2 id="proof-title" className="display mt-3 text-3xl font-semibold md:text-5xl">The record is checkable.</h2>
         </div>
         <p className="max-w-md text-sm text-white/70">No model output counts as proof, including ours. In the console, every status comes from saved records.</p>
@@ -305,7 +305,7 @@ export function ProofStats(): ReactNode {
         {STATS.map((s, n) => (
           <Reveal key={s.body} className="story-stat" delay={n * 90}>
             <p className="label-mono flex justify-between text-white/50"><span>{String(n + 1).padStart(2, '0')}</span><span>{s.tag}</span></p>
-            <p className="mt-8 font-mono text-6xl font-semibold tracking-tight md:text-7xl">{s.n === 0 ? 'Never' : <CountUp to={s.n} suffix={s.suffix} />}</p>
+            <p className="stat-num mt-8 font-mono font-semibold tracking-tight">{s.n === 0 ? 'Never' : <CountUp to={s.n} suffix={s.suffix} />}</p>
             <p className="mt-3 text-sm text-white/70">{s.body}</p>
           </Reveal>
         ))}

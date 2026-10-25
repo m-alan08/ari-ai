@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 
-import sqlalchemy as sa
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend import jobs
+from backend import ops
 from backend.api import (
     auth,
     github_repos,
@@ -24,12 +23,13 @@ from backend.api import (
     runtime,
     webhooks,
 )
-from backend.api.deps import ApiError
-from backend.db import get_engine
-from backend.llm import llm_mode
+from backend.api import (
+    ops as ops_api,
+)
+from backend.api.deps import ApiError, require_user
 from backend.settings import get_settings
 from shared import SCHEMA_VERSION
-from shared.api import HealthStatus, ReadinessStatus
+from shared.api import DiagnosticsReport, HealthStatus, ReadinessStatus
 from shared.errors import ErrorBody, ErrorCode, ErrorResponse
 from shared.ids import IdPrefix, new_id
 
@@ -115,34 +115,49 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz", response_model=HealthStatus, tags=["ops"])
     def healthz() -> HealthStatus:
-        return HealthStatus(status="ok", version=VERSION)
+        return HealthStatus(
+            status="ok",
+            version=VERSION,
+            git_sha=s.deployed_git_sha,
+            schema_version=SCHEMA_VERSION,
+        )
 
     @app.get("/readyz", response_model=ReadinessStatus, tags=["ops"])
     def readyz() -> JSONResponse:
-        db_ok = queue_ok = False
-        try:
-            with get_engine().begin() as conn:
-                conn.execute(sa.text("SELECT 1"))
-                db_ok = True
-                queue_ok = jobs.queue_reachable(conn)
-        except Exception:
-            log.exception("readiness check failed")
-        status = ReadinessStatus(
-            status="ready" if db_ok and queue_ok else "not_ready",
-            database=db_ok,
-            queue=queue_ok,
-            llm_mode=llm_mode(),
-            github_app_configured=bool(
-                s.github_app_id and (s.github_app_private_key_path or s.github_app_private_key)
-            ),
-            webhook_secret_configured=bool(
-                s.github_webhook_secret
-                and s.github_webhook_secret.get_secret_value() not in ("", "replace-me")
-            ),
-        )
+        """Infra gate (db+queue+worker liveness where required) as HTTP 200/503, plus a
+        capabilities block that names each thing an assessment needs separately:
+        live-model config, GitHub App credentials, sandbox mode, artifact store.
+        "ready" with capabilities_ready=false means the service is up but a real
+        assessment cannot run — a config error, visible here not just in logs."""
+        body, code = ops.readiness(get_settings())
         return JSONResponse(
-            status.model_dump(mode="json"), status_code=200 if db_ok and queue_ok else 503
+            ReadinessStatus.model_validate(body).model_dump(mode="json"), status_code=code
         )
+
+    @app.get("/diagnostics", response_model=DiagnosticsReport, tags=["ops"])
+    def diagnostics(request: Request) -> DiagnosticsReport:
+        """/readyz plus live verification: GitHub App JWT check, sandbox SDK import,
+        migration head vs code, queue counts, worker rows. Owner-only: worker ids,
+        env-var names and migration state are internal infrastructure metadata."""
+        import sqlalchemy as sa
+
+        from backend.db import get_engine, memberships
+
+        with get_engine().begin() as conn:
+            user = require_user(conn, request)
+            owner = conn.execute(
+                sa.select(memberships.c.user_id)
+                .where(memberships.c.user_id == user.id)
+                .where(memberships.c.role == "owner")
+                .limit(1)
+            ).first()
+        if owner is None:
+            raise ApiError(
+                ErrorCode.FORBIDDEN,
+                "diagnostics requires an org owner",
+                403,
+            )
+        return DiagnosticsReport.model_validate(ops.diagnostics(get_settings()))
 
     for r in (
         auth.router,
@@ -155,6 +170,7 @@ def create_app() -> FastAPI:
         live_defense.router,
         live_defense_controls.router,
         live_defense_first_responder.router,
+        ops_api.router,
     ):
         app.include_router(r, prefix="/api/v1")
     return app

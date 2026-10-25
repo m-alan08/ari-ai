@@ -1,10 +1,10 @@
 name: qa-tools
+# Release gate: runs on every PR and push to main so `runner-semantics` always
+# reports; unrelated diffs are marked SKIPPED.
 on:
   pull_request:
-    paths: ["scripts/devin_qa/**", "tests/qa/**", ".github/workflows/qa-tools.yml"]
   push:
     branches: [main]
-    paths: ["scripts/devin_qa/**", "tests/qa/**", ".github/workflows/qa-tools.yml"]
 permissions:
   contents: read
 jobs:
@@ -12,4 +12,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - run: python3 -m unittest discover -s tests/qa -v
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "scripts/devin_qa/**,tests/qa/**,.github/workflows/qa-tools.yml"
+      - if: steps.gate.outputs.run == 'true'
+        run: python3 -m unittest discover -s tests/qa -v

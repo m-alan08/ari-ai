@@ -20,7 +20,6 @@ export function LandingFooter() {
           {GROUPS.map(group => <div key={group.title}><h2>{group.title}</h2>{group.links.map(([label, href]) => <Link key={label} href={href}>{label}</Link>)}</div>)}
         </nav>
       </Reveal>
-      <div className="footer-horizon" aria-hidden="true"><div /><div /></div>
       <Reveal className="footer-bottom" delay={100}>
         <span>© {new Date().getUTCFullYear()} ARI</span>
         <a href="#main" className="footer-top-link">Back to top <span aria-hidden="true">↑</span></a>

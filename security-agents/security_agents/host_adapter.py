@@ -107,6 +107,7 @@ class AssessmentHostLike(Protocol):
     def llm(self) -> Any: ...
     def store_text(self, *args: Any, **kwargs: Any) -> Any: ...
     def store_json(self, value: Any, kind: Any = ...) -> Any: ...
+    def seal_diff(self, diff: str, expected_sha256: str) -> Any: ...
     def start_agent_run(self, agent: Any, step_key: str, **kwargs: Any) -> str: ...
     def finish_agent_run(self, run_id: str, status: Any, **kwargs: Any) -> Any: ...
     def record_finding(self, finding: Any, *, actor: str) -> Any: ...
@@ -433,7 +434,7 @@ class HostSink(AssessmentSink):
     recorded: list[str] = field(default_factory=list)
     sandbox_charged: float = 0.0
     # patch id -> (stored artifact id, stored sha256, sha256 of the bytes Verify executes)
-    stored_diffs: dict[str, tuple[str, str | None, str]] = field(default_factory=dict)
+    stored_diffs: dict[str, tuple[str, str | None, str, str | None]] = field(default_factory=dict)
     regression_artifact_ids: dict[str, str] = field(default_factory=dict)
     result: Any = None
     # The functional reviewer runs beside Scout/Probe (they share nothing) and is joined
@@ -625,13 +626,20 @@ class HostSink(AssessmentSink):
         return mapped.model_copy(update={"evidence": [*mapped.evidence, ref]})
 
     def on_patch(self, finding: FindingRecord, candidate: Any, diff: str) -> None:
-        artifact = self.host.store_text(diff)
+        from shared.evidence import ArtifactKind
+
+        artifact = self.host.store_text(diff, kind=ArtifactKind.diff, media_type="text/x-diff")
         artifact_id = getattr(artifact, "id", None) or str(artifact)
-        # Verify executes the in-memory diff; the store may hold a redacted copy (#155).
+        sealed_id = None
+        if hasattr(self.host, "seal_diff"):
+            sealed = self.host.seal_diff(diff, candidate.diff_sha256)
+            sealed_id = getattr(sealed, "id", None) or str(sealed)
+        # Verify executes the in-memory diff; the stored member copy may be redacted (#155).
         self.stored_diffs[candidate.id] = (
             artifact_id,
             getattr(artifact, "sha256", None),
             candidate.diff_sha256,
+            sealed_id,
         )
         run_id = self.run_ids.get("patch")
         if run_id is None:  # never cite a run the host did not create
@@ -643,8 +651,6 @@ class HostSink(AssessmentSink):
                 produced_by_run_id=run_id,
                 rationale=finding.plan.strategy if finding.plan else "",
                 diff_artifact_id=artifact_id,
-                # The stored bytes (possibly redacted) are what anyone can fetch and check;
-                # Sai's reviewer records the same (#155).
                 diff_sha256=getattr(artifact, "sha256", None),
             )
         )
@@ -690,23 +696,21 @@ class HostSink(AssessmentSink):
         return canonical.model_copy(update={"checks": checks})
 
     def _bind_verified_bytes(self, canonical: Any) -> Any:
-        """Bind the verdict to the exact diff bytes Verify executed. The PatchCandidate names
-        the stored artifact, which the store may have redacted, so the verdict carries a
-        binding artifact with both hashes as evidence on ``diff_scope_ok``. The pre-redaction
-        bytes themselves are never stored."""
+        """Bind Verify's verdict to the stored member diff and the delivery-only sealed copy."""
         stored = self.stored_diffs.get(canonical.patch_id)
         if stored is None or not hasattr(self.host, "store_json"):
             return canonical
-        stored_id, stored_sha, verified_sha = stored
-        binding = self.host.store_json(
-            {
-                "patch_id": canonical.patch_id,
-                "verified_diff_sha256": verified_sha,
-                "stored_diff_artifact_id": stored_id,
-                "stored_diff_sha256": stored_sha,
-                "redacted": verified_sha != stored_sha,
-            }
-        )
+        stored_id, stored_sha, verified_sha, sealed_id = stored
+        binding_doc = {
+            "patch_id": canonical.patch_id,
+            "verified_diff_sha256": verified_sha,
+            "stored_diff_artifact_id": stored_id,
+            "stored_diff_sha256": stored_sha,
+            "redacted": verified_sha != stored_sha,
+        }
+        if sealed_id:
+            binding_doc["sealed_diff_artifact_id"] = sealed_id
+        binding = self.host.store_json(binding_doc)
         ev = importlib.import_module("shared.evidence")
         ref = ev.EvidenceRef(
             kind=ev.EvidenceKind.artifact,

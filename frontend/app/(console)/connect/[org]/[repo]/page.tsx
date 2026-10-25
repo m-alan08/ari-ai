@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { RepositoryAutomation } from '@/components/repository-automation';
 import { Avatar } from '@/components/demo/ui';
+import { ProjectReviewCta } from '@/components/project-review-cta';
 import { Button, Empty, ErrorState, Loading } from '@/components/ui';
 import { api } from '@/lib/api';
 import { relativeTime } from '@/lib/demo/data';
@@ -52,6 +53,7 @@ function Commits({ org, name, repo, onConnected }: { org: string; name: string; 
         <h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
         <p className="mt-1 text-sm text-muted">Commits on {repo.default_branch}</p>
       </header>
+      {id && <div className="mb-4"><ProjectReviewCta repoId={id} /></div>}
       {!id && (
         <div className="rounded-2xl border border-line bg-panel p-6">
           <p className="text-sm text-muted">Connect this repository to read its commits.</p>

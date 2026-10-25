@@ -51,6 +51,18 @@ test('one real assessment from scope approval to verified patch', async ({ brows
   await expect(alice.getByTestId('relay-diagnose')).toHaveAttribute('data-status', 'done');
   await evidenceShot(alice, 'assessment-awaiting-approval');
 
+  // The on-page gate names each finding, spells out what approving will and will not do,
+  // and requires a second explicit click — an accidental tap cannot approve a security action.
+  const gate = alice.getByRole('region', { name: 'Human approval required' });
+  await expect(gate.getByText(/Fix request ·/).first()).toBeVisible();
+  await expect(gate.getByText('Will:', { exact: false }).first()).toBeVisible();
+  await expect(gate.getByText(/Will not:/).first()).toBeVisible();
+  await gate.getByRole('button', { name: 'Approve remediation' }).first().click();
+  await expect(gate.getByRole('alert')).toContainText('Confirm approval');
+  await expect(gate.getByRole('alert')).toContainText(/never merges or deploys/);
+  await gate.getByRole('button', { name: 'Back' }).click();
+  await expect(gate.getByRole('alert')).toHaveCount(0);
+
   // Bob approves remediation from his inbox (with the will / will-not summary): one for the
   // security fix and one for the reviewer's functional repair. The run resumes when both are decided.
   await bob.goto(`/projects/${project()}/approvals`);
@@ -59,6 +71,8 @@ test('one real assessment from scope approval to verified patch', async ({ brows
   await expect(pending.first().getByText('Merge, push, deploy, or change the repository.')).toBeVisible();
   for (let i = 0; i < 2; i++) {
     await pending.first().getByRole('button', { name: 'Approve remediation' }).click();
+    // The inbox requires the same second explicit click as the on-page gate.
+    await pending.first().getByRole('button', { name: 'Confirm approval' }).click();
     await expect(pending).toHaveCount(1 - i);
   }
   await expect(bob.locator('[data-testid^="approval-"]').filter({ hasText: 'remediation approval' }).getByText('Approved')).toHaveCount(2);
@@ -139,7 +153,7 @@ test('one real assessment from scope approval to verified patch', async ({ brows
     for (const url of [asmUrl, `/projects/${project()}`, '/projects', '/']) {
       await alice.goto(url);
       if (url === asmUrl) await expect(alice.getByTestId('agent-relay')).toBeVisible();
-      else if (url.startsWith('/projects/')) await expect(alice.getByRole('heading', { name: '7 agents', exact: true })).toBeVisible();
+      else if (url.startsWith('/projects/')) await expect(alice.getByRole('heading', { name: '7 Agents', exact: true })).toBeVisible();
       else await alice.waitForLoadState('networkidle');
       await expectNoSideScroll(alice);
     }

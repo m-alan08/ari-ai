@@ -5,7 +5,7 @@ import { Suspense, useMemo } from 'react';
 import { CommitAnalysis } from '@/components/demo/commit-analysis';
 import { DemoMarker } from '@/components/demo/ui';
 import { useProject } from '@/components/project';
-import { Empty, Loading } from '@/components/ui';
+import { Empty, Loading, PageTitle } from '@/components/ui';
 import { api } from '@/lib/api';
 import { simulatedAttack, type RealCommit } from '@/lib/simulated-attack';
 import { useResource } from '@/lib/use-resource';
@@ -29,6 +29,7 @@ function Simulation() {
   if (sha && commits.status === 'loading') return <Loading label="Loading the commit" />;
   return (
     <div data-testid="simulated-attack" className="commit-stage">
+      <PageTitle eyebrow="Configure" title="Simulate" subtitle="An illustrative replay of the seven agents and Defense Lab against this repository." />
       <div className="glass mb-6 flex flex-wrap items-start gap-3 px-4 py-3 text-sm" data-testid="simulated-attack-note">
         <DemoMarker />
         <p className="min-w-0 flex-1 text-muted">

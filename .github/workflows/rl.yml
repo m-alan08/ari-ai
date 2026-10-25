@@ -1,39 +1,53 @@
 name: rl-defense
 
+# Release gate: runs on every PR and push to main so `rl-tests` always reports;
+# unrelated diffs are marked SKIPPED in the job summary.
 on:
   pull_request:
-    paths: ["standards/**", "rl-defense/**", "shared/shared/rl.py", "shared/shared/ids.py", "shared/shared/base.py", ".github/workflows/rl.yml"]
   push:
     branches: [main]
-    paths: ["standards/**", "rl-defense/**", "shared/shared/rl.py", "shared/shared/ids.py", "shared/shared/base.py", ".github/workflows/rl.yml"]
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  rl-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
         working-directory: rl-defense
+    env:
+      GATE_GLOBS: "standards/**,rl-defense/**,shared/shared/rl.py,shared/shared/ids.py,shared/shared/base.py,.github/workflows/rl.yml"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # retained evidence audits resolve the original execution commit
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        working-directory: ${{ github.workspace }}
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        if: steps.gate.outputs.run == 'true'
       - name: Install (CPU-only torch)
+        if: steps.gate.outputs.run == 'true'
         run: |
           uv venv --python 3.12 .venv
           uv pip install --python .venv/bin/python --index-url https://download.pytorch.org/whl/cpu torch
           uv pip install --python .venv/bin/python -e ../standards -e ../shared -e ".[dev]"
       - name: Lint
+        if: steps.gate.outputs.run == 'true'
         run: |
           .venv/bin/ruff check rl_defense tests
           .venv/bin/ruff format --check rl_defense tests
       - name: Tests (check_env, determinism, DDQN math, short training + eval)
+        if: steps.gate.outputs.run == 'true'
         run: .venv/bin/python -m pytest -q
       - name: Smoke train (20k steps, CPU) and reload checkpoint
+        if: steps.gate.outputs.run == 'true'
         run: |
           .venv/bin/python -m rl_defense.train --seed 0 --steps 20000 --run-dir runs/ci --log-every 5000
           .venv/bin/python -c "from rl_defense.api import load_policy; print(load_policy('runs/ci/ddqn_seed0.pt').policy_version)"

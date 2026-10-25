@@ -111,14 +111,20 @@ Scope activation policy (ADR-0016): an owner may explicitly approve their own no
 
 `GITHUB_AUTO_COMMIT_AUTHORS` enables a per-commit push queue for a comma-separated
 list of GitHub author logins (`*` allows any GitHub-linked author). The Railway
-entrypoint defaults to `adamissac`; other environments default to the existing
-monitoring policy when unset/empty. Eligibility requires both the signed push sender and GitHub API commit-author attribution to match the rollout; author metadata alone never authorizes paid work.
+entrypoint defaults to empty, which disables per-commit full runs. If repository
+`automatic_assessments` is ON, pushes instead use the legacy impact-gated, coalesced
+monitoring policy: project `monitoring_policy`, active scope and the monitoring budget
+apply, with at most one open monitoring assessment per repository. Set `*` or a
+comma-separated login list to opt into per-commit full runs. Eligibility requires both
+the signed push sender and GitHub API commit-author attribution to match the rollout;
+author metadata alone never authorizes paid work.
 
 Install the GitHub App with push events, connect the repository, enable project
-monitoring, and approve its sandbox scope once. Subsequent eligible pushes queue
-full assessments for every commit, including docs/tests-only changes and commits
-arriving during another assessment. Duplicate pushes do not create duplicate runs.
-Scope approval resumes commits previously blocked for lack of authorization.
+monitoring, and approve its sandbox scope once. With a nonempty author allowlist,
+subsequent eligible pushes queue full assessments for every commit, including
+docs/tests-only changes and commits arriving during another assessment. Duplicate
+pushes do not create duplicate runs. Scope approval resumes commits previously
+blocked for lack of authorization.
 The existing commit page polls persisted assessments; opening it or clicking Run
 is not required. This applies to new pushes, not historical backfills.
 
@@ -134,20 +140,23 @@ commit limit fail explicitly rather than silently dropping commits.
 ### Automatic/manual repository mode and Haiku 5.5 (#380)
 
 Each connected repository has a persisted `automatic_assessments` switch, default
-OFF. ON queues every eligible new commit in the background without a browser visit
-or Run click. OFF prevents unstarted automatic work and exposes manual Run on
+OFF. ON enables push-triggered processing: with a nonempty author allowlist, every
+eligible new commit queues a full run; with an empty allowlist, pushes use the legacy
+monitoring policy above. OFF prevents unstarted automatic work and exposes manual Run on
 selected commits; active runs and history remain intact. GET/PATCH
 `/api/v1/repositories/{repo_id}` returns Repository; PATCH requires a project owner
 and is audited. Migration 0009 adds the flag; schema 0.15.0 adds RepositoryUpdate
-and regenerates JSON/TypeScript. Migration 0014 resets existing repository switches and project monitoring to OFF once, requests cancellation of unfinished automatic assessments, and wakes deferred work to finalize as skipped. Schema 0.18.1 makes both defaults OFF. Owners must explicitly enable project defense and repository automatic runs; manual runs remain available. Deploy the backend and frontend together.
+and regenerates JSON/TypeScript. Migration 0014 resets existing repository switches and project monitoring to OFF once, requests cancellation of unfinished automatic assessments, and wakes deferred work to finalize as skipped. Schema 0.18.1 makes both defaults OFF. Owners must explicitly enable project defense and repository automatic runs. For strictly manual operation, leave `automatic_assessments` OFF per repository (or disable project monitoring); manual Run remains available when the repository switch is OFF. Deploy the backend and frontend together.
 
-The rollout requires both the signed push sender and GitHub-attributed commit
-author to match `GITHUB_AUTO_COMMIT_AUTHORS` (initially adamissac). Attribution
-alone is email-derived, not authorization. Project start limits default to 5/hour
-and 20/day (`AUTOMATIC_ASSESSMENTS_PER_HOUR`, `AUTOMATIC_ASSESSMENTS_PER_DAY`). Excess
-commits are durably deferred, not dropped. Full runs use the normal project budget,
-clamped to operator caps. Monitoring and approved sandbox scope remain prerequisites;
-repair approvals remain required.
+Per-commit full runs require a nonempty `GITHUB_AUTO_COMMIT_AUTHORS` allowlist; both
+the signed push sender and GitHub-attributed commit author must match it. With the
+empty Railway default, enabled repositories use the legacy monitoring policy above.
+Attribution alone is email-derived, not authorization. A shared project quota allows 10
+assessments per rolling hour and 50 per rolling day across all triggers; a $50/day
+spend cap applies globally across triggers and projects. Over-quota automatic
+requests are recorded as skipped, not deferred. Full runs use the normal project
+budget, clamped to operator caps. Monitoring and approved sandbox scope remain
+prerequisites; repair approvals remain required.
 
 Production/staging gateway, Railway startup and frontend quick reads enforce
 `claude-haiku-5-5` only, overriding stale production model choices. Errors are

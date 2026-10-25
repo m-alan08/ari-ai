@@ -1,10 +1,11 @@
-"""Alembic environment: migrations run against DATABASE_URL using backend.db.metadata."""
+"""Alembic environment: migrations use the migration database URL and backend.db metadata."""
 
 from __future__ import annotations
 
 from alembic import context
 
 from backend.db import get_engine, metadata
+from backend.migrate import migration_database_url
 
 config = context.config
 
@@ -16,7 +17,7 @@ def run_migrations_online() -> None:
         with context.begin_transaction():
             context.run_migrations()
         return
-    with get_engine().connect() as connection:
+    with get_engine(migration_database_url()).connect() as connection:
         context.configure(connection=connection, target_metadata=metadata, compare_type=True)
         with context.begin_transaction():
             context.run_migrations()

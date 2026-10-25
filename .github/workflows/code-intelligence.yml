@@ -1,17 +1,17 @@
 name: code-intelligence
 
+# Release gate: runs on every PR and push to main so `intel-tests` always
+# reports; the gate step marks unrelated diffs SKIPPED in the job summary.
 on:
   pull_request:
-    paths: ["standards/**", "code-intelligence/**", "shared/**", "backend/**", "monitoring/**", "examples/payments-lite/**", "pyproject.toml", "uv.lock", ".github/workflows/code-intelligence.yml"]
   push:
     branches: [main]
-    paths: ["standards/**", "code-intelligence/**", "shared/**", "backend/**", "monitoring/**", "pyproject.toml", "uv.lock", ".github/workflows/code-intelligence.yml"]
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  intel-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -28,16 +28,29 @@ jobs:
     env:
       TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
       UV_PYTHON: "3.12"
+      GATE_GLOBS: "standards/**,code-intelligence/**,shared/**,backend/**,monitoring/**,examples/payments-lite/**,pyproject.toml,uv.lock,.github/workflows/code-intelligence.yml"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - name: Install uv
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install locked workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen
       - name: Lint, format and strict types
+        if: steps.gate.outputs.run == 'true'
         run: |
           ~/.local/bin/uv run ruff check code-intelligence
           ~/.local/bin/uv run ruff format --check code-intelligence
           ~/.local/bin/uv run mypy --config-file code-intelligence/pyproject.toml code-intelligence/code_intelligence
       - name: Intelligence and PostgreSQL integration (FakeTransport; no live key)
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv run pytest -ra code-intelligence/tests backend/tests/test_intel_store.py backend/tests/test_payload_store_intel_integration.py

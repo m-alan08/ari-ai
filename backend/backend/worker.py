@@ -91,6 +91,10 @@ def _heartbeat_loop(ctx: JobContext, lease_s: int, stop: threading.Event) -> Non
         try:
             with transaction() as conn:
                 ok = jobs.heartbeat(conn, ctx.job.id, ctx.owner, lease_s)
+                # Keeps the worker liveness row fresh across a long job: the main loop
+                # only beats while polling, so without this /readyz would see the worker
+                # go stale mid-assessment.
+                jobs.worker_heartbeat(conn, ctx.owner, job_id=ctx.job.id)
             if not ok:
                 ctx._cancelled.set()
         except Exception:  # pragma: no cover - transient DB errors; lease covers us
@@ -108,6 +112,7 @@ def run_one(owner: str, kinds: list[str] | None = None) -> str | None:
     settings = get_settings()
     with transaction() as conn:
         job = jobs.claim(conn, owner, settings.worker_lease_s, kinds)
+        jobs.worker_heartbeat(conn, owner, job_id=job.id if job else None, poll=True)
     if job is None:
         return None
     _BUSY.set()
@@ -207,9 +212,19 @@ def main(argv: list[str] | None = None) -> int:
             os._exit(0)  # a claim interrupted here rolls back with the connection
 
     signal.signal(signal.SIGTERM, on_term)
+    try:
+        with transaction() as conn:
+            jobs.prune_worker_heartbeats(conn)
+    except Exception:  # pragma: no cover - best-effort janitor
+        log.exception("worker heartbeat prune failed")
     while not stopping.is_set():
         if run_one(owner) is None:
             stopping.wait(get_settings().worker_poll_interval_s)
+    try:
+        with transaction() as conn:
+            jobs.worker_stopped(conn, owner)
+    except Exception:  # pragma: no cover - leaving a stale row is harmless
+        log.exception("worker heartbeat cleanup failed")
     log.info("worker %s stopped after finishing its job", owner)
     return 0
 

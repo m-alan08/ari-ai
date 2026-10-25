@@ -36,12 +36,14 @@ from backend.db import (
     transaction,
     verification_results,
 )
+from backend.redaction import find_high_confidence_secret
 from backend.services import project_org, project_settings
 from backend.settings import get_settings
 from backend.worker import JobContext, PermanentJobError, handler
 from shared.audit import ActorType
 from shared.base import utcnow
 from shared.errors import ErrorCode
+from shared.evidence import ArtifactKind
 from shared.findings import PatchCandidate, VerificationResult
 from shared.scope import Approval, ApprovalStatus, ApprovalSubject
 from shared.tenancy import DeliveryMode, MemberRole
@@ -256,6 +258,58 @@ def _unverified_bytes(
     return None if got == verified else "stored diff does not match the bytes Verify accepted"
 
 
+def _verified_diff_bytes(
+    conn: Connection, verification: VerificationResult, patch: Any
+) -> tuple[bytes | None, str | None]:
+    import hashlib
+    import json
+
+    store = ArtifactStore()
+    binding: dict[str, Any] = {}
+    for check in verification.checks:
+        if check.name.value != "diff_scope_ok":
+            continue
+        for ev in check.evidence:
+            if not ev.artifact_id:
+                continue
+            try:
+                doc = json.loads(store.get(conn, ev.artifact_id)[1])
+            except (KeyError, OSError, ValueError):
+                continue
+            if isinstance(doc, dict) and doc.get("patch_id") == patch.id:
+                binding = doc
+                break
+        if binding:
+            break
+
+    sealed_id = binding.get("sealed_diff_artifact_id")
+    if sealed_id:
+        try:
+            meta, data = store.get(conn, sealed_id)
+        except (KeyError, OSError):
+            return None, "sealed diff does not match the bytes Verify accepted"
+        if meta["kind"] != ArtifactKind.sealed_diff.value:
+            return None, "sealed diff does not match the bytes Verify accepted"
+        actual_sha256 = hashlib.sha256(data).hexdigest()
+        if (
+            actual_sha256 != binding.get("verified_diff_sha256")
+            or binding.get("stored_diff_artifact_id") != patch.diff_artifact_id
+            or binding.get("stored_diff_sha256") != patch.diff_sha256
+        ):
+            return None, "sealed diff does not match the bytes Verify accepted"
+        secret = find_high_confidence_secret(data.decode("utf-8", errors="replace"))
+        if secret:
+            return None, f"verified diff contains a credential ({secret}); refusing to deliver"
+        return data, None
+
+    try:
+        _, data = store.get(conn, patch.diff_artifact_id)
+    except (KeyError, OSError):
+        return None, "stored diff artifact is missing"
+    mismatch = _unverified_bytes(conn, verification, patch, data)
+    return (None, mismatch) if mismatch else (data, None)
+
+
 def _reason(exc: Exception) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         code = exc.response.status_code
@@ -310,10 +364,9 @@ def deliver_verified_patch(ctx: JobContext) -> dict[str, Any]:
             .first()
         )
         connected = repo is not None and repo["installation_id"] is not None
-        diff, mismatch = b"", None
+        diff, mismatch = None, None
         if granted and connected:
-            diff = ArtifactStore().get(conn, patch.diff_artifact_id)[1]
-            mismatch = _unverified_bytes(conn, verification, patch, diff)
+            diff, mismatch = _verified_diff_bytes(conn, verification, patch)
 
     def finish(action: str, **more: Any) -> None:
         with transaction() as conn:  # own transaction: a raise afterwards must not roll it back
@@ -328,9 +381,9 @@ def deliver_verified_patch(ctx: JobContext) -> dict[str, Any]:
             ErrorCode.SUBSYSTEM_UNAVAILABLE, "repository is not connected through the GitHub App"
         )
 
-    if mismatch:
+    if mismatch or diff is None:
         finish("delivery.failed", reason=mismatch)
-        raise PermanentJobError(ErrorCode.CONFLICT_STATE, mismatch)
+        raise PermanentJobError(ErrorCode.CONFLICT_STATE, mismatch or "verified diff missing")
 
     from backend.github import GitHubApp
 

@@ -205,7 +205,7 @@ export type ApprovalStatus = "pending" | "approved" | "declined";
 
 export type ApprovalSubject = "scope" | "remediation" | "pr";
 
-export type ArtifactKind = "diff" | "log" | "test_report" | "webhook_payload" | "llm_transcript" | "tool_output" | "report" | "rl_eval_summary" | "rl_checkpoint" | "other";
+export type ArtifactKind = "diff" | "sealed_diff" | "log" | "test_report" | "webhook_payload" | "llm_transcript" | "tool_output" | "report" | "rl_eval_summary" | "rl_checkpoint" | "other";
 
 export interface ArtifactRef {
   id: string;
@@ -215,6 +215,11 @@ export interface ArtifactRef {
   media_type: string;
   /** True when secrets were scrubbed before storage */
   redacted: boolean;
+}
+
+export interface ArtifactStoreCapability {
+  writable: boolean;
+  detail: string;
 }
 
 export interface Assessment {
@@ -740,6 +745,28 @@ export interface DevLoginRequest {
   display_name: string | null;
 }
 
+/** GET /diagnostics: readiness plus live verification (GitHub /app, sandbox SDK,
+ * migration head, queue counts, worker rows). Ops tooling; values are metadata only. */
+export interface DiagnosticsReport {
+  /** ready | degraded | not_ready */
+  status: string;
+  database: boolean;
+  queue: boolean;
+  workers: WorkerLiveness;
+  capabilities: ReadinessCapabilities;
+  capabilities_ready: boolean;
+  /** live | fake | unavailable */
+  llm_mode: string;
+  github_app_configured: boolean;
+  webhook_secret_configured: boolean;
+  git_sha: string | null;
+  schema_version: string;
+  migrations: Record<string, unknown>;
+  jobs: Record<string, number>;
+  worker_rows: Array<Record<string, unknown>>;
+  generated_at: string;
+}
+
 export interface EmergencyStop {
   id: string;
   project_id: string;
@@ -1005,6 +1032,13 @@ export interface GeneratedTest {
   outcome_on_head: string;
 }
 
+export interface GithubCapability {
+  app_configured: boolean;
+  oauth_configured: boolean;
+  webhook_secret_configured: boolean;
+  verified: Record<string, unknown> | null;
+}
+
 export interface HardeningEntry {
   type: "hardening";
   record: HardeningRecommendation;
@@ -1023,6 +1057,8 @@ export interface HardeningRecommendation {
 export interface HealthStatus {
   status: string;
   version: string;
+  git_sha: string | null;
+  schema_version: string;
 }
 
 export interface Hypothesis {
@@ -1308,6 +1344,13 @@ export interface LivePolicyDecision {
   caveat: string;
 }
 
+export interface LlmCapability {
+  /** live | fake | unavailable | host */
+  mode: string;
+  model: string;
+  configured: boolean;
+}
+
 /** How a mapping was derived. Never ``model``: model proposals go through ``rule``/``human``. */
 export type MappedVia = "check_template_rule" | "catalog_relation" | "reviewed_rule_table" | "validated_proposal" | "human";
 
@@ -1559,14 +1602,29 @@ export interface RLExplanation {
   simulation_derived: true;
 }
 
+/** Can this deployment actually run an assessment, each dependency named separately. */
+export interface ReadinessCapabilities {
+  llm: LlmCapability;
+  github: GithubCapability;
+  sandbox: SandboxCapability;
+  artifact_store: ArtifactStoreCapability;
+  anthropic_key_configured: boolean;
+}
+
 export interface ReadinessStatus {
+  /** ready | degraded | not_ready */
   status: string;
   database: boolean;
   queue: boolean;
+  workers: WorkerLiveness;
+  capabilities: ReadinessCapabilities;
+  capabilities_ready: boolean;
   /** live | fake | unavailable */
   llm_mode: string;
   github_app_configured: boolean;
   webhook_secret_configured: boolean;
+  git_sha: string | null;
+  schema_version: string;
 }
 
 export interface ReassessmentRequest {
@@ -1726,6 +1784,14 @@ export interface RuntimeSignalBatch {
   window_start: string;
   window_end: string;
   routes: Array<RouteWindow>;
+}
+
+export interface SandboxCapability {
+  mode: string;
+  configured: boolean;
+  detail: string;
+  sdk_importable: boolean | null;
+  daemon_reachable: boolean | null;
 }
 
 export interface ScopeCreate {
@@ -1988,6 +2054,17 @@ export interface WebhookAck {
   accepted: boolean;
   job_id: string | null;
   reason: string | null;
+}
+
+/** Live worker processes for /readyz (worker_heartbeats table). */
+export interface WorkerLiveness {
+  alive: number;
+  expected: number | null;
+  busy: number;
+  queued_jobs: number;
+  running_jobs: number;
+  freshest_heartbeat_age_s: number | null;
+  required: boolean;
 }
 
 export type shared__review__ReviewStatus = "completed" | "needs_clarification" | "failed";

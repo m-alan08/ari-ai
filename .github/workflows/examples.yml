@@ -1,11 +1,11 @@
 name: examples
 
+# Release gate: runs on every PR and push to main so `payments-lite` always
+# reports; unrelated diffs are marked SKIPPED in the job summary.
 on:
   pull_request:
-    paths: ["examples/**", ".github/workflows/examples.yml"]
   push:
     branches: [main]
-    paths: ["examples/**", ".github/workflows/examples.yml"]
 
 permissions:
   contents: read
@@ -19,20 +19,35 @@ jobs:
         working-directory: examples/payments-lite
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        working-directory: ${{ github.workspace }}
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "examples/**,.github/workflows/examples.yml"
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        if: steps.gate.outputs.run == 'true'
       - name: Install
+        if: steps.gate.outputs.run == 'true'
         run: |
           uv venv --python 3.12 target/.venv
           uv pip install --python target/.venv/bin/python -e "target[dev]" pyyaml
       - name: Lint
+        if: steps.gate.outputs.run == 'true'
         run: |
           target/.venv/bin/ruff check --config target/pyproject.toml target label_checks
           target/.venv/bin/ruff format --check --config target/pyproject.toml target label_checks
       - name: Target's own tests (pass; planted defects are untested by design)
+        if: steps.gate.outputs.run == 'true'
         run: cd target && .venv/bin/python -m pytest -q
       - name: Label checks (planted defects exist, negatives are safe, no hints in target)
+        if: steps.gate.outputs.run == 'true'
         run: target/.venv/bin/python -m pytest -q label_checks
       - name: Docker build recipe
+        if: steps.gate.outputs.run == 'true'
         run: docker build -t payments-lite:ci target && docker run --rm payments-lite:ci id -u | grep -qx 10001
 
   inventory-lite:

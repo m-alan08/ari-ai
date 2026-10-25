@@ -16,6 +16,10 @@ _SECRET_KEY = re.compile(
 _EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _BEARER = re.compile(r"Bearer\s+\S+", re.IGNORECASE)
 _JWTISH = re.compile(r"eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}")
+_SECRET_VALUE = re.compile(
+    r"(password|passwd|secret|api[_-]?key|access[_-]?token|private[_-]?key)\s*[=:]\s*\S+",
+    re.IGNORECASE,
+)
 
 
 def secret_like_reason(payload: Any) -> str | None:
@@ -43,4 +47,6 @@ def _walk(value: Any, path: str) -> list[str]:
             found.append("email")
         if _BEARER.search(value) or _JWTISH.search(value):
             found.append("token")
+        if _SECRET_VALUE.search(value):
+            found.append("credential")
     return found

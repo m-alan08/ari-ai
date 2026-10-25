@@ -1,11 +1,11 @@
 name: docs
 
+# Release gate: runs on every PR and push to main so `links` always reports;
+# unrelated diffs are marked SKIPPED in the job summary.
 on:
   pull_request:
-    paths: ["**/*.md", "scripts/check_links.py", ".github/workflows/docs.yml"]
   push:
     branches: [main]
-    paths: ["**/*.md", "scripts/check_links.py", ".github/workflows/docs.yml"]
 
 permissions:
   contents: read
@@ -16,5 +16,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "**/*.md,scripts/check_links.py,.github/workflows/docs.yml"
       - name: Internal links, anchors and Mermaid block types
+        if: steps.gate.outputs.run == 'true'
         run: python3 -I scripts/check_links.py

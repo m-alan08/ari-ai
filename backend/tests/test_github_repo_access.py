@@ -29,6 +29,9 @@ def _without_personal_installation(monkeypatch) -> None:
         def user_installation(self, login):
             return None
 
+        def installation_repositories(self, installation_id):
+            return [ACME]
+
     monkeypatch.setattr("backend.api.github_repos.GitHubApp", NoInstallation)
 
 
@@ -64,6 +67,62 @@ def test_connect_requires_access_through_that_installation(client_factory, monke
             assert r.status_code == 201, r.text
     listed = alice.get("/api/v1/github/repositories").json()["items"][0]
     assert listed["connected_repo_id"] is not None
+
+
+def test_connect_rejects_a_repo_the_installation_no_longer_grants(
+    client_factory, monkeypatch
+) -> None:
+    alice = client_factory("alice")
+    _grant(alice.me["user"]["id"], [ACME])
+    pid = alice.post("/api/v1/projects", json={"name": "p"}).json()["id"]
+
+    class FakeApp:
+        def installation_repositories(self, installation_id):
+            return [{"full_name": "acme/other"}]  # acme/shop was removed from the installation
+
+    monkeypatch.setattr("backend.api.github_repos.GitHubApp", FakeApp)
+    body = {"full_name": "acme/shop", "installation_id": 42, "default_branch": "main"}
+    r = alice.post(f"/api/v1/projects/{pid}/repositories", json=body)
+    assert r.status_code == 403, r.text
+    assert "installation" in r.json()["error"]["message"]
+
+
+def test_connect_maps_a_deleted_installation_to_an_actionable_error(
+    client_factory, monkeypatch
+) -> None:
+    alice = client_factory("alice")
+    _grant(alice.me["user"]["id"], [ACME])
+    pid = alice.post("/api/v1/projects", json={"name": "p"}).json()["id"]
+
+    class DeadApp:
+        def installation_repositories(self, installation_id):
+            request = httpx.Request("GET", "https://api.github.com/installation/repositories")
+            raise httpx.HTTPStatusError(
+                "404", request=request, response=httpx.Response(404, request=request)
+            )
+
+    monkeypatch.setattr("backend.api.github_repos.GitHubApp", DeadApp)
+    body = {"full_name": "acme/shop", "installation_id": 42, "default_branch": "main"}
+    r = alice.post(f"/api/v1/projects/{pid}/repositories", json=body)
+    assert r.status_code == 403, r.text
+    assert "reinstall" in r.json()["error"]["message"]
+
+
+def test_connect_reports_when_github_cannot_confirm_the_installation(
+    client_factory, monkeypatch
+) -> None:
+    alice = client_factory("alice")
+    _grant(alice.me["user"]["id"], [ACME])
+    pid = alice.post("/api/v1/projects", json={"name": "p"}).json()["id"]
+
+    class DownApp:
+        def installation_repositories(self, installation_id):
+            raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr("backend.api.github_repos.GitHubApp", DownApp)
+    body = {"full_name": "acme/shop", "installation_id": 42, "default_branch": "main"}
+    r = alice.post(f"/api/v1/projects/{pid}/repositories", json=body)
+    assert r.status_code == 503, r.text
 
 
 def test_access_list_is_replaced_on_each_sign_in(client_factory, monkeypatch) -> None:

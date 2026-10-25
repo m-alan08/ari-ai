@@ -1,0 +1,38 @@
+{
+  "agent": "integration-lead",
+  "human_owner": "Adam",
+  "workstream": "PR release management, merge ordering, pilot readiness verification",
+  "state": "BLOCKED",
+  "task": "Integrate pilot-ready PRs in dependency order; run pilot-verify against final main",
+  "branch": "(merges land on main)",
+  "latest_sha": "f329ce2e",
+  "prs": [
+    557,
+    560,
+    561,
+    563,
+    567,
+    570,
+    571,
+    573,
+    572,
+    540,
+    538,
+    536,
+    532
+  ],
+  "claims": [
+    "coordination/AGENT_BOARD.md",
+    "coordination/messages/2026*-devin-integration-lead-*",
+    "fix/test-sandbox-target-method"
+  ],
+  "depends_on": [
+    "alan-live-defense (held PRs #412/#458 must not be merged)"
+  ],
+  "blockers": [
+    "prod 502 since ~01:27Z on deploy 2c8ad50d \u2014 merges paused per pilot-completion-commander hold; Railway logs Adam-only"
+  ],
+  "last_update_utc": "2026-10-25T01:45:00Z",
+  "tests": "#570 redaction-gap fix: 21 regression tests green; all commander-probed classes closed (incl. 3 residual backend kv/bearer/JWT leaks)",
+  "next_action": "when prod green: merge #570 -> #540 -> #532 -> #538 -> #536(owner decision) -> #572 -> #573; then pilot-verify.yml vs final main SHA"
+}

@@ -17,8 +17,19 @@ person, never committed and never pasted into chat.
 | Setup URL | `https://ari-ai-lake.vercel.app/projects` (redirect on update: on) |
 | Webhook URL | `https://ari-ai-production-76d4.up.railway.app/api/v1/webhooks/github` |
 | Webhook secret | a long random string (also goes into Railway, below) |
-| Repository permissions | Contents: **Read-only**, Metadata: **Read-only** |
-| Subscribe to events | Push |
+| Repository permissions | Contents: **Read and write**, Pull requests: **Read and write**, Metadata: **Read-only** |
+| Subscribe to events | Push, Pull requests, Repository |
+
+Write access is the explicit, separately-established authorization: the App declares
+read+write so a recipe/fix PR can be opened, but every routine read (fetch, compare,
+commit lookup, recipe inspection) mints a **read-only** installation token, and a write
+token is minted **only inside the delivery/recipe paths** and only scoped to the single
+repository (`backend.github.GitHubApp.installation_token(write=True, repository=...)`).
+Nothing else can push code. `installation` and `installation_repositories` events are
+delivered to the App automatically (no subscription); `Repository` events let Ari follow
+renames/transfers and repo deletion. Tell customers the write scope plainly during onboarding — see
+`docs/pilot/CUSTOMER_ONBOARDING.md`.
+
 | Where can it be installed | Any account (so other people can use it) |
 
 After creating it: note the **App ID** and **Client ID**, generate a **client secret**, and
@@ -34,6 +45,7 @@ generate a **private key** (downloads a `.pem`).
 | `GITHUB_OAUTH_CLIENT_SECRET` | the App's client secret |
 | `GITHUB_WEBHOOK_SECRET` | the webhook secret from step 1 |
 | `ANTHROPIC_API_KEY` | your key (set a monthly spend limit in the Anthropic console) |
+| `MIGRATION_DATABASE_URL` | Optional migration-only database role; defaults to `DATABASE_URL` |
 
 Already set (non-secret): `DATABASE_URL` (reference to Postgres), `APP_ENV=production`,
 `ARTIFACT_STORE_URI=file:///data/artifacts`, `SECURITY_WORKDIR=/data/work`,
@@ -54,18 +66,26 @@ throwaway Vercel Sandbox microVM (see `security-agents` Vercel Sandbox driver).
 
 ### Per-commit automatic assessments
 
-The Railway entrypoint defaults `GITHUB_AUTO_COMMIT_AUTHORS` to `*`: every pusher and
-every commit author, including commits whose email maps to no GitHub account. Set a
-comma-separated list of GitHub logins to narrow it; explicit empty uses the legacy
-impact/coalescing policy. An installed App, connected repository, enabled monitoring and
-approved repository scope remain prerequisites. Approving a scope wakes blocked commits.
+The Railway entrypoint defaults `GITHUB_AUTO_COMMIT_AUTHORS` to empty, which disables
+per-commit full runs. If a repository's `automatic_assessments` switch is ON, pushes
+fall back to the legacy impact-gated, coalesced monitoring policy: project
+`monitoring_policy`, active repository scope and the monitoring budget apply, with at
+most one open monitoring assessment per repository. Set it to `*` to opt in every
+pusher and commit author, including commits whose email maps to no GitHub account, or
+use a comma-separated list of GitHub logins to limit eligibility. An installed App,
+connected repository, enabled monitoring and approved repository scope remain
+prerequisites for automatic runs. Approving a scope wakes blocked commits.
 
-Every pushed commit gets its own full run; none is skipped. Commits over a project's
-limits (`AUTOMATIC_ASSESSMENTS_PER_HOUR`, `AUTOMATIC_ASSESSMENTS_PER_DAY`) or over the
-all-project daily spend ceiling (`AUTOMATIC_USD_PER_DAY`, default $50) are deferred and
-run later. `WORKER_PROCESSES` (default 12, ~80 MB each) runs that many commits at once;
-jobs are claimed with `SKIP LOCKED`. Signed webhooks are never rate limited: GitHub does
-not retry a 429, and the durable queue absorbs bursts.
+For strictly manual operation, switch `automatic_assessments` OFF per repository
+(or disable project monitoring). Manual Run remains available when the repository
+switch is OFF.
+
+Eligible pushed commits are assessed subject to the shared project quota of 10 starts
+per rolling hour and 50 per rolling day, plus the $50 global rolling-day spend cap.
+Over-quota commits are recorded as skipped and are not deferred or retried.
+`WORKER_PROCESSES` (default 12, ~80 MB each) runs that many commits at once; jobs are
+claimed with `SKIP LOCKED`. Signed webhooks are never rate limited: GitHub does not
+retry a 429, and the durable queue absorbs bursts.
 Opening the commit page is unnecessary; it polls the persisted run when visited.
 Check worker logs for `assess_github_commit` and the commit's monitoring assessment
 before claiming live execution: `/readyz` only checks configuration and storage.
@@ -79,20 +99,23 @@ monitoring budget remains for the impact-policy path when this rollout is disabl
 ### Automatic/manual repository mode and Haiku 5.5 (#380)
 
 Each connected repository has a persisted `automatic_assessments` switch, default
-ON. ON queues every eligible new commit in the background without a browser visit
-or Run click. OFF prevents unstarted automatic work and exposes manual Run on
-selected commits; active runs and history remain intact. GET/PATCH
+OFF (opt-in since #385). ON enables push-triggered processing: with a nonempty
+author allowlist, every eligible new commit queues a full run; with an empty
+allowlist, pushes use the legacy monitoring policy above. OFF prevents unstarted automatic work and
+exposes manual Run on selected commits; active runs and history remain intact. GET/PATCH
 `/api/v1/repositories/{repo_id}` returns Repository; PATCH requires a project owner
 and is audited. Migration 0009 adds the flag; schema 0.15.0 adds RepositoryUpdate
 and regenerates JSON/TypeScript. Deploy the backend and frontend together.
 
-The rollout requires both the signed push sender and GitHub-attributed commit
-author to match `GITHUB_AUTO_COMMIT_AUTHORS` (initially adamissac). Attribution
-alone is email-derived, not authorization. Project start limits default to 5/hour
-and 20/day (`AUTOMATIC_ASSESSMENTS_PER_HOUR`, `AUTOMATIC_ASSESSMENTS_PER_DAY`). Excess
-commits are durably deferred, not dropped. Full runs use the normal project budget,
-clamped to operator caps. Monitoring and approved sandbox scope remain prerequisites;
-repair approvals remain required.
+Per-commit full runs require a nonempty `GITHUB_AUTO_COMMIT_AUTHORS` allowlist; both
+the signed push sender and GitHub-attributed commit author must match it. With the
+empty Railway default, enabled repositories use the legacy monitoring policy above.
+Attribution alone is email-derived, not authorization. All assessment triggers share a project
+quota of 10 per rolling hour and 50 per rolling day, with a $50/day spend cap across
+all projects and triggers. Over-quota automatic requests are recorded as skipped,
+not deferred. Full runs use the normal project budget, clamped to operator caps.
+Monitoring and approved sandbox scope remain prerequisites; repair approvals remain
+required.
 
 Production/staging gateway, Railway startup and frontend quick reads enforce
 `claude-haiku-5-5` only, overriding stale production model choices. Errors are

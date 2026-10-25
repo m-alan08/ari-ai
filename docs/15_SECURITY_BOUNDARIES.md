@@ -76,6 +76,10 @@ Untrusted data may influence *what is analyzed*, never *what is permitted*.
   `.env.example` contains placeholders.
 - Logs and stored LLM transcripts pass through a redactor (known key patterns,
   `*_SECRET`, `*_KEY`, bearer tokens, PEM blocks).
+- Verify-tested diffs have a separate sealed artifact containing their exact,
+  unredacted bytes. It is delivery-only, is never served through artifact reads,
+  and is deleted with the project; delivery verifies its hash and refuses
+  high-confidence credentials before sending the diff to GitHub.
 - GitHub App tokens are short-lived installation tokens fetched per job.
 - gitleaks runs in CI (`INFRA-003`) and is recommended as a pre-commit hook.
 

@@ -13,7 +13,7 @@ it('ships intact WOFF2 fonts with their redistribution licenses', () => {
   const sources = JSON.parse(readFileSync(resolve(root, 'app/fonts/SOURCES.json'), 'utf8')) as {
     packages: { license: string; files: { path: string; sha256: string }[] }[];
   };
-  expect(sources.packages).toHaveLength(4);
+  expect(sources.packages).toHaveLength(5);
   for (const pkg of sources.packages) {
     expect(readFileSync(resolve(root, 'app/fonts', pkg.license), 'utf8')).toMatch(/SIL OPEN FONT LICENSE|SIL Open Font License/);
     for (const file of pkg.files) {

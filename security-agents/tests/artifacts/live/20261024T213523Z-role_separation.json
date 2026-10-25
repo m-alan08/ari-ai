@@ -1,0 +1,20 @@
+{
+  "requests": [
+    [
+      "scout",
+      "You are Scout, the reconnaissance agent of an automated security review platform"
+    ],
+    [
+      "scout",
+      "You are Scout, the reconnaissance agent of an automated security review platform"
+    ],
+    [
+      "trace",
+      "You are Trace, the impact analyst of an automated security review platform.\n\nA w"
+    ],
+    [
+      "trace",
+      "You are Trace, the impact analyst of an automated security review platform.\n\nA w"
+    ]
+  ]
+}

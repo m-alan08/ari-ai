@@ -1,0 +1,18 @@
+{
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "target_dir": "app",
+  "app_factory": "app.main:create_app",
+  "test_command": ["-q", "tests"],
+  "identities": {
+    "alice": {"auth_header": "Bearer demo-alice", "user_id": "alice"},
+    "bob": {"auth_header": "Bearer demo-bob", "user_id": "bob"},
+    "carol": {"auth_header": "Bearer demo-carol", "user_id": "carol"}
+  },
+  "resources": {
+    "book": {
+      "alice": {"id": 1, "owner_field": "owner", "private_field": "notes"},
+      "bob": {"id": 2, "owner_field": "owner", "private_field": "notes"}
+    }
+  }
+}

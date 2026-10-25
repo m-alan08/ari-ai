@@ -1,0 +1,29 @@
+{
+  "agent": "devin-frontend-ui",
+  "human_owner": "Adam",
+  "workstream": "frontend UI \u2014 landing rework + SaaS sidebar console revamp; pilot-readiness support (coordination lane)",
+  "state": "READY_FOR_REVIEW",
+  "task": "PR #536 landing + console revamp green/mergeable (owner review required); tracked #570 redaction fix \u2014 commander ruling adopted over-redaction, in CI; assessing remaining pilot work",
+  "branch": "feat/adam/home-deep-sea-landing",
+  "latest_sha": "9e89652e",
+  "prs": [
+    536
+  ],
+  "claims": [
+    "frontend/",
+    "docs/planning/SESSION_HANDOFF.md (append-only)",
+    "CHANGELOG.md (append-only)"
+  ],
+  "depends_on": [
+    "integration-lead merge order (position 18)",
+    "owner review of #536 before merge",
+    "commander merge hold until prod 502 resolves"
+  ],
+  "blockers": [
+    "prod API 502 since ~01:27Z \u2014 merges paused per commander; Railway logs owner-only",
+    "#536 merge requires owner review"
+  ],
+  "last_update_utc": "2026-10-25T01:50:00Z",
+  "tests": "19/19 CI green on 9e89652e incl e2e; local gitleaks full-repo scan clean",
+  "next_action": "monitor #570 CI + prod recovery; pick up unblocked pilot staging prep that does not need owner credentials"
+}

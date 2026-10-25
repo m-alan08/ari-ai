@@ -50,6 +50,59 @@
 :root:not(:has(.hero-full)) .night-footer { border-top: 1px solid var(--ui-edge); margin-top: 48px; padding-block: 28px 32px; }
 .night-footer > p { font-size: 9px; letter-spacing: .08em; max-width: 65ch; }
 
+/* Project rail: a persistent sidebar instead of tab rows. The rail head carries the
+   project name + repo chip; nav groups are mono-labelled; the footer shows live state. */
+.project-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 32px; align-items: start; }
+.project-rail { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 22px;
+  max-height: calc(100svh - 48px); overflow-y: auto; padding-bottom: 4px; }
+.rail-head { display: flex; flex-direction: column; gap: 6px; }
+.rail-back { font-size: 10px; color: var(--color-faint); text-decoration: none; width: fit-content; }
+.rail-back:hover { color: var(--color-ink); }
+.rail-name { font-family: var(--font-display); font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; overflow-wrap: anywhere; }
+.rail-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--color-muted); }
+.rail-repo { font-family: var(--font-mono); font-size: 10px; overflow-wrap: anywhere; }
+.rail-branch { color: var(--color-faint); }
+.rail-nav { display: flex; flex-direction: column; gap: 18px; }
+.rail-group { display: flex; flex-direction: column; gap: 2px; }
+.rail-group-label { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--color-faint); padding: 0 10px; margin-bottom: 4px; white-space: nowrap; }
+.rail-link { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px;
+  font-size: 13px; line-height: 1.35; color: var(--color-muted); text-decoration: none;
+  transition: background-color 180ms var(--ease-smooth), color 180ms var(--ease-smooth); }
+.rail-link:hover { background: rgb(28 18 16 / 5%); color: var(--color-ink); }
+.rail-link[aria-current="page"] { color: var(--color-ink); font-weight: 500; background: rgb(28 18 16 / 6%); box-shadow: inset 2px 0 0 var(--color-brand); }
+.rail-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--color-line);
+  display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--color-faint); }
+.rail-status { width: 7px; height: 7px; border-radius: 9999px; background: var(--color-faint); flex: none; }
+.rail-status.is-on { background: var(--color-ok); box-shadow: 0 0 8px rgb(31 122 77 / 50%); }
+
+/* Night skin for the rail (all console pages lack .hero-full). */
+:root:not(:has(.hero-full)) .rail-link { color: rgb(255 247 242 / 55%); }
+:root:not(:has(.hero-full)) .rail-link:hover { background: rgb(255 247 242 / 5%); color: #fff7f2; }
+:root:not(:has(.hero-full)) .rail-link[aria-current="page"] { color: #fff7f2; background: rgb(255 247 242 / 7%); box-shadow: inset 2px 0 0 var(--color-brand); }
+:root:not(:has(.hero-full)) .rail-back { color: rgb(255 247 242 / 40%); }
+:root:not(:has(.hero-full)) .rail-back:hover { color: rgb(255 247 242 / 80%); }
+:root:not(:has(.hero-full)) .rail-name { color: #fff7f2; }
+:root:not(:has(.hero-full)) .rail-meta, :root:not(:has(.hero-full)) .rail-foot { color: rgb(255 247 242 / 45%); }
+:root:not(:has(.hero-full)) .rail-branch { color: rgb(255 247 242 / 35%); }
+:root:not(:has(.hero-full)) .rail-group-label { color: rgb(255 247 242 / 30%); }
+:root:not(:has(.hero-full)) .rail-foot { border-top-color: var(--ui-edge); }
+
+/* commit-stage is a full-bleed viewport breakout for the demo pages; inside the
+   sidebar layout it would overlap the rail, so contain it to the content column. */
+.project-layout .commit-stage { margin-inline: 0; padding-inline: 28px; border-radius: 18px; }
+
+@media (max-width: 1023px) {
+  .project-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .project-rail { position: static; max-height: none; overflow: visible; }
+  /* Wrap instead of a hidden-scrollbar row: every destination (incl. Settings) stays visible. */
+  .rail-nav { flex-direction: row; flex-wrap: wrap; gap: 10px 20px; padding-bottom: 8px; }
+  .rail-group { flex: 0 1 auto; min-width: 0; }
+  .rail-group > * { flex: none; }
+  .rail-group { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .rail-group-label { margin: 0 4px 0 0; }
+  .rail-foot { margin-top: 0; }
+}
+
 /* The demo and recorded workspace share one instrument-like frame. */
 .amap { border-radius: var(--ui-radius); border: 1px solid var(--ui-edge); box-shadow: 0 20px 64px -40px #000; }
 .amap-head { padding: 18px 22px; background: rgb(16 11 9 / 35%); }

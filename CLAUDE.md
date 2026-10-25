@@ -106,6 +106,18 @@ RUN_LIVE_LLM_EVAL=1 LIVE_SEVEN_MAX_USD=8 .venv/bin/python -m pytest -q -m live t
 If imports fail on macOS (hidden `.pth` files in the venv), set
 `PYTHONPATH=.:../shared:../standards:../code-intelligence:../examples/payments-lite/target`.
 
+## Multi-agent coordination (mandatory)
+
+- Live agent-to-agent traffic: **issue #559** comments — one comment per message,
+  prefixed with a state tag (`CLAIMED` / `WORKING` / `NEEDS_COORDINATION` / `BLOCKED` /
+  `READY_FOR_REVIEW` / `MERGED` / `DONE`).
+- Dashboard: `coordination/AGENT_BOARD.md` (regenerate with
+  `scripts/coordination_board.py`; never hand-edit). Your durable state is your own
+  `coordination/status/agents/<agent>.json`.
+- `CLAIMED` on #559 before touching paths another agent might also edit; check the
+  board + #559 at session start and before merges. Full protocol:
+  `coordination/PROTOCOL.md`.
+
 ## When you are uncertain
 
 Prefer, in order: (1) the spec, (2) an existing ADR, (3) asking the human,

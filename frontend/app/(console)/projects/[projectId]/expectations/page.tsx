@@ -3,7 +3,7 @@
 import type { BehavioralExpectation, EvidenceRef, ExpectationDecision, ExpectationDecisionRequest, ExpectationStatus, Repository, Snapshot } from '@hackatl/frontend-transport';
 import { useMemo, useState } from 'react';
 import { useProject } from '@/components/project';
-import { Async, Badge, Button, Empty, ErrorState, Field, inputClass, Mono, Panel, Tag, Time } from '@/components/ui';
+import { Async, Badge, Button, Empty, ErrorState, Field, inputClass, Mono, PageTitle, Panel, Tag, Time } from '@/components/ui';
 import { api } from '@/lib/api';
 import { EXPECTATION_STATUS, SNAPSHOT_STATUS } from '@/lib/status';
 import { useResource } from '@/lib/use-resource';
@@ -34,6 +34,7 @@ export default function ExpectationsPage() {
   const repo = repos.find(r => r.id === repoId) ?? repos[0]!;
   return (
     <div className="flex flex-col gap-4">
+      <PageTitle eyebrow="Defend" title="Expectations" subtitle="Intended behavior learned from the code — the baseline findings are judged against." />
       {repos.length > 1 && (
         <Field label="Repository">
           <select className={inputClass} value={repo.id} onChange={e => setRepoId(e.target.value)}>

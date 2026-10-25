@@ -1,0 +1,76 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "5eee457e179877793f6aa9418fb667afef596877",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.25.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-25T00:30:40.979506+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "E",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_e_worker_failure",
+      "outcome": "passed",
+      "duration_s": 0.347,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "partial evidence retained",
+          "expected": "crash recorded",
+          "observed": "{\"code\": \"INTERNAL\", \"trace\": \"Traceback (most recent call last):\\n  File \\\"/Users/devin/repos/ari-ai/backend/backend/wo",
+          "ok": false
+        },
+        {
+          "name": "physical provider calls (scout)",
+          "expected": "not replayed on redelivery (F1)",
+          "observed": "4 -> 4",
+          "ok": false
+        },
+        {
+          "name": "recovery outcome",
+          "expected": "failed",
+          "observed": "failed",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "I",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_i_concurrent_workers",
+      "outcome": "passed",
+      "duration_s": 0.299,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "concurrent drains: single execution",
+          "expected": [
+            4,
+            3
+          ],
+          "observed": [
+            4,
+            3
+          ],
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

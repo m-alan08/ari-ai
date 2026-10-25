@@ -1,0 +1,26 @@
+{
+  "agent": "devin-frontend-ux",
+  "human_owner": "Adam",
+  "workstream": "first-user usability — pilot UX workstream (PR #538 on #496)",
+  "state": "READY_FOR_REVIEW",
+  "task": "Named approval cards, two-step approve/confirm on assessment page + approvals inbox, plain-English replay (plainToolName), honest quick-read errors, flow map + blockers doc",
+  "branch": "feat/adam/first-user-usability",
+  "latest_sha": "c890e2c9",
+  "prs": [538],
+  "claims": [
+    "frontend/components/assessment-approval-gate.tsx",
+    "frontend/components/commit-run-workspace.tsx",
+    "frontend/lib/demo/agent-map.ts",
+    "frontend/app/(console)/projects/[projectId]/approvals/page.tsx",
+    "frontend/tests/e2e/journey.spec.ts",
+    "frontend/tests/e2e/commit-workspace.spec.ts",
+    "docs/planning/FIRST_USER_FLOW_AND_USABILITY.md"
+  ],
+  "depends_on": [
+    "PR #496 (base branch) merge — integration-lead wave 4"
+  ],
+  "blockers": [],
+  "last_update_utc": "2026-10-24T23:59:00Z",
+  "tests": "9/9 e2e specs green on tests/e2e/stack.py (real API+Postgres+worker, scripted model transport); unit tests added for agent-map; gitleaks+links green on PR merge head",
+  "next_action": "hold for integration-lead merge after #496; watch CI on current head"
+}

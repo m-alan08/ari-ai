@@ -55,6 +55,18 @@
           "sha256": "ce5095dc1cb200aaa939e38067a0677018d10e9f26ec38cdcf1557ac524fc775"
         }
       ]
+    },
+    {
+      "package": "sixtyfour (Google Fonts OFL asset)",
+      "version": "homecomputer-fonts 2021",
+      "tarball_integrity": "n/a — packaged woff2 fetched from kairo.security CDN; sha256 verified below",
+      "license": "sixtyfour.LICENSE",
+      "files": [
+        {
+          "path": "sixtyfour-latin-400.woff2",
+          "sha256": "12f8351f30e1b36790eb3281189685b553b90572397339abfdaec386fe1e0fe5"
+        }
+      ]
     }
   ]
 }

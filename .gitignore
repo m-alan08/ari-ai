@@ -88,3 +88,6 @@ rl-defense/results/*/seed*/holdout_trajectories.jsonl
 rl-defense/results/*/*/seed*/candidate_online_experience.jsonl
 rl-defense/results/*/*/seed*/candidate_online_selected_experience.jsonl
 rl-defense/results/*/*/seed*/holdout_trajectories.jsonl
+scripts/rehearsal/bindings.json
+scripts/rehearsal/target-app/app/books.db
+scripts/rehearsal/target-app/.git

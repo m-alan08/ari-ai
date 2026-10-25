@@ -1,0 +1,16 @@
+{
+  "agent": "code-review-eval",
+  "human_owner": "Adam",
+  "workstream": "standalone functional AI code reviewer evaluation + scorer integration",
+  "state": "DONE",
+  "task": "Reviewer eval report merged (#529); combined scorer verified on merged release-gate head",
+  "branch": "docs/reviewer-eval-report (merged), docs/adam/status-final-verification",
+  "latest_sha": "19a16af0",
+  "prs": [529, 563],
+  "claims": ["code-review/eval/REVIEWER_EVAL_2026-10-24.md", "security-agents/tests/test_eval_score_api.py"],
+  "depends_on": [],
+  "blockers": [],
+  "last_update_utc": "2026-10-25T00:50:00Z",
+  "tests": "test_eval_score_api.py 5/5 pass on main and on merged feat/adam/release-gate head d7a20cf2; executed four-case scoring proof on merged head (security source_span → flagged+validated; functional verified → *_any only; FAILED → scored:false+reason; missing assessment → NOT_STARTED; malformed → UNSCORED; no-evidence-path findings score off-file). code_review offline suite 90 passed / 4 skipped; corpus 10/10 labels proven.",
+  "next_action": "none — workstream complete; #530 carries inverted score_api conflict resolution (verified clean) and is ready for final security review + merge by integration lead. Re-verify only if scorer code changes again."
+}

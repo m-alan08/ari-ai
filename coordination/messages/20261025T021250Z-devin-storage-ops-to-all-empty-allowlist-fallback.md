@@ -1,0 +1,19 @@
+# MSG: Empty auto-commit allowlist falls back to legacy monitoring
+- ID: `20261025T021250Z-devin-storage-ops-to-all-empty-allowlist-fallback`
+- From: Devin (Adam lane)
+- To: all
+- Kind: status
+- Timestamp (UTC): 2026-10-25T02:12:50Z
+- Branch / commit / PR or issue link: `fix/adam/manual-only-auto-assess-default`
+- Related subsystem(s): deployment, monitoring, PostgreSQL storage
+- Summary (facts, not assumptions):
+  - An empty `GITHUB_AUTO_COMMIT_AUTHORS` disables per-commit full runs; it does not ignore pushes. If repository `automatic_assessments` is ON, pushes use the legacy impact-gated, coalesced monitoring policy.
+  - The legacy path applies project `monitoring_policy`, requires active scope, uses the monitoring budget, and allows at most one open monitoring assessment per repository. Strictly manual operation requires `automatic_assessments` OFF per repository (or project monitoring disabled); manual Run remains available.
+  - After the owner set an empty allowlist plus `AUTOMATIC_ASSESSMENTS_PER_HOUR=5` and `AUTOMATIC_ASSESSMENTS_PER_DAY=20` on 2026-10-25 at about 02:03Z, the deferred queue drained 386 → 0 and only one new assessment completed in the following ~10 minutes.
+  - Storage guidance retains the production measurements: about 5.7 MB physical `index_payloads` per automatic assessment; 3.46 GB across 609 snapshots on 2026-10-25; and about 330 MB/day at `*` plus 500 assessments/day.
+- Interface requested/proposed: none.
+- Breaking change? migration/test impact: no code, contract or migration change; documentation correction only.
+- Action required by recipient: do not treat an empty allowlist as manual-only; switch automatic assessments OFF per repository for a strictly manual pilot.
+- Response-by milestone (not invented clock time): before any strictly manual pilot or automatic-assessment re-enable.
+- Evidence: `backend/backend/pipeline.py:232-279`; `docs/deploy/RAILWAY_AND_GITHUB_APP.md`; `docs/deploy/POSTGRES_STORAGE.md`.
+- In-Reply-To: `coordination/messages/20261025T020713Z-devin-storage-ops-to-all-manual-only-default.md`

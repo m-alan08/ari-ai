@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 import re
-from datetime import timedelta
 from typing import Any
 
+import httpx
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection
 
 from backend import audit, jobs
 from backend.db import (
-    assessments,
     monitoring_events,
     projects,
     reassessment_requests,
@@ -19,6 +20,7 @@ from backend.db import (
     transaction,
 )
 from backend.github import GitHubApp
+from backend.quota import check_project_quota, skipped_reason
 from backend.services import (
     active_scope_for_repo,
     capped_budget,
@@ -43,6 +45,8 @@ from shared.monitoring import (
     ReassessmentScope,
     ReassessmentStatus,
 )
+
+log = logging.getLogger(__name__)
 
 _CLIENT: tuple[Any, Any, Any] | None = None
 
@@ -78,11 +82,22 @@ def schedule(
     if change.event == "pull_request":
         commits = [{"id": change.head_sha}]
     shas = [c.get("id") for c in commits if isinstance(c, dict)]
-    # Compare is paginated; webhook payloads can truncate large pushes.
+    # Compare is paginated; webhook payloads can truncate large pushes. When the API cannot
+    # enumerate the range (force-pushed `before`, installation revoked, GitHub down), fall
+    # back to what the signed payload names rather than lose the push after retries.
     if change.event == "push" and change.base_sha and (len(commits) >= 20 or not commits):
-        shas = github_client().compare_commits(
-            installation, repo["full_name"], change.base_sha, change.head_sha
-        )
+        try:
+            shas = github_client().compare_commits(
+                installation, repo["full_name"], change.base_sha, change.head_sha
+            )
+        except Exception as exc:
+            log.warning(
+                "compare %s %s...%s failed (%s); assessing payload commits",
+                repo["full_name"],
+                change.base_sha[:12],
+                change.head_sha[:12],
+                type(exc).__name__,
+            )
     elif not change.base_sha and len(commits) >= 2048:
         raise PermanentJobError(
             ErrorCode.VALIDATION_FAILED,
@@ -116,6 +131,21 @@ def schedule(
         )
         queued.append(job_id)
     return {"commit_jobs": queued}
+
+
+def _permanent_failure(exc: httpx.HTTPStatusError) -> str | None:
+    """Classify a GitHub API failure as permanent (record it) or transient (retry it)."""
+    code = exc.response.status_code
+    if code in (401, 404, 410, 422):
+        return (
+            f"GitHub answered {code} for the commit lookup — the commit is gone, the "
+            "repository moved, or the installation can no longer read it"
+        )
+    if code == 403 and "rate limit" not in (exc.response.text or "").lower():
+        return (
+            "GitHub denied the commit lookup — the installation was removed or permissions revoked"
+        )
+    return None
 
 
 def policy_exit(
@@ -170,7 +200,97 @@ def policy_exit(
                 subject_id=event_id,
                 details={"head_sha": payload["sha"], "status": "skipped", "reason": reason},
             )
+    if not rows:
+        # Nothing was recorded yet (e.g. a GitHub read failed before the event existed, or a
+        # replayed/deferred job outlived its event): the stop must still surface, not strand
+        # the commit silently.
+        _record_exit(conn, payload, reason)
     return {"ignored": reason}
+
+
+def _record_exit(conn: Connection, payload: dict[str, Any], reason: str) -> None:
+    """Persist an ignored monitoring event + skipped reassessment for `payload` if absent."""
+    repo = (
+        conn.execute(sa.select(repositories).where(repositories.c.id == payload["repo_id"]))
+        .mappings()
+        .first()
+    )
+    if repo is None:
+        return
+    key = f"github:commit:{repo['id']}:{payload['sha']}"
+    event_id = conn.execute(
+        sa.select(monitoring_events.c.id).where(monitoring_events.c.dedupe_key == key)
+    ).scalar()
+    if event_id is None:
+        event = MonitoringEvent(
+            id=new_id(IdPrefix.evt),
+            project_id=repo["project_id"],
+            repo_id=repo["id"],
+            source=EventSource.github,
+            type=EventType(payload["event_type"]),
+            pr_number=payload.get("pr_number"),
+            occurred_at=utcnow(),
+            received_at=payload["received_at"],
+            dedupe_key=key,
+            payload_artifact_id=payload["payload_artifact_id"],
+            commit_range=CommitRange(base_sha=None, head_sha=payload["sha"]),
+            ref=payload["ref"],
+            status=EventStatus.ignored,
+            status_reason=reason,
+        )
+        inserted = conn.execute(
+            pg_insert(monitoring_events)
+            .values(
+                id=event.id,
+                project_id=event.project_id,
+                repo_id=event.repo_id,
+                dedupe_key=key,
+                status=event.status.value,
+                doc=event.model_dump(mode="json"),
+            )
+            .on_conflict_do_nothing(index_elements=[monitoring_events.c.dedupe_key])
+            .returning(monitoring_events.c.id)
+        ).scalar()
+        if inserted is None:  # a concurrent commit job recorded it first
+            return
+        event_id = event.id
+    else:
+        conn.execute(
+            sa.update(monitoring_events)
+            .where(monitoring_events.c.id == event_id)
+            .values(status=EventStatus.ignored.value)
+        )
+    rrq = ReassessmentRequest(
+        id=new_id(IdPrefix.rrq),
+        project_id=repo["project_id"],
+        repo_id=repo["id"],
+        event_ids=[event_id],
+        scope=ReassessmentScope.full,
+        head_sha=payload["sha"],
+        status=ReassessmentStatus.skipped,
+        reason=reason,
+        created_at=utcnow(),
+    )
+    conn.execute(
+        sa.insert(reassessment_requests).values(
+            id=rrq.id,
+            project_id=rrq.project_id,
+            repo_id=rrq.repo_id,
+            status=rrq.status.value,
+            doc=rrq.model_dump(mode="json"),
+        )
+    )
+    audit.record(
+        conn,
+        org_id=project_org(conn, repo["project_id"]),
+        project_id=repo["project_id"],
+        actor_type=ActorType.system,
+        actor_id="monitoring",
+        action="monitoring.event_processed",
+        subject_type="monitoring_event",
+        subject_id=event_id,
+        details={"head_sha": payload["sha"], "status": "skipped", "reason": reason},
+    )
 
 
 @handler("assess_github_commit")
@@ -190,7 +310,13 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
         )
     if repo["installation_id"] != p["installation_id"]:
         return policy_exit(p, "repository installation changed")
-    commit = github_client().commit(repo["installation_id"], repo["full_name"], p["sha"])
+    try:
+        commit = github_client().commit(repo["installation_id"], repo["full_name"], p["sha"])
+    except httpx.HTTPStatusError as exc:
+        reason = _permanent_failure(exc)
+        if reason is None:
+            raise  # transient GitHub errors keep the normal retry path
+        return policy_exit(p, reason)
     if commit.get("sha") != p["sha"]:
         raise ValueError("GitHub returned a different commit")
     login = (commit.get("author") or {}).get("login", "").lower()
@@ -235,6 +361,13 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
             rrq = ReassessmentRequest.model_validate(row)
             if rrq.assessment_id:
                 return {"assessment_id": rrq.assessment_id, "idempotent_replay": True}
+            if rrq.status == ReassessmentStatus.skipped:
+                return {
+                    "reassessment_request_id": rrq.id,
+                    "assessment_id": None,
+                    "status": rrq.status.value,
+                    "idempotent_replay": True,
+                }
         scope = active_scope_for_repo(conn, repo["project_id"], repo["id"])
         reason = "automatic commit assessment" if scope else "waiting for repository scope approval"
         if existing is None:
@@ -281,50 +414,12 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
                 created_at=utcnow(),
             )
         assert rrq is not None
-        delay_s = 0.0
+        quota = None
         if scope:
-            now = utcnow()
-            limits = get_settings()
-            for seconds, limit in (
-                (3600, limits.automatic_assessments_per_hour),
-                (86400, limits.automatic_assessments_per_day),
-            ):
-                count, oldest = conn.execute(
-                    sa.select(sa.func.count(), sa.func.min(assessments.c.created_at)).where(
-                        assessments.c.project_id == repo["project_id"],
-                        assessments.c.trigger == AssessmentTrigger.monitoring.value,
-                        assessments.c.created_at > now - timedelta(seconds=seconds),
-                    )
-                ).one()
-                if count >= limit and oldest:
-                    delay_s = max(
-                        delay_s, (oldest + timedelta(seconds=seconds + 1) - now).total_seconds()
-                    )
-            # One ceiling over every project: outside users' repos cannot run up unbounded spend.
-            # shortcut: in-flight runs are not counted, so it can overshoot by a few runs.
-            spent = conn.execute(
-                sa.select(
-                    sa.func.coalesce(
-                        sa.func.sum(assessments.c.doc["usage"]["usd"].astext.cast(sa.Numeric)), 0
-                    )
-                ).where(
-                    assessments.c.trigger == AssessmentTrigger.monitoring.value,
-                    assessments.c.created_at > now - timedelta(days=1),
-                )
-            ).scalar_one()
-            if float(spent) >= limits.automatic_usd_per_day:
-                delay_s = max(delay_s, 3600.0)
-        if scope and delay_s:
-            reason = "queued: waiting for project automatic-run capacity"
-            rrq = rrq.model_copy(update={"status": ReassessmentStatus.queued, "reason": reason})
-            jobs.enqueue(
-                conn,
-                "assess_github_commit",
-                p,
-                delay_s=delay_s,
-                priority=60,
-                dedupe_key=f"github:deferred:{ctx.job.id}",
-            )
+            quota = check_project_quota(conn, repo["project_id"], utcnow())
+        if quota is not None:
+            reason = skipped_reason(quota)
+            rrq = rrq.model_copy(update={"status": ReassessmentStatus.skipped, "reason": reason})
         elif scope:
             asm, _ = create_assessment(
                 conn,
@@ -349,10 +444,12 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
             **(existing["doc"] if existing else event.model_dump(mode="json")),
             "status_reason": reason,
         }
+        if rrq.status == ReassessmentStatus.skipped:
+            event_doc["status"] = EventStatus.ignored.value
         conn.execute(
             sa.update(monitoring_events)
             .where(monitoring_events.c.id == event_id)
-            .values(doc=event_doc)
+            .values(status=event_doc["status"], doc=event_doc)
         )
         values = dict(status=rrq.status.value, doc=rrq.model_dump(mode="json"))
         if existing:

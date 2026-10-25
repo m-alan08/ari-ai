@@ -1,0 +1,121 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "5f689d50154e95d90cb3e8883338c63a9d0d943d",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.25.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-24T23:29:49.372674+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_emergency_stop_is_claimable_when_project_slots_are_full",
+      "outcome": "passed",
+      "duration_s": 0.008,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_complete_rejects_expired_lease_without_waiting_for_reconciler",
+      "outcome": "passed",
+      "duration_s": 0.004,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_dependency_deferral_is_recorded_in_lifecycle_history",
+      "outcome": "passed",
+      "duration_s": 0.004,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_off_marks_waiting_first_responder_jobs_cancelled",
+      "outcome": "passed",
+      "duration_s": 0.134,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_deadline_compatibility_with_database_clock",
+      "outcome": "passed",
+      "duration_s": 0.004,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[timed_out]",
+      "outcome": "passed",
+      "duration_s": 0.055,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail",
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[recovery_required]",
+      "outcome": "passed",
+      "duration_s": 0.066,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail",
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_crash_during_provider_request_requires_recovery_before_replay",
+      "outcome": "failed",
+      "duration_s": 0.31,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_independent_integration.py:176: AssertionError: paid request uncertainty must survive worker death",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "xfail"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

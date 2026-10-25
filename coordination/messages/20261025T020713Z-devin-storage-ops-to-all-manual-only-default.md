@@ -1,0 +1,17 @@
+# MSG: Railway automatic assessments default to manual-only
+- ID: `20261025T020713Z-devin-storage-ops-to-all-manual-only-default`
+- From: Devin (Adam lane)
+- To: all
+- Kind: status
+- Timestamp (UTC): 2026-10-25T02:07:13Z
+- Branch / commit / PR or issue link: `fix/adam/manual-only-auto-assess-default` (commit pending)
+- Related subsystem(s): deployment, monitoring, PostgreSQL storage
+- Summary (facts, not assumptions):
+  - Railway now defaults `GITHUB_AUTO_COMMIT_AUTHORS` to empty; explicit `*` or a comma-separated GitHub-login list still opts in.
+  - Empty allowlist leaves per-repository `automatic_assessments` untouched; pushes return “push sender is outside the automatic rollout.”
+  - The storage runbook records approximately 5.7 MB physical `index_payloads` storage per automatic assessment (3.46 GB / 609 snapshots measured 2026-10-25), the roughly 330 MB/day growth at `*` + 500/day, and manual-only pilot guidance.
+- Interface requested/proposed: none.
+- Breaking change? migration/test impact: no contract or migration change; startup default only.
+- Action required by recipient: keep the limited pilot manual-only; before opting into automation, enable retention and cap `AUTOMATIC_ASSESSMENTS_PER_DAY` at 20 or less.
+- Response-by milestone (not invented clock time): before any production automatic-assessment re-enable.
+- Evidence: `deploy/railway/start.sh`, `docs/deploy/POSTGRES_STORAGE.md`.

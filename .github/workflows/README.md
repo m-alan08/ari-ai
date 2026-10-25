@@ -38,3 +38,9 @@ code-intelligence, the security-agents sandbox, payments-lite). It runs Ruff, fo
 strict mypy on `code_review`, the reviewer suite against a Postgres service (FakeTransport;
 real git exports and pytest executions), and the reviewer through the shared
 `security_agents` sandbox driver. The live reviewer eval (`-m live_llm`) never runs here.
+
+## Path gates (2026-10-24, release gate)
+
+Workflow triggers no longer use `paths:` filters — every job runs on every push/PR so a GitHub "required check" can never sit at *Expected — waiting for status*. Instead each job's first step runs `scripts/ci/path_gate.py`, which diffs base→HEAD against the suite's original path globs and emits `run=true|false` plus a `**RUN**`/`**SKIP** — <reason>` line in the step summary; the real steps are conditional on `run == 'true'`. An unknown or unfetchable base fails safe to RUN (prefer extra CI over a skipped check). Skip is therefore an explicit, visible verdict — not an absent job.
+
+Job ids are unique across workflows (e.g. `backend-tests`, `intel-tests`, `review-tests`, `secagents-tests`, `rl-tests`) so each required check names exactly one thing. `pilot-verify.yml` is the manual release pipeline — see `docs/release/RELEASE_GATE_2026-10-24.md` for the category matrix and the required-check list.

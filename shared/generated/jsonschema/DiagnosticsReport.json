@@ -1,0 +1,331 @@
+{
+  "$defs": {
+    "ArtifactStoreCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Detail",
+          "type": "string"
+        },
+        "writable": {
+          "title": "Writable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "writable"
+      ],
+      "title": "ArtifactStoreCapability",
+      "type": "object"
+    },
+    "GithubCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "app_configured": {
+          "title": "App Configured",
+          "type": "boolean"
+        },
+        "oauth_configured": {
+          "title": "Oauth Configured",
+          "type": "boolean"
+        },
+        "verified": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verified"
+        },
+        "webhook_secret_configured": {
+          "title": "Webhook Secret Configured",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "app_configured",
+        "oauth_configured",
+        "webhook_secret_configured"
+      ],
+      "title": "GithubCapability",
+      "type": "object"
+    },
+    "LlmCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "mode": {
+          "description": "live | fake | unavailable | host",
+          "maxLength": 500,
+          "title": "Mode",
+          "type": "string"
+        },
+        "model": {
+          "maxLength": 500,
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "model",
+        "configured"
+      ],
+      "title": "LlmCapability",
+      "type": "object"
+    },
+    "ReadinessCapabilities": {
+      "additionalProperties": false,
+      "description": "Can this deployment actually run an assessment, each dependency named separately.",
+      "properties": {
+        "anthropic_key_configured": {
+          "title": "Anthropic Key Configured",
+          "type": "boolean"
+        },
+        "artifact_store": {
+          "$ref": "#/$defs/ArtifactStoreCapability"
+        },
+        "github": {
+          "$ref": "#/$defs/GithubCapability"
+        },
+        "llm": {
+          "$ref": "#/$defs/LlmCapability"
+        },
+        "sandbox": {
+          "$ref": "#/$defs/SandboxCapability"
+        }
+      },
+      "required": [
+        "llm",
+        "github",
+        "sandbox",
+        "artifact_store",
+        "anthropic_key_configured"
+      ],
+      "title": "ReadinessCapabilities",
+      "type": "object"
+    },
+    "SandboxCapability": {
+      "additionalProperties": false,
+      "properties": {
+        "configured": {
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "daemon_reachable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Daemon Reachable"
+        },
+        "detail": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Detail",
+          "type": "string"
+        },
+        "mode": {
+          "maxLength": 500,
+          "title": "Mode",
+          "type": "string"
+        },
+        "sdk_importable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sdk Importable"
+        }
+      },
+      "required": [
+        "mode",
+        "configured"
+      ],
+      "title": "SandboxCapability",
+      "type": "object"
+    },
+    "WorkerLiveness": {
+      "additionalProperties": false,
+      "description": "Live worker processes for /readyz (worker_heartbeats table).",
+      "properties": {
+        "alive": {
+          "title": "Alive",
+          "type": "integer"
+        },
+        "busy": {
+          "title": "Busy",
+          "type": "integer"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected"
+        },
+        "freshest_heartbeat_age_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Freshest Heartbeat Age S"
+        },
+        "queued_jobs": {
+          "title": "Queued Jobs",
+          "type": "integer"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "running_jobs": {
+          "title": "Running Jobs",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "alive",
+        "expected",
+        "busy",
+        "queued_jobs",
+        "running_jobs",
+        "freshest_heartbeat_age_s",
+        "required"
+      ],
+      "title": "WorkerLiveness",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "GET /diagnostics: readiness plus live verification (GitHub /app, sandbox SDK,\nmigration head, queue counts, worker rows). Ops tooling; values are metadata only.",
+  "properties": {
+    "capabilities": {
+      "$ref": "#/$defs/ReadinessCapabilities"
+    },
+    "capabilities_ready": {
+      "title": "Capabilities Ready",
+      "type": "boolean"
+    },
+    "database": {
+      "title": "Database",
+      "type": "boolean"
+    },
+    "generated_at": {
+      "maxLength": 500,
+      "title": "Generated At",
+      "type": "string"
+    },
+    "git_sha": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Sha"
+    },
+    "github_app_configured": {
+      "title": "Github App Configured",
+      "type": "boolean"
+    },
+    "jobs": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Jobs",
+      "type": "object"
+    },
+    "llm_mode": {
+      "description": "live | fake | unavailable",
+      "maxLength": 500,
+      "title": "Llm Mode",
+      "type": "string"
+    },
+    "migrations": {
+      "additionalProperties": true,
+      "title": "Migrations",
+      "type": "object"
+    },
+    "queue": {
+      "title": "Queue",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "maxLength": 500,
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "description": "ready | degraded | not_ready",
+      "maxLength": 500,
+      "title": "Status",
+      "type": "string"
+    },
+    "webhook_secret_configured": {
+      "title": "Webhook Secret Configured",
+      "type": "boolean"
+    },
+    "worker_rows": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Worker Rows",
+      "type": "array"
+    },
+    "workers": {
+      "$ref": "#/$defs/WorkerLiveness"
+    }
+  },
+  "required": [
+    "status",
+    "database",
+    "queue",
+    "workers",
+    "capabilities",
+    "capabilities_ready",
+    "llm_mode",
+    "github_app_configured",
+    "webhook_secret_configured",
+    "schema_version",
+    "migrations",
+    "jobs",
+    "worker_rows",
+    "generated_at"
+  ],
+  "title": "DiagnosticsReport",
+  "type": "object"
+}

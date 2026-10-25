@@ -55,6 +55,47 @@ def can_connect(conn: Connection, user_id: str, full_name: str, installation_id:
     )
 
 
+def verify_installation_access(full_name: str, installation_id: int) -> None:
+    """Confirm with GitHub — right now — that `installation_id` still grants `full_name`.
+
+    The sign-in snapshot (`can_connect`) goes stale when the installation was deleted, the
+    repository was removed from it, or the App was reconfigured since the user signed in.
+    When the App isn't configured (dev/test), the snapshot check stands alone.
+    """
+    try:
+        app = GitHubApp()
+    except GitHubNotConfigured:
+        return
+    try:
+        names = {r["full_name"] for r in app.installation_repositories(installation_id)}
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403, 404):
+            raise ApiError(
+                ErrorCode.FORBIDDEN,
+                "this GitHub App installation no longer exists or no longer grants access — "
+                "reinstall the App or grant it the repository, then try again",
+                403,
+            ) from exc
+        raise ApiError(
+            ErrorCode.SUBSYSTEM_UNAVAILABLE,
+            "GitHub could not confirm the installation right now — try again",
+            503,
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise ApiError(
+            ErrorCode.SUBSYSTEM_UNAVAILABLE,
+            "GitHub could not confirm the installation right now — try again",
+            503,
+        ) from exc
+    if full_name not in names:
+        raise ApiError(
+            ErrorCode.FORBIDDEN,
+            "the GitHub App installation does not grant access to that repository — "
+            "add it to the installation's repository list, then try again",
+            403,
+        )
+
+
 def _refresh_personal_installation_repositories(
     user_id: str, login: str | None, github_id: int | None
 ) -> None:

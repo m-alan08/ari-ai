@@ -539,6 +539,20 @@ class AssessmentHost:
                 conn, text, kind=kind, project_id=self.project_id, media_type=media_type
             )
 
+    def seal_diff(self, diff: str, expected_sha256: str) -> ArtifactRef:
+        actual_sha256 = hashlib.sha256(diff.encode()).hexdigest()
+        if actual_sha256 != expected_sha256:
+            raise HostError(ErrorCode.CONFLICT_STATE, "diff bytes do not match the expected hash")
+        with transaction() as conn:
+            return self.store.put_bytes(
+                conn,
+                diff.encode(),
+                kind=ArtifactKind.sealed_diff,
+                project_id=self.project_id,
+                media_type="text/x-diff",
+                redacted=False,
+            )
+
     # -------------------------------------------------------------- agent runs
     def start_agent_run(
         self,

@@ -16,6 +16,32 @@ adds an entry before ending.
 - Warnings for the next session:
 ```
 
+### 2026-10-25 — Devin (agent, Adam) — correction: empty auto-commit allowlist behavior
+- Did: corrected the deployment, storage and coordination guidance to distinguish the empty per-commit allowlist from strictly manual operation.
+- State of the code: empty `GITHUB_AUTO_COMMIT_AUTHORS` disables per-commit full runs, but pushes from repositories with `automatic_assessments` ON fall back to the legacy impact-gated, coalesced monitoring policy. That policy applies project `monitoring_policy`, active scope and the monitoring budget, with at most one open monitoring assessment per repository. Strictly manual operation requires `automatic_assessments` OFF per repository (or project monitoring disabled); manual Run remains available.
+- Operational observation: after the owner set an empty allowlist, `AUTOMATIC_ASSESSMENTS_PER_HOUR=5` and `AUTOMATIC_ASSESSMENTS_PER_DAY=20` on 2026-10-25 at about 02:03Z, the deferred queue drained 386 → 0 and only one new assessment completed in the following ~10 minutes.
+- Commands run and results: `sh -n deploy/railway/start.sh` and `git diff --check` passed; no tests or Python files changed, so pytest/ruff were not run.
+- Decisions made (ADR links): none.
+- Assumptions / open questions (RQ links): none.
+- Next steps: Adam opens the PR; CI follow-up will be handled separately.
+- Warnings for the next session: the empty allowlist is not a manual-only mode; disable per-repository automatic assessments (or project monitoring) for a strictly manual pilot.
+
+### 2026-10-25 — Devin (agent, Adam) — default Railway automatic assessments to manual-only
+- Did: changed the Railway `GITHUB_AUTO_COMMIT_AUTHORS` default to empty while keeping explicit `*` and comma-separated GitHub-login opt-ins; updated deployment/storage guidance with measured database growth and pilot limits.
+- State of the code: Railway pushes are outside the automatic rollout by default; manual runs remain available. An empty allowlist leaves per-repository `automatic_assessments` untouched.
+- Commands run and results: `sh -n deploy/railway/start.sh` passed. No tests or Python files were changed, so pytest and ruff were not run; no test asserts the startup default.
+- Decisions made (ADR links): none.
+- Assumptions / open questions (RQ links): none.
+- Next steps: commit and push `fix/adam/manual-only-auto-assess-default`; owner handles PR and CI.
+- Warnings for the next session: production automatic assessments should remain disabled until retention is enabled and the daily limit is at most 20.
+
+### 2026-10-24 — Devin (agent, Adam) — first-user usability pass on commit review (feat/adam/first-user-usability)
+- Did: walked the real first-user flow end-to-end on `tests/e2e/stack_manual.py` (dev login → org → repo → commit → scripted run → recorded replay → approvals). Fixed: approval cards resolve remediation-plan `rmp_` subjects to the owning finding by scanning `api().finding(id)` records once per subject (ref-guarded so polling can't starve it); cards get a two-step confirm that says exactly what approval will/won't do ("never merges or deploys"); `agent-map` normalizes persisted `ns__tool` names (`code__read_span` → `code.read_span`) so recorded runs speak plain English; quick-read failure explains "no model API key configured" instead of a raw error.
+- State of the code: verified live — both pending approvals render "Fix request · <finding title>" with severity/kind/path; `tests/unit/approval-gate.test.tsx` covers fnd_ + rmp_ subjects and the fallback. 340 unit tests pass; typecheck/lint clean; build green.
+- Commands run: `npm run typecheck`, `npm run lint`, `npx vitest run tests/unit/…`, `npm run build`, manual stack on :51614/:51204.
+- Warnings: `next start` serves cached hashed chunks — hard-reload (cmd+shift+R) after rebuilds or the page keeps the old bundle (cost ~1h of false debugging here). `stack_manual.py` still uncommitted helper.
+- Next steps: e2e suite running; PR stacks on #496 (feat/adam/commit-review-navigation).
+
 ---
 
 ### 2026-10-24 — Cursor (agent, Alan) — merge origin/main into #458 so Actions can run (do not merge the PR)
@@ -30,12 +56,164 @@ adds an entry before ending.
 - Next: wait for GitHub Actions on the follow-up SHA. Leave #458 open.
 - Warnings: **leave the PR open**. Merge NO-GO.
 
+### 2026-10-25 — Devin (agent, Adam) — e2e spec updates + landing 320px overflow fix on `feat/adam/home-deep-sea-landing` (PR #536)
+- Did: PR #536 e2e CI failed on 8 tests — all caused by the intended new UI, plus one real bug. Updated specs to the new DOM: `demo-recovery.spec.ts` (rail nav 'Project' has 11 links, no MORE `summary` dropdown; '7 Agents' casing), `pages.spec.ts` (removed the `summary` click before the Expectations aria-current check), `journey.spec.ts` ('7 agents' → '7 Agents' PageTitle), `landing.spec.ts` (`.hero-content p` 0 → 2: kicker + lede). REAL BUG FIXED: `.stat-num` "Never" in Sixtyfour at `text-6xl` measured ~306px wide inside a 248px card → pushed `documentElement.scrollWidth` to 342 at 320px viewport → clamped to `text-[clamp(2.25rem,15vw,3.75rem)] md:text-7xl` in `components/story.tsx` (verified scrollWidth = viewport at 1440/390/320).
+- Commands run and results (executed): Playwright probe scripts (system Chrome) bisecting `.hero-cover` children → `.story-rain` section → `.story-stat[2]` → `.stat-num` (scrollWidth 306 vs clientWidth 248); post-fix scrollWidth OK at all three widths.
+- Next steps: run frontend lint/typecheck/unit tests, commit merge of origin/main `ceb2a709`, push, watch CI on PR #536.
+- Warnings for the next session: gitleaks scans ALL branches' commits — a flagged blob on any branch fails every PR; CHANGELOG.md + SESSION_HANDOFF.md conflict on every main merge — resolve keeping BOTH sides.
+
+### 2026-10-24 — Devin (agent, Adam) — homepage dial-back + full console QA before PR on `feat/adam/home-deep-sea-landing`
+- Did: owner approved the console direction and asked to trim the homepage bottom and "chill on the text appear animations, lean towards scrolling animations", then requested a comprehensive pre-PR QA pass. Trimmed `landing-footer.tsx` to hairline + identity/links + copyright (removed giant ghosted wordmark, agent marquee, patrol ant + all their CSS). Deleted `components/letters.tsx` and every per-letter reveal — hero/chapter/explainer headings are now plain text with the spotlight-gradient headline restored; motion is scroll-driven (`Reveal`, blurred stepper, expanding cards). Full Playwright QA sweep (Chrome, signed in as e2e-alice): all 11 project routes assert exactly one correct `aria-current` rail link incl. `/live-defense/incidents` deep route; mobile 390px sweep found and fixed three real bugs — `.project-layout` `1fr` track couldn't shrink (rail blew out the viewport → `minmax(0,1fr)`), findings tab row didn't wrap (`flex-wrap` added), duplicate React `key` on the Live Defense "In use" list (GET+PATCH `/projects/{id}` → keyed by `method+path`). Verified: rail monitoring dot reads real `monitoring_policy.enabled`; bogus project/finding render proper error states; commit quick-read stays behind a collapsed disclosure labelled "Quick read · nothing executed" / "not run yet"; recorded runs show "Recorded run · state" / "does not run agents".
+- State of the code: uncommitted-set-before = page.tsx, story.tsx, explainer-video.tsx, landing-footer.tsx, globals.css, deleted letters.tsx (homepage dial-back); plus interface.css, findings/page.tsx, live-defense/overview.tsx (QA fixes). After this round every console route is overflow-free at 390px and console-error-free.
+- Commands run and results (executed): Playwright (system Chrome) QA scripts — 11/11 routes OK active state; mobile overBy=0px on all routes after fixes. `npm run lint --prefix frontend`, `npm run typecheck --prefix frontend`, `npm test --prefix frontend` — pending final run before commit.
+- Next steps: commit, push, open PR to `main`; owner review required — do not merge.
+- Warnings for the next session: same as below — stack + dev server die on VM sleep; `frontend/AGENTS.md` is Next-generated, do NOT commit.
+
+### 2026-10-24 — Devin (agent, Adam) — console revamp: SaaS sidebar + page headers on `feat/adam/home-deep-sea-landing`
+- Did: owner approved the homepage but asked for a full revamp of the rest of the app into a real SaaS product ("an acc SaaS YC software … simple / sleek / tuff"). Rebuilt `components/project.tsx` `ProjectShell`/`ProjectNavigation` as a left sidebar rail: project name, repo+branch chip, three mono-labelled nav groups (Review: 7 Agents / Code review / Findings / Approvals; Defend: Live Defense / Incidents / Monitoring / Authorized scopes / Expectations; Configure: Simulate / Settings), "← Projects" back link, and a monitoring status footer. Removed the hero-ink header card, `Crumbs`, and the tabs+MORE dropdown that hid 8 routes. Rail CSS added to `app/interface.css` with night-skin variants and a <1024px horizontal-scroll collapse. Added `PageTitle` (eyebrow matching the rail group) to approvals, findings, incidents, scopes, settings, expectations, simulate, and the project overview (replaced the bare h1); monitoring/commits/live-defense keep their own styled headers.
+- State of the code: changed set = `components/project.tsx`, `app/interface.css`, `tests/unit/project-navigation.test.tsx` (rewritten for the rail, 3/3 pass), 8 page files with PageTitle, plus new `tests/e2e/stack_manual.py` — a manual local stack (real API + embedded Postgres + worker + scripted LLM) that seeds e2e-alice/e2e-bob + 2 projects and prints project/repo IDs for browsing console pages. `github_repo_access` rows must be inserted manually for the /connect picker (dev-login skips GitHub refresh); connect via `psycopg` at `.dev/pgtest` socket.
+- Commands run and results (executed): `npm run typecheck --prefix frontend` clean, `npm run lint --prefix frontend` clean (1 pre-existing warning), `npm test --prefix frontend` 337 passed. Verified visually in Chrome: overview, findings, settings, live-defense, monitoring, /connect org + repo list.
+- Next steps: more density/spacing polish if the owner wants; open PR only on owner's approval — nothing on main.
+- Warnings for the next session: the e2e stack and `next dev` die when the VM sleeps — relaunch `tests/e2e/stack_manual.py` then `BACKEND_ORIGIN=http://127.0.0.1:<port> NEXT_PUBLIC_DEV_LOGIN=1 npm run dev` and re-read the new IDs from its log. `frontend/AGENTS.md` is Next-generated — do NOT commit it.
+
+### 2026-10-24 — Devin (agent, Adam) — homepage landing rework on `feat/adam/home-deep-sea-landing`
+- Did: rebuilt the landing homepage (`app/(console)/page.tsx` + landing components, scoped under a `.home-deep` wrapper so the console is untouched). Owner directed kairo.security as *inspiration only* — original ARI warm palette kept (ink/cream/burnt-orange tokens unchanged). Added `components/letters.tsx` (per-letter blur-in reveals, SSR/reduced-motion safe), kicker eyebrows, pixel-font accents (Sixtyfour woff2 vendored OFL, `app/fonts/`), blurred inactive walkthrough steps, seven-agent footer marquee and a patrol-ant rail animation in `landing-footer.tsx`. A recorded full-page QA pass found two real bugs, both fixed: `Reveal`/`useRevealOnScroll` could never fire on the document's last element (end-of-scroll guard added in `components/reveal.tsx`) and the dim headline line rendered white (`.hero-ink .hero-line-dim .lt` guard in globals.css).
+- State of the code: branch `feat/adam/home-deep-sea-landing`, commits c91cea66 → 33c38940 → 130a603f, merged origin/main (64bb24a2) cleanly at c1fc7c1d. NO PR opened — owner reviews the local preview first; nothing on main.
+- Commands run and results (executed): `npm run lint --prefix frontend` (clean, 1 pre-existing warning in `live-defense/first-responder.tsx` from main), `npm run typecheck --prefix frontend` (clean after rebuilding the stale `frontend/transport/dist` artifact — `CheckCategory` gained `access_control.authentication` on main), `npm test --prefix frontend` (337 passed / 79 files), recorded scroll-through QA + screenshots verified all animations.
+- Decisions made: warm palette restored over an earlier mint experiment (owner rejected teal). `.home-deep` scoping chosen so token overrides are impossible — no color overrides added at all.
+- Next steps: owner reviews preview; open PR only on approval. If he wants kairo-closer styling, that was deliberately walked back — confirm before re-adding.
+- Warnings for the next session: `frontend/AGENTS.md` is Next-generated — do NOT commit it. Commit identity must stay `Adam Issac <62719255+adamissac@users.noreply.github.com>` via `git -c` flags. The screen-recording tool's post-processing is broken on this box — `screencapture -V` works as fallback.
+
+### 2026-10-24 — Devin (agent, Adam) — code-intelligence pipeline audit
+- Did: on `feat/adam/intel-pipeline-audit`, audited ingest→extract→store→retrieve→memory for pilot readiness. Reproduced the PR #441 redaction/parser regression on main (38/582 tracked .py unparseable post-redact + 2 line-count shifts); verified the fix (0 broken, 0 line shifts, 0 leaked literal secrets across the same corpus). Indexed payments-lite, `backend/` prefix, and the whole repo; ran a labeled-question retrieval eval; benchmarked latency/memory. Found a silent coverage gap — `@app.get(FIXTURE_ROUTE)`-style non-literal route paths were dropped with no IndexIssue — and fixed it so they are flagged. Carries `7a5b329f` verbatim, so merging this branch lands PR #441's fix.
+- State of the code (verified how): `code-intelligence/tests` 57 passed 1 skipped; `backend/tests/test_intel_store.py test_intelligence_memory_api.py test_intelligence_ingestion_profile.py test_payload_store_intel_integration.py` 9 passed on real Postgres; new retrieval eval + route-diagnostic tests pass; benchmark harness executed on payments-lite.
+- Commands run and results: `PYTHONPATH=code-intelligence:shared .venv/bin/python -m pytest code-intelligence/tests` (57 passed, 1 skipped); backend intel subset (9 passed); index runs 0.16s/8 files, 4.11s/127 files, 92.4s/1,798 files.
+- Report: `docs/research/intel-pipeline-audit/README.md`; measured numbers: `code-intelligence/evidence/m2-index-retrieval-audit.json`; benchmark: `code-intelligence/evidence/index_benchmark.py`.
+- Assumptions/open questions: secondary-evidence Recall@K degrades at scale (82% on payments-lite, 63% on ari-ai) — packs do not mark absent expected evidence; mid-line bare-secret expressions (`f(password=x, user=y)`) were a residual and are now redacted when the token contains a digit (digit-less mid-line tokens and `else`-branch conditionals remain documented); JS/TS extraction is unimplemented and unclaimed.
+- Next steps: merge after review; consider BM25 tie-breaking toward implementation symbols if reviewers need secondary evidence.
+- Warnings: none.
+
+### 2026-10-24 — Adam (Devin) — release gate / test infrastructure
+- Did: rebuilt all CI workflows around always-on jobs + `scripts/ci/path_gate.py` (visible RUN/SKIP); renamed colliding `test` job ids; added `pilot-verify.yml` (7 labelled env categories); added `GET /projects/{id}/jobs?status=` for dead-letter visibility; hardened the 45-case eval scorer (`scored:false` + `unscored_reason`, rates over scored only, case validation); added `scripts/ci/load_probe.py`.
+- State of the code: `feat/adam/release-gate` pushed; pytest `test_job_status_api`+`test_jobs_queue`+`test_parallel_migrations` → 12 passed; ruff clean; load probe all invariants green (~1.5k jobs/s enqueue+drain, embedded PG).
+- Decisions: path gating inside jobs (not triggers) so required checks never hang at Expected; skip = visible verdict.
+- Warnings: `main` still has NO branch protection — admin must set required checks (list in `docs/release/RELEASE_GATE_2026-10-24.md`). New jobs endpoint is shared backend surface — needs owner review.
+- Next: branch-protection config by repo admin; run `pilot-verify.yml` on the merge SHA.
+
+### 2026-10-25 — Adam/Devin: rehearsal independently reproduced + e2e scare cleared
+
+- Did: re-ran the two-org rehearsal end-to-end on a fresh `make dev` boot with real
+  `SECURITY_SANDBOX=vercel` + real Anthropic (second independent reproduction after
+  #556's run). Assessment `asm_01M5R6R5W5WVH46MMNMXHJFSNK` completed; all 4 planted
+  flaws found; outcomes include honest `refuted`/`inconclusive` (not rubber-stamped).
+  Worker logs show real Vercel sandbox lifecycle (sbx create/cmd/stop/delete 200s).
+- Resolved `VERCEL_PROJECT_ID`/`VERCEL_TEAM_ID` read-only via `GET /v9/projects` —
+  `accountId` IS the `team_*` id even for personal accounts; no Adam action needed.
+- Reproduced `frontend/tests/e2e/journey.spec.ts` locally on main `ceb2a709`: 3/3
+  pass — the `Test provider (scripted) × 9, Deterministic (no model call) × 1`
+  provider-summary assertion is GREEN on main. #536/#540 e2e failures were stale
+  heads; re-runs after `Merge origin/main` go green (#540 now 10/10).
+- Warnings for the next session: `REPOSITORY_BINDINGS_FILE` local_path must be a git
+  repo and `commit_sha` must verify in it (driver inits+commits the staged copy);
+  `sandbox.pip` must not re-pin ari-base packages (pip conflict kills the baseline
+  run); repo `full_name` uniqueness is global across projects (409 -> reuse).
+- Still owner-gated for the HOSTED staging leg: `gh repo create
+  adamissac/ari-pilot-rehearsal --private`, install the GitHub App on it, OAuth-login.
+
+---
+
+### 2026-10-24 — Devin (agent, Adam) — pilot-readiness ops: readiness split, worker heartbeats, restart/rollback evidence
+### 2026-10-24 — Devin (agent, Adam) — Postgres volume 80% investigation + retention
+- Did: mapped every storage consumer (index_payloads immutable per-commit payloads are the dominant growth driver alongside terminal jobs; /data volume accumulates artifact CAS + refs/ari/* clone refs); added `backend/maintenance.py` (report/apply/loop + storage_report + run_retention), `backend/api/ops.py` (OPS_API_TOKEN-gated storage + prometheus + maintenance endpoints), hourly sidecar in `deploy/railway/start.sh`, runbook `docs/deploy/POSTGRES_STORAGE.md`, 14 tests in `test_maintenance.py`.
+- State of the code: `RETENTION_DRY_RUN=true` ships report-only; all deletes batch inside short txs with `ctid` LIMIT pattern; RLS honored via per-project `set_config('ari.project_id')`; audit row per prune; no schema migration (0017 is already taken by PR #533 heartbeats; `test_parallel_migrations` still expects head 0016).
+- Commands run and results: `pytest backend/tests/test_maintenance.py` 14/14 pass; regression subset (intel_store, jobs_queue, api_core, tenant_isolation_adversarial, parallel_migrations, env_example, worker_drain, idempotent_mutations) 50/50 pass; ruff + ruff format clean; `sh -n start.sh` clean.
+- Decisions: zero-migration retention; dry-run default; ops surface returns 404 unless OPS_API_TOKEN set; maintenance loop deliberately outside start.sh `pids` so it can never restart the service.
+- Open: actual production table sizes unknown — needs `railway run` + `DATABASE_URL` (not held by this session); whether Railway's alert covers the Postgres service volume or the app /data volume.
+- Next steps: Adam sets OPS_API_TOKEN/POSTGRES_VOLUME_BYTES, reviews first dry-run report, flips RETENTION_DRY_RUN=false; re-measure after a cycle; size volume bump decision from real growth data.
+- Warnings: deleting rows does NOT shrink the Railway-reported volume (frees internal pages); `VACUUM FULL`/repack only after verified backup. Coordination note: `coordination/messages/20261024T235500Z-devin-to-all-postgres-storage-retention.md`.
+
+- Did: infrastructure audit for external-pilot readiness (branch `feat/adam/pilot-readiness-ops`). Added worker-heartbeat liveness (`worker_heartbeats` table, migration 0017, `WORKER_HEARTBEAT_INTERVAL_S`/`WORKER_LIVENESS_S`), split `/readyz` into infra readiness (db/queue/workers → `status` ready|degraded|not_ready, 503 unless ready) vs assessment capability (`capabilities` + `capabilities_ready`: llm.live, github.app_configured, sandbox.configured, artifact_store.writable, workers.alive), added `/diagnostics` (verified GitHub `GET /app`, sandbox sdk/daemon detail, alembic head vs `alembic_version`, queue counts, worker rows), `git_sha`+`schema_version` on `/healthz` (`DEPLOYED_GIT_SHA`/`RAILWAY_GIT_COMMIT_SHA`/`GIT_SHA`), schema 0.22.0, `READYZ_REQUIRE_WORKERS` (default on in staging/production). Frontend: `/api/frontend-version` + `deploy/verify_pair.sh` detect Vercel/Railway schema skew. Evidence harness `deploy/evidence/restart_recovery.py` (+`scripted_worker.py`) runs the real API/workers/migrations on a disposable pgserver stack with scripted transports: 6/6 PASS — SIGTERM drains the in-hand job to AWAITING_APPROVAL w/ checkpoint artifact on disk; SIGKILL → reclaim → honest FAILED (CONFLICT_STATE, never fabricated); human approval + fresh worker → checkpoint resume → COMPLETED; 2 racing workers → exactly-once + dedupe; downgrade→upgrade round-trip; pg_dump→psql restore → identical row counts (`deploy/evidence/last-run-evidence.json`). New `docs/deploy/PILOT_OPERATIONS.md` (topology, safe config checklist, recovery runbook); refreshed `docs/deploy/RAILWAY_AND_GITHUB_APP.md`, `docs/13_BACKEND_API_DESIGN.md`.
+- State of the code: `test_ops_readiness.py` 11/11 + `deploy-version.test.ts` 3/3 pass; evidence harness 7/7 (S1 drain, S2 honest-kill, S3 checkpoint resume, S4 exactly-once, S5 migration rollback, S6 backup/restore, S7 post-crash new assessment). Owner-requested hardening landed: `/diagnostics` is owner-authenticated only (401/403); public `/readyz` scrubs capability `detail` strings (env-var names); `worker_heartbeats.last_poll_at` (claim-loop-only) means a stopped claim loop cannot report as a live worker unless it holds a claimed job.
+- Decisions made: `READYZ_REQUIRE_WORKERS` defaults True in staging/production, off in dev; worker liveness = heartbeat fresh AND (last_poll_at fresh OR current_job_id). GitHub `verified` is a live `GET /app` with 60s cache, slug only. Sandbox check reports env-presence for `vercel` mode. `/diagnostics` gated on any org-owner membership (every dev-login user owns their personal org — the gate blocks unauthenticated probes).
+- Migration coordination RESOLVED: #535 merged first and kept `0016_tenant_rls_intelligence`; this branch renumbered to `0017_worker_heartbeats` (down_revision 0016) per the agreed rule in `coordination/messages/20261024T224500Z-adam-to-agent9-...md`. Codex's `0016_execution_reliability` still needs a renumber when it merges; its 0.23.0 embeds a different "0.22.0" — flagged there.
+- Assumptions / open questions: the only untested acceptance criterion is the ONE authorized real-model staging assessment — needs an authorized signed-in session + `LLM_MAX_USD_PER_ASSESSMENT=1` (Adam approved $1 cap) + active repo scope; scripted evidence uses `provider_mode="fake"` by design.
+- Next steps: land PR #533 (unmerged until security review + migration order + full CI + staging run per owner), run the real staging assessment, wire `deploy/verify_pair.sh` into a deploy hook.
+- Warnings for the next session: prod `/readyz` still serves the OLD response until this lands; `capabilities_ready=false` is a config signal, not an outage. Honest residual: a handler deadlocked mid-job still renews its lease — visible via `worker_rows[].last_poll_age_s` in `/diagnostics`, not via liveness.
+
+### 2026-10-24 — Adam/Devin: pilot rehearsal executed end-to-end (13/13 PASS)
+
+- `scripts/rehearsal/run_rehearsal.py` rewritten to the real API shapes:
+  repo connect `{full_name, default_branch, installation_id}` (repo_id is
+  server-generated; the driver then registers `{repo_id, local_path}` in the
+  bindings file), scope create with `targets`/`expires_at`/`allowed_check_categories`
+  + self-approve (sandbox-only), assessment `{scope_id, repo_id, commit_sha}`
+  where commit_sha must be a REAL commit in the bound checkout (worker runs
+  `git rev-parse --verify`). Assessment detail field is `state` (uppercase).
+- `scripts/rehearsal/target-app` gained `create_app()` factory, seeded books,
+  `build_recipe.json` (alice/bob/carol identities + book resources).
+- `bindings.json` is now run-local (gitignored); `bindings.example.json` kept.
+- Executed: 13/13 steps PASS on `make dev` with real Anthropic + Vercel sandbox
+  (VERCEL_TOKEN/PROJECT_ID/TEAM_ID required; project `ari-ai`, team resolved via
+  API). Assessment completed with genuine findings (delete_book ownership flaw),
+  org B isolation 404s proven. Evidence: `scripts/rehearsal/evidence/rehearsal-run.json`.
+- Next: merge; live leg needs Adam to create `adamissac/ari-pilot-rehearsal`
+  (private), install the GitHub App, and OAuth-login once.
+
+
+### 2026-10-24 — Devin (agent, Adam) — Defense Lab pilot audit, safety suite, go/no-go
+- Did: full Defense Lab audit per owner task — inventoried lanes (simulation / shadow / owned-test / assisted / production); verified ingestion security (token auth, project bind, dedup/replay, quarantine, rate/size limits, provenance); verified safe abstention + rules fallback; reviewed PR #458 (Scout/Diagnose execution — ledger, cancellation, snapshot pinning verified; merge conflict noted) and PR #412 (RL-gated shadow-only guard — deny enforced server+worker side; readiness verdict honestly BLOCKED). Deliverables: `docs/DEFENSE_LAB_CAPABILITY_MATRIX.md`, `docs/DEFENSE_LAB_EVALUATION_REPORT.md` (explicit GO for recommendation-only + owned-test; NO-GO for production enforcement), `backend/tests/test_live_defense_pilot_safety.py` (37 tests).
+- Fixed: quarantine gap — credential-looking *values* under benign keys (e.g. `{"note":"password=hunter2"}`) were persisted; `secret_like_reason` now also matches `password|secret|api_key|access_token|private_key = value` patterns in string values.
+- State of the code (verified how): shadow path writes LivePolicyDecision NOT_EXECUTED only; 15-check gate + loopback HMAC adapter re-check at send; UNSAFE kinds hard-denied; checkpoint sha256-pinned. Reproduced on main: rl-defense 569 passed, v6 EVIDENCE verify OK (3 hashes), live.run 5 episodes 0 compromised, backend live-defense 96 passed; new suite 37 passed; phase3+phase6+runtime_ingest re-run green (35 passed).
+- Warnings for the next session: #458 merge conflict (contracts 0.22.0 vs #412 0.20.0) — land #458 first or rebase; #412 merge needs human review of authz tightening per its own flag; `owned_test` environment value is the safety boundary — never register customer apps as it.
+
+
+
+### 2026-10-24 — Devin (Adam lane) — pilot rehearsal live leg
+- Did: ran `security_agents.cli --target examples/inventory-lite --mode live --i-have-authorization --auto-approve --validate 2 --max-usd 8` with `secret:org:ANTHROPIC_API_KEY`; committed the report JSON + updated `docs/rehearsal/2026-10-24-inventory-lite.md` (branch `docs/adam/live-inventory-rehearsal-evidence`).
+- State: all 7 roles `provider_mode=live` succeeded; planted IDOR confirmed+accepted+hardened; CWE-362 transfer-race hypothesis inconclusive. Live leg of the two-org real-provider rehearsal is now closed.
+- Also: merged #441 (C7), #535 (tenant protection + 0016), #517; #537 landed. Merge order tracked in coordination/messages/20261024T224500Z.
+
+### 2026-10-24 — Devin (agent, Adam) — seven-agent workflow live evidence + inspection
+- Did: audited all seven AgentSpecs, tool allowlists, contracts and the orchestrator state machine (`workflow/states.py`, `tools/registry.py` enforcement chain: kill switch → agent allowlist → step allowlist → arg schema → scope guard → per-tool budget → handler). Ran a budgeted **live-Claude** end-to-end assessment on `examples/payments-lite` (explicit provider/budget approval, $8 cap) on branch `feat/adam/seven-agent-live-evidence`; wrote run manifest `security-agents/tests/artifacts/live/20261024T213713Z-MANIFEST.md` + report/summary/scout/probe/role-separation artifacts + RecordingProvider JSONL.
+- State of the code (verified by execution): assessment `asm_01M5QXE06VSZYP7297NN5SN1EH` → `completed`. Probe executed `access_control.ownership@1` (matches_expectation=false → CWE-639 confirmed, not asserted). Patch worked only in its worktree: new `tests/test_payment_ownership.py` failed on unpatched code then passed after the ownership-check edit (suite 16/1→17/0). Verify re-applied the diff on a fresh checkout and re-ran the same check (matches_expectation=true), suite 17/0, added tests 4/0 → deterministic verdict `accepted`. CWE-841 finding honestly stayed `hypothesis` under `--validate 1`. Genuine failures recorded, not painted green: 3 `SCHEMA_INVALID` repairs, 1 `NO_UNIQUE_MATCH` edit retry, 1 `UNPATCHED_UNAVAILABLE` denial.
+- Commands run and results (executed): `pytest tests -q` → 582 passed / 24 skipped; `RUN_LIVE_LLM_EVAL=1 LIVE_SEVEN_MAX_USD=8 pytest -q -m live tests/test_live_provider.py -s` → 4 passed in 166.6 s; live usage 267,347 tokens / $0.0354 / 6.3 s sandbox; model `claude-haiku-5-5` all roles; specialists: scout/probe/diagnose/verify used trained models, trace/fortify/patch recorded honest `baseline:*` fallbacks.
+- Assumptions / open questions: check transport `inprocess` only (no docker on this box → HTTP transport + container-kill test skipped, recorded as limitation).
+- Next steps: PR open for review; coordinate eval/backend finding-contract items with Agent 9 (eval score_api changes already landed on main via #516).
+- Warnings for the next session: live runs cost money — always gate behind `RUN_LIVE_LLM_EVAL` + explicit approval; `tests/artifacts/live/*` now contains real run artifacts, keep naming convention `<UTC ts>-<label>.json`.
+
+### 2026-10-24 — Devin (agent, Adam) — pilot-readiness ops: readiness split, worker heartbeats, restart/rollback evidence
+- Did: infrastructure audit for external-pilot readiness (branch `feat/adam/pilot-readiness-ops`). Added worker-heartbeat liveness (`worker_heartbeats` table, migration 0017, `WORKER_HEARTBEAT_INTERVAL_S`/`WORKER_LIVENESS_S`), split `/readyz` into infra readiness (db/queue/workers → `status` ready|degraded|not_ready, 503 unless ready) vs assessment capability (`capabilities` + `capabilities_ready`: llm.live, github.app_configured, sandbox.configured, artifact_store.writable, workers.alive), added `/diagnostics` (verified GitHub `GET /app`, sandbox sdk/daemon detail, alembic head vs `alembic_version`, queue counts, worker rows), `git_sha`+`schema_version` on `/healthz` (`DEPLOYED_GIT_SHA`/`RAILWAY_GIT_COMMIT_SHA`/`GIT_SHA`), schema 0.22.0, `READYZ_REQUIRE_WORKERS` (default on in staging/production). Frontend: `/api/frontend-version` + `deploy/verify_pair.sh` detect Vercel/Railway schema skew. Evidence harness `deploy/evidence/restart_recovery.py` (+`scripted_worker.py`) runs the real API/workers/migrations on a disposable pgserver stack with scripted transports: 6/6 PASS — SIGTERM drains the in-hand job to AWAITING_APPROVAL w/ checkpoint artifact on disk; SIGKILL → reclaim → honest FAILED (CONFLICT_STATE, never fabricated); human approval + fresh worker → checkpoint resume → COMPLETED; 2 racing workers → exactly-once + dedupe; downgrade→upgrade round-trip; pg_dump→psql restore → identical row counts (`deploy/evidence/last-run-evidence.json`). New `docs/deploy/PILOT_OPERATIONS.md` (topology, safe config checklist, recovery runbook); refreshed `docs/deploy/RAILWAY_AND_GITHUB_APP.md`, `docs/13_BACKEND_API_DESIGN.md`.
+- State of the code: `test_ops_readiness.py` 11/11 + `deploy-version.test.ts` 3/3 pass; evidence harness 7/7 (S1 drain, S2 honest-kill, S3 checkpoint resume, S4 exactly-once, S5 migration rollback, S6 backup/restore, S7 post-crash new assessment). Owner-requested hardening landed: `/diagnostics` is owner-authenticated only (401/403); public `/readyz` scrubs capability `detail` strings (env-var names); `worker_heartbeats.last_poll_at` (claim-loop-only) means a stopped claim loop cannot report as a live worker unless it holds a claimed job.
+- Decisions made: `READYZ_REQUIRE_WORKERS` defaults True in staging/production, off in dev; worker liveness = heartbeat fresh AND (last_poll_at fresh OR current_job_id). GitHub `verified` is a live `GET /app` with 60s cache, slug only. Sandbox check reports env-presence for `vercel` mode. `/diagnostics` gated on any org-owner membership (every dev-login user owns their personal org — the gate blocks unauthenticated probes).
+- Migration coordination RESOLVED: #535 merged first and kept `0016_tenant_rls_intelligence`; this branch renumbered to `0017_worker_heartbeats` (down_revision 0016) per the agreed rule in `coordination/messages/20261024T224500Z-adam-to-agent9-...md`. Codex's `0016_execution_reliability` still needs a renumber when it merges; its 0.23.0 embeds a different "0.22.0" — flagged there.
+- Assumptions / open questions: the only untested acceptance criterion is the ONE authorized real-model staging assessment — needs an authorized signed-in session + `LLM_MAX_USD_PER_ASSESSMENT=1` (Adam approved $1 cap) + active repo scope; scripted evidence uses `provider_mode="fake"` by design.
+- Next steps: land PR #533 (unmerged until security review + migration order + full CI + staging run per owner), run the real staging assessment, wire `deploy/verify_pair.sh` into a deploy hook.
+- Warnings for the next session: prod `/readyz` still serves the OLD response until this lands; `capabilities_ready=false` is a config signal, not an outage. Honest residual: a handler deadlocked mid-job still renews its lease — visible via `worker_rows[].last_poll_age_s` in `/diagnostics`, not via liveness.
 ### 2026-10-24 — security/privacy lead (Devin session 94914ecc)
+
 - Did: Audited private-code data flows end-to-end and wrote `docs/security/TENANT_DATA_PROTECTION.md`; added `backend/tests/test_tenant_isolation_adversarial.py` (17 tests: 28-path read denial, write denial, SSE, artifacts incl. NULL-project, jobs trace-strip, forged scope/repo/context-pack claims, ingest-token binding, viewer floor, forged-ref payload/memory stores, RLS probe-role verify, store GUC smoke, full purge); implemented FORCE RLS on index_payloads/index_snapshots (migration 0016 + `set_config('ari.project_id')` in `_validate_ref`, `find_snapshot`, `PostgresMemoryStore._validate`, purge); implemented `backend/privacy.py::purge_project` (FK-safe full tenant delete + refcount-aware artifact objects + bare-clone removal; audit_events retained by design).
 - State of the code: all 334 backend tests pass incl. 17 new adversarial tests; ruff clean on touched files; no isolation hole found at app layer (require_project uniform).
 - Decisions: RLS scoped to the two source-content tables only (documented in doc §6); purge is operator-invoked, no TTL scheduler (documented gap).
 - Open: extend RLS fleet-wide needs per-request tenant GUC resolution — deferred; backups retention is deployment-level (documented).
 - Warnings: `test_repository_has_a_single_migration_head` expects head 0016 — next migration must update it to 0017.
+
+
+### 2026-10-24 — Devin (agent, Adam) — GitHub onboarding + continuous-assessment hardening
+- Did: audited the whole GitHub connect→push→assessment path; fixed six real defects on branch `fix/adam/github-onboarding-hardening`: (1) permanent GitHub lookup failures (deleted installation/renamed repo/GC'd commit — 401/404/410/422, 403 non-rate-limit) now record a skipped monitoring event + rrq with an actionable reason instead of dead-lettering silently; (2) `compare_commits` failure on ≥20-commit/empty pushes falls back to payload commits instead of failing the delivery job; (3) `installation deleted`, `installation_repositories removed`, `repository deleted` lifecycle webhooks now detach `installation_id` so pushes stop being scheduled against dead grants; (4) `repository renamed`/`transferred` updates `repositories.full_name` + `github_repo_access` so monitoring follows the rename; (5) `POST /projects/{id}/repositories` verifies the installation still grants the repo via a live installation token before connecting (403 with reinstall guidance); (6) deploy doc corrected (declared App permissions, subscribed events, `automatic_assessments` default OFF).
+- State of the code (verified how): 11 new regression tests (`test_installation_lifecycle.py`, `test_auto_commits.py`, `test_github_repo_access.py`); 56+51 focused tests pass, ruff clean. Live proof: a genuine signed GitHub push delivery from prod (`d6fc30bc-cff4-11f1-802d-2f6360afe9a9`) replayed through a real local stack (embedded Postgres + API + worker + real App key/webhook secret) — connect verified the real installation token, the push verified commit `b6e931d…` via the GitHub API (200), monitoring event `processed`, assessment row persisted.
+- Commands run: `pytest backend/tests/test_auto_commits.py backend/tests/test_installation_lifecycle.py backend/tests/test_github_repo_access.py backend/tests/test_pipeline*.py -q`; `make dev` variant with real `GITHUB_*`/`ANTHROPIC_*` env.
+- Assumptions / open questions: `run_assessment` needs `REPOSITORY_BINDINGS_FILE` + `SECURITY_WORKDIR` in the worker env to fetch connected repos (Railway sets them; local dev must too). GitHub's deliveries API doesn't return exact wire bytes — replay signatures are recomputed over the re-serialized payload.
+- Next steps: PR open; audit the auto build-recipe proposal path on a fresh Python repo.
+- Warnings: dev-login users skip the GitHub picker refresh (`github_id is None` + dev login → early return) — access rows must come from real OAuth or a `store_repo_access` call.
+
+
+### 2026-10-24 — Devin (agent, Adam) — pilot launch package + CONDITIONAL GO
+- Did: audited `main` (`d0131167`) and the hosted deployment (`readyz`: llm live, GitHub App + webhook configured) for pilot readiness; coordinated with the privacy workstream session for verified private-code data-flow facts; wrote the full pilot launch package under `docs/pilot/` (scope+exclusions, feature matrix, onboarding+revocation checklist, DATA_HANDLING draft, operations, metrics/health report, risk register, rehearsal+first-five plan, LAUNCH_DECISION).
+- State of the code (verified): no DELETE endpoints or retention jobs exist — deletion is operator-run only; GitHub App holds Contents+PR write at app level with least-privilege per-call tokens (deploy doc's "read-only" line is stale — flagged R-11); Probe has exactly 3 executable check categories; `readyz` live-configured; quotas 400k tok/$10/1800s manual, 150k/$3/900s monitoring, 5/h-20/d auto, $50/day global.
+- Commands run and results: route/grep audits of backend/frontend/shared/security-agents; `curl readyz` → all true; eval baseline from `security-agents/evals/commits/` + handoff records.
+- Decisions made: CONDITIONAL GO with 8 conditions (C1–C8) and documented exceptions — see `docs/pilot/LAUNCH_DECISION.md`.
+- Next steps: run the staging rehearsal before customer 1; merge #441 (redaction parse fix) recommended pre-indexing; reference privacy session's threat-model/retention docs in DATA_HANDLING.md when they land.
+- Warnings for the next session: do not upgrade feature-matrix labels without new executed evidence; pilot claims track `main` only — open PRs #496/#458/#441/#412/#517 are branch-only.
 
 ### 2026-10-24 — Devin (agent, Adam) — leaked Vercel snapshot cleanup, push→agents verification
 - Did: verified the named-sandbox snapshot-leak fix already on main (`persistent: False` on run boxes + `destroy` in teardown + `_sweep_stale`); opened PR #495 making the sweep also delete stale run boxes' orphan snapshots so leaked quota is actually freed. Confirmed `delete_orphan_snapshots` only removes snapshots created *by* the destroyed sandbox — the shared `ari-base-*` snapshot can never be an orphan of a run box. Verified on main: security-agents suite 581 passed / 24 skipped, frontend typecheck + 330 vitest + lint clean, standards smoke (CWE/OWASP/CVSS/ATT&CK/D3FEND/SARIF/SP 800-115) passes. Confirmed agents are standards-grounded in code: Scout CWE/OWASP, Probe CWE, Trace ATT&CK/CVSS, Diagnose D3FEND, Fortify CWE/D3FEND; Patch/Verify get standards context via the tagged finding + remediation plan, not prompts.
@@ -631,7 +809,6 @@ adds an entry before ending.
 - **Warnings:** Do not start Phase 1 work without explicit authorization. CI
   link/secret checks are not automated yet (INFRA-003).
 
-
 ### 2026-10-17 — Sarosh implementation agent — INTEL-001..008, PR #6
 
 - Implemented persistent SHA-pinned Python intelligence on `feat/sarosh/code-intelligence`.
@@ -993,7 +1170,6 @@ production build. E2E result recorded in the PR.
 
 Published the complete feature inventory, evidence boundaries and prioritized checklist as [issue #244](https://github.com/adamissac/ari-ai/issues/244), with dated report in [PRODUCT_READINESS_AUDIT_2026-10-17.md](PRODUCT_READINESS_AUDIT_2026-10-17.md) and immutable all-team message `20261017T203234Z-srihith-to-all-product-readiness-audit`. No application changes. Primary snapshot `882daa2`, publication base `b44d372`; accounts for resolved frontend #241, onboarding #239 (merged after the audit draft) and Fortify/M3 #243. Fresh sweep 1035 passed / 35 skipped / one audit Git-metadata failure; affected owned-target tests 2 passed after restoring metadata. Full audit discloses local opt-in skips, CI evidence, public readiness gaps and raw RL recomputation. Next: owners add acceptance evidence on issue #244; no feature is completed by this documentation change.
 
-
 ## 2026-10-17T23:35Z — Sarosh: UI provenance follow-ups
 
 PR [#282](https://github.com/adamissac/ari-ai/pull/282), `feat/sarosh/demo-provenance-labels`: dedicated real-commit/illustrative-analysis marker (#278), truthful synthetic drill/optional-Claude copy (#273 UI only), saved-live-evidence exception to sample-account copy plus historical missing red-to-green limitation and current runbook (#262). Preserve access-code gate, account framing and Sai's Defense Lab changes. Initial checks passed lint/typecheck/normal production build, 246 unit tests and four demo e2e tests; mobile visual inspection caught assessment-ID overflow, now wraps with a phone assertion. Final integrated checks pending. No live provider/backend run or raw historical artifact audit. Backend drill baseline/spend/rate-limit concerns stay on #273.
@@ -1112,15 +1288,11 @@ Pushed to `main` at the user's request. Frontend only, no contract or backend ch
   - E2e, `tests/e2e/stack.py` (real API, Postgres, worker, `next start`, Playwright): 31 passed in 4.3 min.
   - Warning: `E2E_SKIP_BUILD=1` needs a `.next` built with `NEXT_PUBLIC_DEV_LOGIN=1`. A plain `npm run build` drops the dev sign-in form, and every signed-in test then times out at 240 s.
 
-
 Homepage invitation and evaluation picker polish: responsive action cards, explicit simulation description, aligned native select. ESLint and TypeScript pass after rebuilding transport.
-
 
 Sign-in refinement: removed promotional side content and centered the shared AuthStage card. Verified centers at 720px/195px in 1440px/390px viewports, no horizontal overflow, and reduced-motion animation disabled. ESLint and TypeScript pass.
 
-
 Replaced game-like UI copy with evaluation terminology and synthetic/illustrative labels. Kept explicit isolated-test-network caveats and unchanged simulation contract fields. Lint, TypeScript and 13 focused lab tests pass.
-
 
 ### 2026-10-19 — live provider suite with real Claude (Adam's key)
 - `RUN_LIVE_LLM_EVAL=1 pytest -m live security-agents/tests/test_live_provider.py`: Scout, role separation and **seven roles end to end** passed live (`asm_01M594BBKZGTTVTY770XYT4HF7`, all seven agents `provider_mode=live`, Probe and Verify executed `checks.run_template`, about $1.27 total).
@@ -1161,8 +1333,6 @@ Removed the homepage Your next move section at owner request, including both act
   - `uv run mypy` was not run: root configuration checks `shared/shared`, `monitoring/monitoring`, and `standards/standards`, not backend.
 - **Not exercised:** live GitHub App requests or a visual browser check. CI was intentionally not watched after push per the task scope.
 
-
-
 ### 2026-10-19 — Defense Lab page simplified for demo visitors (Adam, `feat/adam/simplify-defense-lab`)
 - `frontend/app/lab/page.tsx` rebuilt around "just the numbers": intro is one lede line plus the controlled-test-environment caveat; the three headline metrics lead; scoreboard shows one compact card per headline metric (the fourth metric, false-disruption rate, was dropped from the page); the "How these scores work" block, per-scenario metric explorer and checkpoint hash list are gone. Provenance (source path, env, run, seeds) remains under a collapsed "Where these numbers come from" footer.
 - `frontend/components/lab-replay.tsx`: story panel no longer shows the "Cost" row or the "Technical details for this step" disclosure (raw action, step reward, cumulative score, reward-component bars). Map, service inspector, key moments, scrubber and the labelled ground-truth overlay are unchanged.
@@ -1201,8 +1371,6 @@ Removed the homepage Your next move section at owner request, including both act
 - Made `DefenseSwitch` light by default for theme-token panels and retained its existing white styling behind `tone="dark"` for the Monitoring header.
 - Added light/default and dark-tone class assertions.
 
-
-
 ## 2026-10-19 — Defense Lab redesign v2 (`feat/adam/lab-redesign-v2`)
 - Adam feedback: the all-dark-orange console still looked "vibe coded"; wants contrast/white sections and a fresher node map (kairo.security reference).
 - `frontend/app/lab/page.tsx`: scoreboard back on `.paper` (white section, which the night theme already styles light); eyebrows numbered "01 — The numbers" / "02 — Watch it in action".
@@ -1210,7 +1378,6 @@ Removed the homepage Your next move section at owner request, including both act
 - Executed: lint, typecheck, `npm run build`; Playwright screenshots at 1440px + 390px.
 
 2026-10-19 Adam: finishing #352 against the merged Defense Lab redesign. Preserved both handoffs during the main merge; added a real-stack browser assertion for turning monitoring off/on and verifying persistence after reload. Production build passes; final lint, typecheck, unit and browser results are recorded in the PR.
-
 
 2026-10-20T01:10:10.487930+00:00 Adam: landing redesign on feat/adam/landing-redesign. Replaced scroll-swapped reading sections with manual process tabs and walkthrough buttons, bounded home wheel momentum, and added the requested cinematic footer. Captured and inspected Ari desktop/mobile previews. Kairo public source and owner-supplied screenshots informed the design; connected-browser tools were unavailable, so no live Kairo capture is claimed. Validation results in PR.
 
@@ -1227,7 +1394,6 @@ Simplify project navigation to Code review and 7 agents. Move settings, scopes, 
 Keep organization/repository/commit navigation scoped to the selected repository and SHA. Real commit runs stay inline in a two-tab reviewer/seven-agent workspace with demo-style agent rail and recorded replay; no redirect to shared project history. Resolve the repository’s actual project, search older run pages, reject mismatched results and retain scoped remediation approvals. Optional narrated quick reads are explicitly requested and separate from executed records. Branch `fix/adam/commit-workspace`; validation in PR.
 
 Review follow-up: retain accepted starts while history refreshes to prevent duplicate paid runs; lift newly connected repository IDs into the commit workspace; correct replay indexing; bound project lookup concurrency and tolerate unrelated project errors. Added regression coverage for these cases.
-
 
 ## Automatic commit assessments — 2026-10-21
 
@@ -1249,7 +1415,6 @@ Next experiment: preregister validation coverage of quiet traffic with a fresh h
 using the actual incumbent as comparator. Do not promote v8 from its historical packet.
 
 Validation results are recorded in the continuation PR and coordination message.
-
 
 Final verification for PR #375 (`f9962eb`): from `rl-defense/`, run the existing
 v8 worktree's `.venv/bin/python -m pytest -q` with
@@ -1366,7 +1531,6 @@ and its documented workspace PYTHONPATH. Source-byte/reference/registry guards,
 complete primary/secondary reporting and failure evidence are implemented; no
 automatic model choice, approval or promotion. This requested task ends at preparation.
 
-
 ### Automatic/manual mode and Haiku-only follow-up (#377 / #380)
 
 Implemented per-repository persisted ON/OFF, owner-only API, migration 0009 and proposed additive schema 0.15.0; manual Run shown when OFF. Added signed-sender gate and per-project start quotas that defer every excess commit durably. Production/staging gateway, Railway startup and quick-read enforce Haiku 5.5. Historical evidence labels preserved. Contract review requested from Alan; full test/CI and deployment verification remain pending.
@@ -1394,7 +1558,6 @@ uniform seed2 persistent43203,84/84 compromised vs v6 0/84. No holdout reruns,
 retries or promotion. Real registry digest remains c3455933…; v6 stays deployed.
 Results/provenance: `rl-defense/results/live-retrain-v10/PROVENANCE.md`.
 Future experiments need fresh preregistration/holdout; no follow-up run launched.
-
 
 ### 2026-10-21 — automatic commit review fixes (#377)
 
@@ -1748,7 +1911,6 @@ allow only local abstain/monitor; hypothetical fixture agreement cannot authoriz
 execution.15 tests pass; source inventory and full research docs pending. See
 first-responder INTEGRATION_PROPOSAL and immutable message to Grok/shared owner.
 
-
 ### Phase 7B specification and invariant verification
 
 Research report: docs/research/first-responder/README.md. CONDITIONAL GO for
@@ -1757,7 +1919,6 @@ Seven-agent source inventory pins 71118928866d6974ba0ec9532420a9fc71187318.
 23 fixture/provenance tests pass; scoped Ruff and strict adapter mypy pass.
 No collection, agent calls, training, checkpoint promotion or enforcement.
 Remaining: broader regressions, PR review/CI and authorized research-only merge.
-
 
 ### Phase 7B research PR #437 — specification delivered
 
@@ -1784,6 +1945,28 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Eval harness: `run.py` cleanup survives missing `gh` auth; `score_api.py` accepts the bare-list assessments response. All 35 cases pushed as `eval/20261024-110115/*` branches; assessments accumulate live pending a fresh `hackatl_session` for scoring + scope widening (`access_control.authentication` category).
 - Test scope fixture (`make_scope` default) now grants all three check categories — required for the f2 listing invariant after the authentication template landed.
 
+### Connect navigation redesign — commit review + recorded agent replay (feat/adam/commit-review-navigation)
+
+The commit page (`/connect/[org]/[repo]/commit/[sha]`) auto-runs the `/api/analyze`
+quick read on arrival (one Claude call over the real GitHub diff, server-cached per
+commit) and renders it under a "Code review" tab via the shared `CommitAnalysis`
+review body. The "7 agents" tab renders the shared `AgentMap` sector map: when a
+recorded assessment exists for this exact repo+commit, `lib/recorded-analysis.ts`
+synthesizes an `Analysis` from persisted `agent_runs`/`findings` (real tool names,
+outcomes, durations; `step_key`→finding→evidence path pins each step to the sector
+it touched; `kindForPath` maps file paths to component kinds) and plays it back with
+real per-agent statuses including a new `failed` rail state. With no run, the quick
+read's reasoning replays as a labelled preview; with neither, an honest empty state.
+Approval gate, cancel button, mismatch isolation and `RealAssessmentPanel` unchanged.
+Org page repo rows are fully clickable; commit list rows already linked. Checks:
+`npm run lint`, `typecheck`, `test`, `build` all pass on this branch. Follow-ups:
+the auto quick read spends one cached Claude call per commit page view.
+Second-pass fixes on the same branch: `useResource` gained an optional
+`shouldPoll(data)` so `commit-run` polling stops at a terminal assessment state;
+the quick read accepts a URL sha prefix (`startsWith` guard) so short shas no
+longer fail the response-match check; repo/org lookups match case-insensitively
+(GitHub names are); and the tabs no longer flash a Preview/empty state while a
+selected run is still loading.
 
 ## 2026-10-24 — Devin (Adam): first live 45-case eval + baseline
 
@@ -1794,6 +1977,31 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Cleanup done: 12 eval fix PRs (#499–511) closed, 45 `eval/20261024-110115/*` branches deleted.
 - Transport lesson: `GET /projects/{id}/findings` items are AJV-validated against `Finding` (`additionalProperties: false`) — extra keys in the response break the console. Keep list items contract-shaped.
 
+## 2026-10-24 — Devin (Adam): functional-reviewer eval report + scorer regression lock
+
+- Audited `code_review` end to end against the standalone-reviewer brief and wrote the
+  consolidated report: `code-review/eval/REVIEWER_EVAL_2026-10-24.md` (journey trace,
+  executed corpus report, functional-vs-security performance table, before/after
+  evidence, supported scope, honest gaps).
+- Executed: `uv run pytest -q code-review/tests` → 90 passed / 4 skipped;
+  `uv run python -m code_review.eval_corpus` → 10/10 labels proven by oracle execution.
+- Reproduced the PR #516 serialization defect offline (list-doc findings lack `paths` →
+  old scorer scored every finding as off-file → false negatives); verified the merged
+  evidence-`source_span` fallback and locked it with a new suite
+  `security-agents/tests/test_eval_score_api.py` (5 tests). `_finding_paths` hoisted to
+  module level for testability — no behavior change.
+- Coordination note filed: `coordination/messages/20261024T214033Z-adam-to-all-findings-serialization-contract.md`
+  — findings list items stay contract-shaped (`additionalProperties:false`); any future
+  `paths` re-addition must go contract-first.
+- Gaps left honest: 45-case per-case scored JSON still not committed (only handoff
+  prose + the earlier 23-case baseline file); live `test_live_corpus.py` not run
+  (opt-in, paid, no key on this box); Probe template count still binds `validated`.
+- Follow-up (same session): PR #530 (`feat/adam/release-gate`) edits the same
+  `score_api.py` region and keeps `_finding_paths` nested inside `main()` —
+  whichever PR merges second must rebase that hunk. Resolution: keep #529's
+  module-level function (the new test imports it) + take #530's
+  `scored`/`unscored_reason`/`TERMINAL` additions. Comment left on PR #529.
+
 ## 2026-10-24 — Devin (Adam): access_control.role check template
 
 - Probe's 4th template: `access_control.role@1` — restricted fixture identity must be denied on a mutating route while a permitted one keeps access. Covers viewer→member and member→owner holes with one renderer.
@@ -1802,6 +2010,13 @@ ancestry retained and v6 registry hash unchanged (see verification report).
 - Review packet regenerated with the role sample; its import allowlist now includes `datetime` (needed by `{expires_in_days}` renders).
 - **Incident:** `chore/agent-commit-cadence` was accidentally cut from `eval/20261024-142809/idor_project_cache_before_auth` and carried the planted `_PROJECT_CACHE` vuln — PR e2e caught it correctly (`toHaveValue('900')` got stale `600`). Rebased it off; the vuln stays only on its eval branch. Lesson: always `git checkout -b <branch> origin/main`, never off the current checkout.
 - Eval run 2 (tag `20261024-142809`, 45 cases) in flight with specialist Scout live: mid-run shows vuln flagged 20/24, benign FP 0/13, median 69s (~2× faster than the 153s baseline).
+
+## 2026-10-24 — Devin (Adam): pilot rehearsal — live leg executed
+
+- `backend/tests/test_pilot_rehearsal_live.py` (opt-in `REHEARSAL_LIVE=1`): real Postgres+API+worker, two orgs, ledgerlite target bound via `register_binding`, `security_sandbox=vercel`. Assessment `asm_01M5QZY2E3Y0D2D44Q0PG6QBWX` COMPLETED: 13 LLM calls / 30 tool calls / $0.0126 / 13.2s real Vercel Sandbox. All agent_runs `provider_mode=live` asserted; eve→404 on finding + transcripts.
+- Two gotchas for live runs inside pytest: conftest blanks `ANTHROPIC_API_KEY` (restore via `HACKATL_LIVE_ANTHROPIC_API_KEY` through `settings_override`), and the vercel driver needs `VERCEL_TOKEN`+`VERCEL_PROJECT_ID`+`VERCEL_TEAM_ID` in env (project/team IDs fetchable via `GET /v9/projects` with the token).
+- PR #441 merged (3d023d55). PR #535: gitleaks false-positive fixed — commit 839737fc's `rehearsal/README.md` (history-only, fake fixture bearers) tripped `curl-auth-header`; targeted `.gitleaks.toml` allowlist pushed (083dd40f). NOTE: that rehearsal commit also carried a `Co-Authored-By: Devin AI` trailer — attribution-rule violation already in merged history; can't fix without rewriting.
+- Rehearsal target staged at `/Users/devin/repos/pilot-rehearsal-target` (ledgerlite, planted CWE-639 IDOR, 6 tests). Still needed from Adam: `adamissac/pilot-rehearsal-target` GitHub repo (App install: Contents RW + PR RW + Metadata read) + browser OAuth sign-in on the session Desktop for the prod leg.
 
 ## 2026-10-24 — Devin (Adam): inventory-lite rehearsal fixture
 
@@ -1819,3 +2034,17 @@ ancestry retained and v6 registry hash unchanged (see verification report).
   `ANTHROPIC_API_KEY` (`RUN_LIVE_LLM_EVAL=1`); scripted transports cannot honestly
   produce novel findings on it by design.
 
+## 2026-10-24 late — Devin pilot-readiness lane (session 174c2824231b457a8954115bff931884)
+
+### Done
+- **Rehearsal legs green**: local 7/7 incl. real-provider + real-Vercel-sandbox leg (CWE-639 found, CVSS 4.3, eve cross-tenant 404s). Prod leg on ari-ai `rehearsal/ledgerlite-v2` COMPLETED end-to-end (live provider + index) — Scout did not flag the planted vuln inside the large repo; detection quality is repo-context-dependent (tuning lever).
+- **Defects found+fixed via rehearsal**: (1) crashed indexer leaves not-ready index payloads that permanently poison `(project,repo,commit,index_version)` → `backend/intel_store.py` rewrite-before-ready fix, PR #542; (2) eval runner died on any transient 503 → scorer retry + deadline-persistent batch loop, PR #543.
+- **gitleaks repo-wide contamination removed**: fixture literals `Bearer tok-alice/tok-bob` existed in reachable commits on `rehearsal/ledgerlite-v2` (squashed + force-pushed) and `docs/adam/pilot-launch` (scrubbed, #527 head). Verified with gitleaks 8.30.1 on the exact `pull/N/merge` SHAs CI scanned.
+- **Rebases** (mechanical, append-file conflicts only): #458, #533, #536 pushed to their head branches. NOTE: integration lead (session aedd769fac50460c914b5139579a16e5) owns merge execution per `coordination/messages/20261024T234500Z`; #458 + #412 HELD for human security review — do not merge.
+- **Private rehearsal target prepared locally**: `~/repos/pilot-rehearsal-target` — ledgerlite app w/ planted CWE-639, build_recipe.json (alice/bob identities, 3 routes), pytest cover. Owner action remaining: `gh repo create adamissac/ari-pilot-rehearsal --private` + push + install the Ari AI app (docs/pilot/REHEARSAL.md).
+- **Eval run 3** (45 cases, `access_control.role` template live): tag `eval/20261024-153652`, running in background; results in `~/work/eval_run3/`; scorer API env in `/tmp/eval3.env`.
+
+### Outstanding
+- Merge waves belong to the integration lead; wave 2 includes my #542/#543.
+- Prod queue depth (~88 items) makes 45-case live eval slow — some cases may return `pending`/NOT_STARTED; rerun stragglers or extend deadlines.
+- Second-org real-provider leg needs owner's private repo + second GitHub org (account actions).

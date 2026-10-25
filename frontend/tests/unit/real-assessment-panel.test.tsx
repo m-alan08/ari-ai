@@ -71,7 +71,7 @@ it('starts only this commit and stays in its workspace', async () => {
 
 it('scans older history once and refreshes the resolved assessment directly', async () => {
   vi.useFakeTimers();
-  const matching = { id: 'asm_old', repo_id: 'repo_test', commit_sha: 'a'.repeat(40), created_at: '2026-01-01', state: 'COMPLETED' };
+  const matching = { id: 'asm_old', repo_id: 'repo_test', commit_sha: 'a'.repeat(40), created_at: '2026-01-01', state: 'VALIDATION' };
   mocks.assessments.mockImplementation(async (_id: string, options: { cursor?: string }) => options.cursor ? { items: [matching], next_cursor: null } : { items: [], next_cursor: 'old-page' });
   mocks.assessment.mockResolvedValue({ assessment: matching });
   await act(async () => { render(view()); });
@@ -79,6 +79,18 @@ it('scans older history once and refreshes the resolved assessment directly', as
   await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
   expect(mocks.assessments.mock.calls.filter(call => call[1]?.cursor === 'old-page')).toHaveLength(1);
   expect(mocks.assessment).toHaveBeenCalledWith('asm_old', expect.any(Object));
+});
+
+it('stops polling once the resolved assessment is terminal', async () => {
+  vi.useFakeTimers();
+  const matching = { id: 'asm_done', repo_id: 'repo_test', commit_sha: 'a'.repeat(40), created_at: '2026-01-01', state: 'COMPLETED' };
+  mocks.assessments.mockImplementation(async (_id: string, options: { cursor?: string }) => options.cursor ? { items: [matching], next_cursor: null } : { items: [], next_cursor: 'old-page' });
+  mocks.assessment.mockResolvedValue({ assessment: matching });
+  await act(async () => { render(view()); });
+  const calls = mocks.assessments.mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+  expect(mocks.assessments.mock.calls).toHaveLength(calls);
+  expect(mocks.assessment).not.toHaveBeenCalled();
 });
 
 

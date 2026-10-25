@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,22 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
+
+_EXPIRY = re.compile(r"^\{expires_in_days:(\d{1,3})\}$")
+_RESOURCE_KIND = re.compile(r"^\{resource:([A-Za-z_][A-Za-z0-9_]*)\}$")
+
+
+def _render_body(recipe: dict[str, Any], tpl: Any, owner: str) -> Any:
+    """Recipe body placeholders — same substitutions the check renderer applies."""
+    if isinstance(tpl, dict):
+        return {k: _render_body(recipe, v, owner) for k, v in tpl.items()}
+    if isinstance(tpl, list):
+        return [_render_body(recipe, v, owner) for v in tpl]
+    if (m := _EXPIRY.match(str(tpl))) is not None:
+        return (datetime.now(UTC) + timedelta(days=int(m.group(1)))).isoformat()
+    if (m := _RESOURCE_KIND.match(str(tpl))) is not None:
+        return recipe["resources"][m.group(1)][owner]["id"]
+    return tpl
 
 
 def _target():
@@ -21,20 +38,6 @@ def _target():
     return mod
 
 
-def _fill_body(value: Any, recipe: dict[str, Any], owner: str) -> Any:
-    if isinstance(value, str) and value.startswith("{resource:") and value.endswith("}"):
-        kind = value[len("{resource:") : -1]
-        return recipe["resources"][kind][owner]["id"]
-    if isinstance(value, str) and value.startswith("{expires_in_days:") and value.endswith("}"):
-        days = int(value[len("{expires_in_days:") : -1])
-        return (datetime.now(tz=UTC) + timedelta(days=days)).isoformat()
-    if isinstance(value, dict):
-        return {key: _fill_body(item, recipe, owner) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_fill_body(item, recipe, owner) for item in value]
-    return value
-
-
 def test_every_recipe_route_allows_the_owner_and_denies_the_other_user(monkeypatch):
     monkeypatch.setenv("SANDBOX_TARGET_DATABASE_URL", os.environ["DATABASE_URL"])
     recipe = json.loads((ROOT / "build_recipe.json").read_text())
@@ -43,15 +46,14 @@ def test_every_recipe_route_allows_the_owner_and_denies_the_other_user(monkeypat
     for route in recipe["routes"]:
         rid = recipe["resources"][route["resource"]]["alice"]["id"]
         path = route["path_template"].split("{")[0] + rid + route["path_template"].split("}")[1]
-        method = str(route.get("method") or "GET").upper()
-        payload = route.get("body_template")
-        body = _fill_body(payload, recipe, "alice") if payload is not None else None
-        kwargs: dict[str, Any] = {}
-        if body is not None:
-            kwargs["json"] = body
-        owner = client.request(method, path, headers=ident["alice"], **kwargs)
-        assert owner.status_code in (200, 201), (route["id"], owner.status_code, owner.text[:300])
-        other = client.request(method, path, headers=ident["bob"], **kwargs)
-        assert other.status_code in (403, 404), (route["id"], other.status_code)
-        anon = client.request(method, path, **kwargs)
-        assert anon.status_code == 401, (route["id"], anon.status_code)
+        method = route.get("method", "GET")
+        body = _render_body(recipe, route.get("body_template"), "alice")
+        assert client.request(method, path, headers=ident["alice"], json=body).status_code in (
+            200,
+            201,
+        ), route["id"]
+        assert client.request(method, path, headers=ident["bob"], json=body).status_code in (
+            403,
+            404,
+        ), route["id"]
+        assert client.request(method, path, json=body).status_code == 401, route["id"]

@@ -4,8 +4,8 @@
 # then run both; if either exits, exit too so Railway restarts the container.
 set -eu
 
-# Every pusher and author by default; set a comma-separated list of logins to narrow it.
-export GITHUB_AUTO_COMMIT_AUTHORS="${GITHUB_AUTO_COMMIT_AUTHORS-*}"
+# Empty = legacy impact-gated monitoring policy; set * or a comma-separated list of GitHub logins for per-commit full runs.
+export GITHUB_AUTO_COMMIT_AUTHORS="${GITHUB_AUTO_COMMIT_AUTHORS-}"
 
 # RL defense policy retrained from results/protocol-v1/candidate.yaml (seed 0); the worker
 # refuses a checkpoint whose sha256 differs from this pin.
@@ -39,6 +39,13 @@ pids="$pids $api"
 # GitHub never retries a failed webhook: ask it to redeliver what this service missed while
 # it was down (a deploy swaps containers). Harmless when nothing was missed.
 python -m backend.redeliver &
+
+# Storage maintenance: hourly storage report + bounded retention. Runs as a sidecar, not
+# in pids: a maintenance bug must never restart the service or block a drain. Ships in
+# dry-run mode — set RETENTION_DRY_RUN=false once a report has been reviewed.
+if [ "${MAINTENANCE_ENABLED:-true}" = "true" ]; then
+  python -m backend.maintenance loop &
+fi
 
 # A deploy sends TERM: workers finish the job in hand and exit (Railway keeps this container
 # for RAILWAY_DEPLOYMENT_DRAINING_SECONDS), so in-flight assessments are not cut off. The API

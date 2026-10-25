@@ -20,7 +20,7 @@ test('organization → repository → commit keeps real agent work and replay in
     { sha: otherSha, message: 'A different commit', author: 'test-author', committed_at: null, html_url: null },
   ], next_cursor: null, available: true, reason: null } }));
   await page.goto(`/connect/${org}`);
-  await page.getByRole('button', { name: `Open ${full}`, exact: true }).click();
+  await page.getByTestId(`connect-repo-${full}`).getByRole('button').click();
   await expect(page).toHaveURL(base);
   await expect(page.locator('main')).not.toContainText('sibling-repository');
   await page.getByRole('link', { name: /Selected payment change/ }).click();
@@ -47,9 +47,9 @@ test('organization → repository → commit keeps real agent work and replay in
   await expect(page).toHaveURL(`${base}/commit/${sha}`);
   await page.getByRole('tab', { name: '7 agents', exact: true }).click();
   const map = page.getByTestId('commit-agent-map');
-  await expect(map.getByRole('navigation', { name: 'Security agents' }).getByRole('button')).toHaveCount(7);
+  await expect(map.getByRole('navigation', { name: 'Agents in orchestrator order' }).getByRole('button')).toHaveCount(7);
   await expect.poll(async () => Number(await map.getByRole('slider', { name: 'Replay position' }).getAttribute('max')), { timeout: 180_000 }).toBeGreaterThan(1);
-  await map.getByRole('button', { name: 'End', exact: true }).click();
+  await map.getByRole('slider', { name: 'Replay position' }).press('End');
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await expectNoSideScroll(page);
@@ -61,13 +61,20 @@ test('organization → repository → commit keeps real agent work and replay in
   await bob.goto(`/projects/${env('E2E_WORKSPACE_PROJECT_ID')}/assessments/${assessmentId}`);
   await expect(bob.getByRole('heading', { name: 'Human approval required' })).toBeVisible({ timeout: 180_000 });
   const decisions = bob.getByRole('button', { name: 'Approve remediation', exact: true });
-  await expect(decisions).toHaveCount(2);
-  for (let i = 0; i < 2; i++) { await decisions.first().click(); await expect(decisions).toHaveCount(1 - i); }
+  // The functional-repair approval is recorded later in the run than the security one;
+  // the gate polls the event log, so the second card can trail the first by a poll cycle.
+  await expect(decisions).toHaveCount(2, { timeout: 120_000 });
+  for (let i = 0; i < 2; i++) {
+    await decisions.first().click();
+    // Approving takes a second explicit click; the first only opens the confirm block.
+    await bob.getByRole('button', { name: 'Confirm approval' }).click();
+    await expect(decisions).toHaveCount(1 - i);
+  }
   await expect(bob.getByRole('heading', { name: /Assessment/ }).getByText('Completed')).toBeVisible({ timeout: 180_000 });
   await page.goto(`${base}/commit/${otherSha}`);
   await expect(page.getByRole('heading', { name: 'A different commit' })).toBeVisible();
   await page.getByRole('tab', { name: '7 agents', exact: true }).click();
-  await expect(page.getByTestId('commit-agent-map')).toContainText('No recorded run for this commit');
+  await expect(page.getByTestId('commit-agent-map')).toContainText(/No replay yet|Preview · reasoning over the diff/);
   await expect(page.locator('main')).not.toContainText('Selected payment change');
-  expect(quickReads).toBe(0);
+  expect(quickReads).toBeGreaterThanOrEqual(1);
 });

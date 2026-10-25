@@ -17,6 +17,7 @@ description = "Documented placeholders and synthetic fixtures"
 paths = ['''\.env\.example$''']
 regexes = ['''fixture-token-(alice|bob)''', '''replace-me''']
 
+
 # Pinned upstream revisions are 40-hex git commit SHAs, not credentials; the generic
 # API-key rule fires on names like OWASP_API_COMMIT. Narrow: only ALL_CAPS *_COMMIT
 # constants assigned exactly one 40-char lowercase hex string on their own line.
@@ -66,3 +67,23 @@ condition = "AND"
 paths = ['''^rehearsal/.*''']
 regexTarget = "line"
 regexes = ['''Bearer\s+tok-[a-z0-9_-]+''']
+
+# Fake fixture literals in redaction test suites (doc-placeholder values like
+# sk_live_4eC39HqLyjWDarjtT1zdp7dc and AIzaSyD4iE...KeXW5b0 are the canonical
+# Stripe/Google fake keys). The files only carried these literals at commits
+# 5dcddb61 + 78067f94, still in history — match the exact planted values, inside
+# those test files only; never skip the files.
+[[allowlists]]
+description = "Planted fake secrets in redaction test fixtures"
+condition = "AND"
+paths = ['''^code-intelligence/tests/test_privacy_redact\.py$''', '''^backend/tests/test_redact_text_gaps\.py$''', '''^code-intelligence/tests/test_ingest_extract\.py$''']
+regexes = [
+  '''xoxb-1234567890(12)?-[a-zA-Z]+''',
+  '''sk_live_(4eC39HqLyjWDarjtT1zdp7dc|51Habcdefabcdef)''',
+  '''AIzaSyD4iE2xVSpkLLOXoyq2jxn33rt-KeXW5b0''',
+  '''ya29\.a0AfH6SMBxyz''',
+  '''GOCSPX-abc123def''',
+  '''abc123def456''',
+  '''eyJhbGciOiJIUzI1NiIs\.eyJzdWIiOiIxMjM0NTY3\.OeFghijKlmNopqrS''',
+]
+

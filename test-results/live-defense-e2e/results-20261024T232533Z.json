@@ -1,0 +1,28 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "9366e78a1fc617272089c7d43712abdce4d1b1dd",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.25.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-24T23:25:33.512713+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_deadline_compatibility_with_database_clock",
+      "outcome": "failed",
+      "duration_s": 0.128,
+      "failure_stage": "/Users/devin/repos/ari-ai/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: sqlalchemy.exc.ProgrammingError: (psycopg.errors.UndefinedColumn) column jobs.defer_count does not exist",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

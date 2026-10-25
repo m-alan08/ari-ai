@@ -15,13 +15,17 @@ interface State<T> { key: string | null; status: 'loading' | 'ready' | 'error'; 
  * slow stale response can never overwrite a newer one. `pollMs` refreshes in
  * place: the last good data stays visible while it reloads, and if a refresh
  * fails the data is kept, `refreshError` is exposed and polling continues.
+ * `shouldPoll` may return false to stop polling once the data settles (e.g. a
+ * terminal state); a failing refresh keeps polling regardless.
  * Data produced for a previous key is never returned for a new key.
  */
-export function useResource<T>(key: string | null, load: (signal: AbortSignal) => Promise<T>, pollMs?: number): Resource<T> {
+export function useResource<T>(key: string | null, load: (signal: AbortSignal) => Promise<T>, pollMs?: number, shouldPoll?: (data: T) => boolean): Resource<T> {
   const [state, setState] = useState<State<T>>({ key, status: 'loading' });
   const [nonce, setNonce] = useState(0);
   const loadRef = useRef(load);
+  const shouldPollRef = useRef(shouldPoll);
   useEffect(() => { loadRef.current = load; });
+  useEffect(() => { shouldPollRef.current = shouldPoll; });
   const reload = useCallback(() => setNonce(n => n + 1), []);
 
   useEffect(() => {
@@ -29,7 +33,7 @@ export function useResource<T>(key: string | null, load: (signal: AbortSignal) =
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let hadData = false;
-    const schedule = () => { if (pollMs) timer = setTimeout(() => run(false), pollMs); };
+    const schedule = (data?: T) => { if (pollMs && (data === undefined || (shouldPollRef.current?.(data) ?? true))) timer = setTimeout(() => run(false), pollMs); };
     const run = (first: boolean) => {
       if (first) setState(s => (s.key === key && s.status === 'ready' ? s : { key, status: 'loading' }));
       loadRef.current(controller.signal).then(
@@ -37,7 +41,7 @@ export function useResource<T>(key: string | null, load: (signal: AbortSignal) =
           if (controller.signal.aborted) return;
           hadData = true;
           setState({ key, status: 'ready', data });
-          schedule();
+          schedule(data);
         },
         (error: unknown) => {
           if (controller.signal.aborted) return;

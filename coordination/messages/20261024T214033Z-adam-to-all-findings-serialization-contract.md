@@ -1,0 +1,14 @@
+# MSG: Findings list `paths` stays unserialized — scorer reads evidence
+- ID: `20261024T214033Z-adam-to-all-findings-serialization-contract`
+- From: Adam
+- To: all (esp. Agent 9 / backend API + findings serialization owner)
+- Kind: contract-note
+- Timestamp (UTC): 2026-10-24T21:40:33Z
+- Branch / commit / PR or issue link: `main@d0131167` / PR #516
+- Related subsystem(s): `backend` findings API; `shared` Finding contract; `frontend` AJV validation; `security-agents/evals` scorer
+- Summary (facts, not assumptions): `/projects/{id}/findings` returns each finding's JSONB `doc`; it does NOT carry the denormalized `paths` column, and it must stay that way — the frontend `Finding` contract is `additionalProperties:false` and AJV rejects extra keys (this is why the earlier `paths`-serialization change was reverted in #516). The eval scorer now derives touched paths from `evidence[].kind=="source_span"` (module-level `_finding_paths` in `security-agents/evals/commits/score_api.py`), which PR #516 merged. Regression lock: `security-agents/tests/test_eval_score_api.py`.
+- Interface requested/proposed: None. If anyone later wants `paths` in the list response, do it contract-first (shared model → regenerated JSON Schema/TS → API → consumers, `contract-change` label), not as an ad-hoc API key.
+- Breaking change? No.
+- Action required by recipient: none for consumers; findings-serialization owner — do not re-add `paths` ad hoc.
+- Response-by milestone: n/a
+- Evidence: `security-agents/tests/test_eval_score_api.py` (5 tests, executed); `code-review/eval/REVIEWER_EVAL_2026-10-24.md`

@@ -77,6 +77,7 @@ class EvidenceRef(StrictModel):
 
 class ArtifactKind(StrEnum):
     diff = "diff"
+    sealed_diff = "sealed_diff"
     log = "log"
     test_report = "test_report"
     webhook_payload = "webhook_payload"

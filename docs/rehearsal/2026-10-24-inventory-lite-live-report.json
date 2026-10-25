@@ -1,0 +1,659 @@
+{
+  "assessment_id": "asm_01M5R4912YTF8XKT9X0GXHY668",
+  "state": "completed",
+  "states": [
+    "scope_check",
+    "indexing",
+    "functional_review",
+    "recon",
+    "validation",
+    "analysis",
+    "diagnosis",
+    "awaiting_approval",
+    "remediation",
+    "hardening",
+    "reporting",
+    "completed"
+  ],
+  "provider_modes": [
+    "live"
+  ],
+  "agents_executed": [
+    "diagnose",
+    "fortify",
+    "patch",
+    "probe",
+    "scout",
+    "trace",
+    "verify"
+  ],
+  "runs": [
+    {
+      "agent": "scout",
+      "step_key": "recon",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 5,
+      "llm_turns": 4,
+      "tokens": 46242,
+      "usd": 0.006346,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 160, \"path\": \"inventory_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for inventory-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A workspace can only read its own profile, items and transfers.\\n    7  - A transfer quantity must never exceed the item's avail\", \"end_line\": 160, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "expectations.for_subject",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"inventory_lite/app.py\"}",
+          "summary": "{\"count\": 2, \"expectations\": \"[{\\\"confidence\\\": \\\"high\\\", \\\"criticality\\\": \\\"low\\\", \\\"data_sensitivity\\\": null, \\\"id\\\": \\\"exp_workspace_items_owner_only\\\", \\\"kind\\\": \\\"access_control\\\", \\\"sources\\\": [{\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"en\"}"
+        },
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"get_item\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"get (unresolved)\\\", \\\"inventory_lite.app.create_app.item_out\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.get('/items/{item_id}', response_model=ItemOut)\\\"]\", \"location\": \"[\\\"inventory_lite/app.py:114-123\\\"]\", \"params\": \"[\\\"item_id\\\", \\\"workspace\\\", \\\"store\\\"]\", \"query\": \"get_item\", \"symbol\": \"[\\\"inventory_lite.app.create_app.get_item\\\"]\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 120, \"path\": \"inventory_lite/store.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"In-memory data store seeded with synthetic fixture data. Reset per app instance.\\\"\\\"\\\"\\n    2  \\n    3  from __future__ import annotations\\n    4  \\n    5  from dataclasses import dataclass, field\\n    6  \\n    7  \\n    8  @dataclass\\n    9  class Workspace:\\n   10      id: str\\n   11      name: str\\n  \", \"end_line\": 61, \"path\": \"inventory_lite/store.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "submit_scout_output",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{}",
+          "summary": "{\"detail\": \"hypotheses.0.weakness_class_note: Extra inputs are not permitted\"}"
+        }
+      ]
+    },
+    {
+      "agent": "probe",
+      "step_key": "validation:0",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 4,
+      "llm_turns": 3,
+      "tokens": 18224,
+      "usd": 0.002204,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "checks.list_templates",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"category\": \"access_control.ownership\"}",
+          "summary": "{\"count\": 1, \"note\": \"Only templates whose category is scope-allowed and runnable can be executed. parameter_values lists the only values the authorized target's build recipe accepts; route_id takes a route id, never an HTTP path.\", \"parameter_index\": \"{\\\"access_control.ownership@1\\\": {\\\"other_identity\\\": [\\\"alice\\\", \\\"bob\\\"], \\\"owner_identity\\\": [\\\"alice\\\", \\\"bob\\\"], \\\"route_id\\\": [\\\"item_detail\\\", \\\"warehouse_detail\\\"]}}\", \"scope_allowed_categories\": \"[\\\"access_control.authentication\\\", \\\"access_control.ownership\\\", \\\"access_control.role\\\", \\\"input_validation.bounds\\\"]\", \"templates\": \"[{\\\"category\\\": \\\"access_control.ownership\\\", \\\"description\\\": \\\"Confirm a resource owned by one fixture identity is not readable by another, while the owner keeps legitimate access. Parameters: route_id, owner_identity, other_identity.\\\", \\\"expectation_kinds\\\": [\\\"access_control\\\"], \\\"parameter_values\\\": {\\\"other\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 160, \"path\": \"inventory_lite/app.py\", \"start_line\": 100}",
+          "summary": "{\"content\": \"  100              raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n  101          require_owner(target.id, workspace)\\n  102          return WorkspaceOut(id=target.id, name=target.name)\\n  103  \\n  104      @app.get(\\\"/items\\\", response_model=list[ItemOut])\\n  105      def list_items(\\n  106   \", \"end_line\": 160, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 100}"
+        },
+        {
+          "name": "expectations.for_subject",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"exp_workspace_items_owner_only\"}",
+          "summary": "{\"count\": 2, \"expectations\": \"[{\\\"confidence\\\": \\\"high\\\", \\\"criticality\\\": \\\"low\\\", \\\"data_sensitivity\\\": null, \\\"id\\\": \\\"exp_workspace_items_owner_only\\\", \\\"kind\\\": \\\"access_control\\\", \\\"sources\\\": [{\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"en\"}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"parameters\": {\"other_identity\": \"alice\", \"owner_identity\": \"bob\", \"route_id\": \"item_detail\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"access_control.ownership@1\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.452, \"errors\": 0, \"exit_code\": 1, \"failed\": 1, \"failing_tests\": \"[\\\".sandbox/test_generated_check.py::test_other_identity_is_denied\\\"]\", \"isolation_level\": \"process-dev:not-a-security-boundary\", \"matches_expectation\": false, \"network\": \"target-only\", \"parameters\": \"{\\\"other_identity\\\": \\\"alice\\\", \\\"owner_identity\\\": \\\"bob\\\", \\\"route_id\\\": \\\"item_detail\\\"}\", \"passed\": 1, \"profile\": \"check-runner\", \"route\": \"{\\\"id\\\": \\\"item_detail\\\", \\\"method\\\": \\\"GET\\\", \\\"path_template\\\": \\\"/items/{item_id}\\\"}\", \"sandbox_run_id\": \"sbx_01M5R49P6BJSM5T1XK8RPSD02W\", \"target_contacted\": false, \"target_log_sha256\": null, \"target_requests\": \"[]\", \"template_ref\": \"access_control.ownership@1\", \"timed_out\": false, \"transport\": \"inprocess\"}"
+        }
+      ]
+    },
+    {
+      "agent": "probe",
+      "step_key": "validation:1",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 5,
+      "llm_turns": 4,
+      "tokens": 22579,
+      "usd": 0.002796,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "checks.list_templates",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"category\": \"input_validation.bounds\"}",
+          "summary": "{\"count\": 1, \"note\": \"Only templates whose category is scope-allowed and runnable can be executed. parameter_values lists the only values the authorized target's build recipe accepts; route_id takes a route id, never an HTTP path.\", \"parameter_index\": \"{\\\"input_validation.bounds@1\\\": {\\\"over_by\\\": \\\"optional positive decimal string, default 1.00\\\", \\\"owner_identity\\\": [\\\"alice\\\", \\\"bob\\\"], \\\"read_route_id\\\": [\\\"item_detail\\\", \\\"warehouse_detail\\\"], \\\"route_id\\\": [\\\"create_transfer\\\"]}}\", \"scope_allowed_categories\": \"[\\\"access_control.authentication\\\", \\\"access_control.ownership\\\", \\\"access_control.role\\\", \\\"input_validation.bounds\\\"]\", \"templates\": \"[{\\\"category\\\": \\\"input_validation.bounds\\\", \\\"description\\\": \\\"Confirm a documented amount bound is enforced across requests: an in-bounds request succeeds, a further request that would push the accumulated total past the bound is rejected 4xx, and the accumulated total never exceeds the bound. Parameters\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 150, \"path\": \"inventory_lite/app.py\", \"start_line\": 120}",
+          "summary": "{\"content\": \"  120          it = store.items.get(item_id)\\n  121          if it is None:\\n  122              raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n  123          return item_out(store, it)\\n  124  \\n  125      @app.post(\\\"/transfers\\\", response_model=TransferOut, status_code=status.HTTP_201_CREAT\", \"end_line\": 150, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 120}"
+        },
+        {
+          "name": "expectations.for_subject",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"exp_transfer_stock_bound\"}",
+          "summary": "{\"count\": 2, \"expectations\": \"[{\\\"confidence\\\": \\\"high\\\", \\\"criticality\\\": \\\"low\\\", \\\"data_sensitivity\\\": null, \\\"id\\\": \\\"exp_workspace_items_owner_only\\\", \\\"kind\\\": \\\"access_control\\\", \\\"sources\\\": [{\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"end_line\\\": null, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"start_line\\\": null}, {\\\"en\"}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{\"parameters\": {\"over_by\": \"1.00\", \"owner_identity\": \"alice\", \"read_route_id\": \"item_detail\", \"route_id\": \"create_transfer\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"input_validation.bounds@1\"}",
+          "summary": "{\"detail\": \"resource item/alice has no amount\", \"error\": \"SCHEMA_INVALID\", \"matches_expectation\": null}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{\"parameters\": {\"over_by\": \"1.00\", \"owner_identity\": \"bob\", \"read_route_id\": \"item_detail\", \"route_id\": \"create_transfer\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"input_validation.bounds@1\"}",
+          "summary": "{\"detail\": \"resource item/bob has no amount\", \"error\": \"SCHEMA_INVALID\", \"matches_expectation\": null}"
+        }
+      ]
+    },
+    {
+      "agent": "diagnose",
+      "step_key": "diagnosis:fnd_01M5R49JM6YH2JHM7RNDJGYGYY",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 4,
+      "llm_turns": 3,
+      "tokens": 27975,
+      "usd": 0.004127,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 200, \"path\": \"inventory_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for inventory-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A workspace can only read its own profile, items and transfers.\\n    7  - A transfer quantity must never exceed the item's avail\", \"end_line\": 163, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"inventory_lite.app.create_app.get_item\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"get (unresolved)\\\", \\\"inventory_lite.app.create_app.item_out\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.get('/items/{item_id}', response_model=ItemOut)\\\"]\", \"location\": \"[\\\"inventory_lite/app.py:114-123\\\"]\", \"params\": \"[\\\"item_id\\\", \\\"workspace\\\", \\\"store\\\"]\", \"query\": \"inventory_lite.app.create_app.get_item\", \"symbol\": \"[\\\"inventory_lite.app.create_app.get_item\\\"]\"}"
+        },
+        {
+          "name": "findings.history",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"subject\": \"GET /items/{item_id}\"}",
+          "summary": "{\"count\": 1, \"records\": \"[{\\\"finding_id\\\": \\\"fnd_01M5R49JM6YH2JHM7RNDJGYGYY\\\", \\\"key\\\": \\\"CWE-639:inventory_lite/app.py:ent_get_items_item_id\\\", \\\"outcome\\\": \\\"confirmed\\\", \\\"title\\\": \\\"GET /items/{item_id} may not enforce item ownership, allowing one workspace to read another workspace's items\\\"}]\"}"
+        },
+        {
+          "name": "submit_diagnose_output",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{}",
+          "summary": "{\"detail\": \"cause_class: Field required\"}"
+        }
+      ]
+    },
+    {
+      "agent": "trace",
+      "step_key": "analysis:fnd_01M5R49JM6YH2JHM7RNDJGYGYY",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 3,
+      "llm_turns": 2,
+      "tokens": 21329,
+      "usd": 0.004053,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "graph.neighbors",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"symbol\": \"inventory_lite.app.create_app.get_item\"}",
+          "summary": "{\"callees\": \"[\\\"Depends (unresolved)\\\", \\\"HTTPException (unresolved)\\\", \\\"get (unresolved)\\\", \\\"inventory_lite.app.create_app.item_out\\\"]\", \"callers\": \"[]\", \"decorators\": \"[\\\"app.get('/items/{item_id}', response_model=ItemOut)\\\"]\", \"location\": \"[\\\"inventory_lite/app.py:114-123\\\"]\", \"params\": \"[\\\"item_id\\\", \\\"workspace\\\", \\\"store\\\"]\", \"query\": \"inventory_lite.app.create_app.get_item\", \"symbol\": \"[\\\"inventory_lite.app.create_app.get_item\\\"]\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 170, \"path\": \"inventory_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for inventory-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A workspace can only read its own profile, items and transfers.\\n    7  - A transfer quantity must never exceed the item's avail\", \"end_line\": 163, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 120, \"path\": \"inventory_lite/store.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"In-memory data store seeded with synthetic fixture data. Reset per app instance.\\\"\\\"\\\"\\n    2  \\n    3  from __future__ import annotations\\n    4  \\n    5  from dataclasses import dataclass, field\\n    6  \\n    7  \\n    8  @dataclass\\n    9  class Workspace:\\n   10      id: str\\n   11      name: str\\n  \", \"end_line\": 61, \"path\": \"inventory_lite/store.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        }
+      ]
+    },
+    {
+      "agent": "fortify",
+      "step_key": "hardening:fnd_01M5R49JM6YH2JHM7RNDJGYGYY",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 3,
+      "llm_turns": 3,
+      "tokens": 31091,
+      "usd": 0.004388,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 200, \"path\": \"inventory_lite/app.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"HTTP API for inventory-lite.\\n    2  \\n    3  Intended behavior (the platform should discover these from docstrings, tests and\\n    4  conventions):\\n    5  \\n    6  - A workspace can only read its own profile, items and transfers.\\n    7  - A transfer quantity must never exceed the item's avail\", \"end_line\": 163, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "static.analyze",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"path\": \"inventory_lite/app.py\"}",
+          "summary": "{\"analyzer\": \"python-ast+pattern-rules (no pinned third-party analyzer yet)\", \"functions\": \"[{\\\"calls\\\": [\\\"Depends\\\", \\\"FastAPI\\\", \\\"HTTPException\\\", \\\"Header\\\", \\\"ItemOut\\\", \\\"Transfer\\\", \\\"TransferOut\\\", \\\"WorkspaceOut\\\", \\\"get\\\", \\\"item_out\\\", \\\"next_id\\\", \\\"post\\\", \\\"removeprefix\\\", \\\"require_owner\\\", \\\"seeded_store\\\", \\\"startswith\\\", \\\"sum\\\", \\\"transfers_for\\\", \\\"values\\\"], \\\"decorators\\\": [], \\\"lines\\\": [48, 160], \\\"params\\\": [\", \"module_docstring\": \"HTTP API for inventory-lite.\\n\\nIntended behavior (the platform should discover these from docstrings, tests and\\nconventions):\\n\\n- A workspace can only read its own profile, items and transfers.\\n- A transfer quantity must never exceed the item's available stock.\\n- Quantities are positive integers.\", \"path\": \"inventory_lite/app.py\", \"pattern_signals\": \"[]\", \"suspicious_instruction_signals\": \"[]\"}"
+        },
+        {
+          "name": "code.search",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"max_results\": 40, \"pattern\": \"\\\\.get\\\\(|@app\\\\.(get|post|put|delete|patch)|require_owner\"}",
+          "summary": "{\"count\": 22, \"hits\": \"[{\\\"line\\\": 62, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"text\\\": \\\"workspace_id = store.tokens.get(authorization.removeprefix(\\\\\\\"Bearer \\\\\\\"))\\\"}, {\\\"line\\\": 67, \\\"path\\\": \\\"inventory_lite/app.py\\\", \\\"text\\\": \\\"def require_owner(resource_workspace_id: str, workspace: Workspace) -> None:\\\"}, {\\\"line\\\": 83, \\\"path\\\": \\\"inventory_l\", \"pattern\": \"\\\\.get\\\\(|@app\\\\.(get|post|put|delete|patch)|require_owner\"}"
+        }
+      ]
+    },
+    {
+      "agent": "patch",
+      "step_key": "remediation:fnd_01M5R49JM6YH2JHM7RNDJGYGYY:patch",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 10,
+      "llm_turns": 6,
+      "tokens": 59300,
+      "usd": 0.006894,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 80, \"path\": \"inventory_lite/app.py\", \"start_line\": 55}",
+          "summary": "{\"content\": \"   55      def current_workspace(\\n   56          authorization: Annotated[str | None, Header()] = None,\\n   57          store: Store = Depends(get_store),\\n   58      ) -> Workspace:\\n   59          \\\"\\\"\\\"Resolve the bearer token to a workspace; 401 if missing or unknown.\\\"\\\"\\\"\\n   60          if not authoriz\", \"end_line\": 80, \"path\": \"inventory_lite/app.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 55}"
+        },
+        {
+          "name": "code.search",
+          "ok": false,
+          "error_code": "SCHEMA_INVALID",
+          "args": "{\"max_results\": 60, \"pattern\": \"def test_|^import|^from|fixture|def _\"}",
+          "summary": "{\"detail\": \"max_results: Input should be less than or equal to 50\", \"error\": \"SCHEMA_INVALID\"}"
+        },
+        {
+          "name": "code.search",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"max_results\": 50, \"pattern\": \"def test_|^import|^from|fixture\"}",
+          "summary": "{\"count\": 30, \"hits\": \"[{\\\"line\\\": 4, \\\"path\\\": \\\"README.md\\\", \\\"text\\\": \\\"fixture. Unlike `payments-lite`, it was authored *after* the platform's scripted\\\"}, {\\\"line\\\": 5, \\\"path\\\": \\\"README.md\\\", \\\"text\\\": \\\"fixtures were fixed \\\\u2014 nothing in the agent or check code is shaped around it \\\\u2014\\\"}, {\\\"line\\\": 21, \\\"path\\\": \\\"README.md\\\", \\\"text\", \"pattern\": \"def test_|^import|^from|fixture\"}"
+        },
+        {
+          "name": "code.read_span",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"end_line\": 80, \"path\": \"tests/test_api.py\", \"start_line\": 1}",
+          "summary": "{\"content\": \"    1  \\\"\\\"\\\"Intended-behavior tests for inventory-lite.\\\"\\\"\\\"\\n    2  \\n    3  from fastapi.testclient import TestClient\\n    4  \\n    5  from inventory_lite.app import create_app\\n    6  \\n    7  client = TestClient(create_app())\\n    8  ALICE = {\\\"Authorization\\\": \\\"[REDACTED]\\\"}\\n    9  BOB = {\\\"Authorization\\\": \\\"[\", \"end_line\": 47, \"path\": \"tests/test_api.py\", \"sha\": \"a2011ae5ed204891dea89b4ccbc557627cce02b3\", \"start_line\": 1}"
+        },
+        {
+          "name": "worktree.write_file",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"content\": \"\\\"\\\"\\\"Regression: GET /items/{id} must enforce workspace ownership.\\\"\\\"\\\"\\n\\nfrom fastapi.testclient import TestClient\\n\\nfrom inventory_lite.app import create_app\\n\\nclient = TestClient(create_app())\\nALICE = {\\\"Authorization\\\": \\\"[REDACTED]\\\"}\\nBOB = {\\\"Authorization\\\": \\\"[REDACTED]\\\"}\\n\\n\\ndef test_non_owner_cannot_read_item():\\n    r = client.get(\\\"/items/item_a1\\\", headers=BOB)\\n    assert r.status_code == 404\\n\\n\\ndef test_non_owner_response_matches_missing_item():\\n    denied = client.get(\\\"/items/item_a1\\\", headers=BOB)\\n    missing = client.get(\\\"/items/item_does_not_exist\\\", headers=BOB)\\n    assert denied.status_code == missing.status_code == 404\\n    assert denied.json() == missing.json()\\n\\n\\ndef test_owner_still_reads_own_item():\\n    r = client.get(\\\"/items/item",
+          "summary": "{\"action\": \"created\", \"bytes\": 858, \"lines\": 26, \"path\": \"tests/test_item_ownership.py\"}"
+        },
+        {
+          "name": "worktree.edit_file",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"new_string\": \"        it = store.items.get(item_id)\\n        if it is None:\\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n        require_owner(it.workspace_id, workspace)\\n        return item_out(store, it)\", \"old_string\": \"        it = store.items.get(item_id)\\n        if it is None:\\n            raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n        return item_out(store, it)\", \"path\": \"inventory_lite/app.py\"}",
+          "summary": "{\"action\": \"edited\", \"lines\": 164, \"path\": \"inventory_lite/app.py\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"added_tests_unpatched\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.434, \"errors\": 0, \"exit_code\": 1, \"failed\": 2, \"failing_tests\": \"[\\\"tests/test_item_ownership.py::test_non_owner_cannot_read_item\\\", \\\"tests/test_item_ownership.py::test_non_owner_response_matches_missing_item\\\"]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 1, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_item_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5R4B2KMJWSJFFE61F1G2EVA\", \"selection\": \"added_tests_unpatched\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"FF.                                                                      [100%]\\n=================================== FAILURES ===================================\\n_______________________ test_non_owner_cannot_read_item ________________________\\n\\n    def test_non_owner_cannot_read_item():\\n        r = cl\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"added_tests\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.418, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 3, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_item_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5R4B31CXVNW5NX7PJHAJ79M\", \"selection\": \"added_tests\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"...                                                                      [100%]\\n3 passed in 0.15s\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"project_suite\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.429, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 11, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests\\\"]\", \"sandbox_run_id\": \"sbx_01M5R4B3EN5Q6AFQYQ20Y3C5X4\", \"selection\": \"project_suite\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"...........                                                              [100%]\\n=============================== warnings summary ===============================\\ntests/test_api.py::test_transfer_capped_by_stock\\n  /Users/devin/repos/ari-ai/.venv/lib/python3.12/site-packages/fastapi/telemetry/_api.py:2\", \"timed_out\": false}"
+        },
+        {
+          "name": "worktree.diff",
+          "ok": true,
+          "error_code": null,
+          "args": "{}",
+          "summary": "{\"diff\": \"diff --git a/inventory_lite/app.py b/inventory_lite/app.py\\n--- a/inventory_lite/app.py\\n+++ b/inventory_lite/app.py\\n@@ -120,6 +120,7 @@\\n         it = store.items.get(item_id)\\n         if it is None:\\n             raise HTTPException(status.HTTP_404_NOT_FOUND, \\\"not found\\\")\\n+        require_owner(it.wor\", \"diff_sha256\": \"f6a8e9d60c62914f016378b9bb265ee1e52cb27889f59343b68f8990eaf04818\", \"files_changed\": \"[\\\"inventory_lite/app.py\\\", \\\"tests/test_item_ownership.py\\\"]\", \"lines\": 42}"
+        }
+      ]
+    },
+    {
+      "agent": "verify",
+      "step_key": "remediation:fnd_01M5R49JM6YH2JHM7RNDJGYGYY:verify",
+      "attempt": 1,
+      "status": "succeeded",
+      "model_id": "claude-haiku-5-5",
+      "provider_mode": "live",
+      "tool_calls": 5,
+      "llm_turns": 4,
+      "tokens": 20003,
+      "usd": 0.002613,
+      "error_code": null,
+      "error_detail": null,
+      "tool_trace": [
+        {
+          "name": "patch.apply_fresh",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"patch_id\": \"pat_01M5R4B9XRDEQX5BTNZRQTFSSA\"}",
+          "summary": "{\"applied\": true, \"apply_error\": \"\", \"diff_sha256\": \"f6a8e9d60c62914f016378b9bb265ee1e52cb27889f59343b68f8990eaf04818\", \"files_in_plan\": \"[\\\"inventory_lite/app.py\\\", \\\"tests/test_api.py\\\"]\", \"files_touched\": \"[\\\"inventory_lite/app.py\\\", \\\"tests/test_item_ownership.py\\\"]\", \"fresh_checkout\": true, \"new_test_files\": \"[\\\"tests/test_item_ownership.py\\\"]\", \"out_of_scope_files\": \"[]\", \"patch_id\": \"pat_01M5R4B9XRDEQX5BTNZRQTFSSA\", \"tampered_protected_tests\": \"[]\"}"
+        },
+        {
+          "name": "checks.run_template",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"parameters\": {\"other_identity\": \"alice\", \"owner_identity\": \"bob\", \"route_id\": \"item_detail\"}, \"target_id\": \"tgt_demo_target\", \"template_ref\": \"access_control.ownership@1\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.392, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"isolation_level\": \"process-dev:not-a-security-boundary\", \"matches_expectation\": true, \"network\": \"target-only\", \"parameters\": \"{\\\"other_identity\\\": \\\"alice\\\", \\\"owner_identity\\\": \\\"bob\\\", \\\"route_id\\\": \\\"item_detail\\\"}\", \"passed\": 2, \"profile\": \"check-runner\", \"route\": \"{\\\"id\\\": \\\"item_detail\\\", \\\"method\\\": \\\"GET\\\", \\\"path_template\\\": \\\"/items/{item_id}\\\"}\", \"sandbox_run_id\": \"sbx_01M5R4BDPV20WHNH9RTNZ3MXN7\", \"target_contacted\": false, \"target_log_sha256\": null, \"target_requests\": \"[]\", \"template_ref\": \"access_control.ownership@1\", \"timed_out\": false, \"transport\": \"inprocess\"}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"project_suite\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.409, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 11, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests\\\"]\", \"sandbox_run_id\": \"sbx_01M5R4BE3BDN7DEH3SRGFP84N0\", \"selection\": \"project_suite\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"...........                                                              [100%]\\n=============================== warnings summary ===============================\\ntests/test_api.py::test_transfer_capped_by_stock\\n  /Users/devin/repos/ari-ai/.venv/lib/python3.12/site-packages/fastapi/telemetry/_api.py:2\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": true,
+          "error_code": null,
+          "args": "{\"selection\": \"added_tests\"}",
+          "summary": "{\"driver\": \"local-process\", \"duration_s\": 0.383, \"errors\": 0, \"exit_code\": 0, \"failed\": 0, \"failing_tests\": \"[]\", \"failing_truncated\": false, \"isolation_level\": \"process-dev:not-a-security-boundary\", \"network\": \"none\", \"passed\": 3, \"profile\": \"test-runner\", \"pytest_args\": \"[\\\"-q\\\", \\\"tests/test_item_ownership.py\\\"]\", \"sandbox_run_id\": \"sbx_01M5R4BEG8Q7F5MJNGM8ENFND1\", \"selection\": \"added_tests\", \"skipped\": 0, \"stderr_tail\": \"\", \"stdout_tail\": \"...                                                                      [100%]\\n3 passed in 0.14s\", \"timed_out\": false}"
+        },
+        {
+          "name": "tests.run",
+          "ok": false,
+          "error_code": "UNPATCHED_UNAVAILABLE",
+          "args": "{\"selection\": \"added_tests_unpatched\"}",
+          "summary": "{\"detail\": \"only a patch worktree has unpatched code\", \"error\": \"UNPATCHED_UNAVAILABLE\"}"
+        }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "fnd_01M5R49JM6YH2JHM7RNDJGYGYY",
+      "title": "GET /items/{item_id} may not enforce item ownership, allowing one workspace to read another workspace's items",
+      "weakness_class": "CWE-639",
+      "status": "hardened",
+      "severity": "medium",
+      "validation_outcome": "confirmed",
+      "verdicts": [
+        "accepted"
+      ],
+      "patch_candidates": 1,
+      "patch_tests_added": [
+        "tests/test_item_ownership.py"
+      ],
+      "regression_tests": [
+        "tests/test_item_ownership.py"
+      ],
+      "notes": [
+        "agent claimed tests ['tests/test_item_ownership.py::test_non_owner_cannot_read_item', 'tests/test_item_ownership.py::test_non_owner_response_matches_missing_item', 'tests/test_item_ownership.py::test_owner_still_reads_own_item']; new test files are ['tests/test_item_ownership.py']",
+        "deviation: Regression tests were written to a new file tests/test_item_ownership.py instead of tests/test_api.py, because existing tests must not be edited.",
+        "deviation: The plan's test_other_identity_is_denied in .sandbox/test_generated_check.py was not run or modified. It is outside tests/ and not a writable path. The equivalent cross-workspace check is covered by test_non_owner_cannot_read_item.",
+        "verify specialist (ari-verify-evidence@1.1.0) rates the evidence 'test_weakened' (0.50); verdict unchanged, human review recommended"
+      ],
+      "standards": {
+        "cwe": "CWE-639",
+        "attack": [
+          "T1190"
+        ],
+        "d3fend": [
+          "D3-AMED"
+        ],
+        "cvss_vector": null,
+        "cvss_score": null,
+        "cvss_complete": false,
+        "cvss_missing": [
+          "VC"
+        ],
+        "exploit_status": "reproduced_in_sandbox",
+        "unmapped": [],
+        "catalog_versions": {
+          "attack": "20.0",
+          "d3fend": "1.6.0",
+          "cwe": "4.20",
+          "capec": "3.9",
+          "owasp_llm": "2025",
+          "owasp_llm2026": "2026",
+          "cvss": "4.0",
+          "nist_800_61": "Rev. 3",
+          "nist_csf": "2.0"
+        }
+      }
+    },
+    {
+      "finding_id": "fnd_01M5R49JM6EM75VTQQNJS8941K",
+      "title": "POST /transfers stock-bound check-then-insert may not be atomic, allowing concurrent requests to exceed item stock",
+      "weakness_class": "CWE-362",
+      "status": "inconclusive",
+      "severity": null,
+      "validation_outcome": "inconclusive",
+      "verdicts": [],
+      "patch_candidates": 0,
+      "patch_tests_added": [],
+      "regression_tests": [],
+      "notes": [],
+      "standards": {
+        "cwe": "CWE-362",
+        "attack": [],
+        "d3fend": [],
+        "cvss_vector": null,
+        "cvss_score": null,
+        "cvss_complete": false,
+        "cvss_missing": [
+          "AV",
+          "AC",
+          "AT",
+          "PR",
+          "UI",
+          "VC",
+          "VI",
+          "VA",
+          "SC",
+          "SI",
+          "SA"
+        ],
+        "exploit_status": "not_reproduced",
+        "unmapped": [
+          "attack: no executed check confirmed the hypothesis"
+        ],
+        "catalog_versions": {
+          "attack": "20.0",
+          "d3fend": "1.6.0",
+          "cwe": "4.20",
+          "capec": "3.9",
+          "owasp_llm": "2025",
+          "owasp_llm2026": "2026",
+          "cvss": "4.0",
+          "nist_800_61": "Rev. 3",
+          "nist_csf": "2.0"
+        }
+      }
+    }
+  ],
+  "usage": {
+    "input_tokens": 224876,
+    "output_tokens": 21867,
+    "usd": 0.03342109999999999,
+    "sandbox_seconds": 4.0809999999999995
+  },
+  "audit_actions": [
+    "assessment.transition",
+    "scope.checked",
+    "roe.issued",
+    "assessment.transition",
+    "assessment.transition",
+    "assessment.transition",
+    "specialist.inference",
+    "tests.baseline",
+    "agent.step",
+    "finding.hypothesis",
+    "finding.hypothesis",
+    "assessment.transition",
+    "specialist.inference",
+    "agent.step",
+    "finding.validation",
+    "finding.classified",
+    "specialist.inference",
+    "agent.step",
+    "finding.validation",
+    "finding.classified",
+    "assessment.transition",
+    "specialist.inference",
+    "specialist.inference",
+    "agent.step",
+    "agent.step",
+    "finding.severity",
+    "finding.classified",
+    "assessment.transition",
+    "finding.diagnosed",
+    "assessment.transition",
+    "approval.granted",
+    "assessment.transition",
+    "specialist.inference",
+    "specialist.inference",
+    "agent.step",
+    "agent.step",
+    "patch.candidate",
+    "tests.added_on_unpatched",
+    "agent.step",
+    "specialist.inference",
+    "finding.verification",
+    "assessment.transition",
+    "finding.classified",
+    "finding.hardened",
+    "assessment.transition",
+    "assessment.transition",
+    "assessment.completed"
+  ],
+  "specialist_inferences": [
+    {
+      "agent": "scout",
+      "model": "ari-scout-vulnclass@1.1.0",
+      "source": "model",
+      "top": "[{\"entry_point_id\": \"ent_get_health\", \"path\": \"inventory_lite/app.py\", \"lines\": [84, 85], \"suspicion\": 0.3743, \"likely_cwe\": \"CWE-862\", \"likely_cwe_score\": 0.1375}, {\"entry_point_id\": \"ent_get_transfers_transfer_id\", \"path\": \"inventory_lite/app.py\", \"lines\": [146, 158], \"suspicion\": 0.0019, \"likely_cwe\": \"CWE-639\", \"likely_cwe_score\": 0.0011}, {\"entry_point_id\": \"ent_get_items_item_id\", \"path\": \"inventory_lite/app.py\", \"lines\": [114, 123], \"suspicion\": 0.0016, \"likely_cwe\": \"CWE-639\", \"likely_cwe_score\": 0.001}, {\"entry_point_id\": \"ent_get_items\", \"path\": \"inventory_lite/app.py\", \"lines\": [105, 111], \"suspicion\": 0.0009, \"likely_cwe\": \"CWE-639\", \"likely_cwe_score\": 0.0004}, {\"entry_point_id\": \"ent_get_me\", \"path\": \"inventory_lite/app.py\", \"lines\": [88, 89], \"suspicion\": 0.0002, \"likely_cwe\": \"CWE-916\", \"likely_cwe_score\": 0.0001}]",
+      "latency_ms": null,
+      "reason": null
+    },
+    {
+      "agent": "probe",
+      "model": "ari-probe-strategy@1.1.0",
+      "source": "model",
+      "top": "WSTG-ATHZ-04",
+      "latency_ms": 1.626,
+      "reason": null
+    },
+    {
+      "agent": "probe",
+      "model": "ari-probe-strategy@1.1.0",
+      "source": "model",
+      "top": "WSTG-ATHN-02",
+      "latency_ms": 1.841,
+      "reason": null
+    },
+    {
+      "agent": "trace",
+      "model": "ari-trace-tactics@1.1.0",
+      "source": "baseline:prior_top3",
+      "top": "privilege-escalation",
+      "latency_ms": 0.008,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "diagnose",
+      "model": "ari-diagnose-rootcause@1.1.0",
+      "source": "model",
+      "top": "missing_check",
+      "latency_ms": 4.393,
+      "reason": null
+    },
+    {
+      "agent": "fortify",
+      "model": "ari-fortify-d3fend@1.1.0",
+      "source": "baseline:tactic_frequency",
+      "top": "D3-AA",
+      "latency_ms": 0.004,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "patch",
+      "model": "ari-patch-strategy@1.1.0",
+      "source": "baseline:cwe_lookup",
+      "top": "add_ownership_predicate",
+      "latency_ms": 0.006,
+      "reason": "model did not beat this baseline on held-out data"
+    },
+    {
+      "agent": "verify",
+      "model": "ari-verify-evidence@1.1.0",
+      "source": "model",
+      "top": "test_weakened",
+      "latency_ms": 4.164,
+      "reason": null
+    }
+  ],
+  "error_code": null,
+  "error_detail": null
+}

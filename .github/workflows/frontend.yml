@@ -1,14 +1,18 @@
 name: frontend
 
+# Release gate: runs on every PR and push to main so `static-and-unit` and `e2e`
+# always report; the gate step skips suite steps on unrelated diffs and marks
+# the check SKIPPED in the job summary — a skip is never silent.
 on:
   pull_request:
-    paths: ["frontend/**", "shared/generated/**", "backend/**", "rl-defense/results/**", "rl-defense/fixtures/defense_lab.schema.json", ".github/workflows/frontend.yml"]
   push:
     branches: [main]
-    paths: ["frontend/**", "shared/generated/**", "backend/**", "rl-defense/results/**", "rl-defense/fixtures/defense_lab.schema.json", ".github/workflows/frontend.yml"]
 
 permissions:
   contents: read
+
+env:
+  GATE_GLOBS: "frontend/**,shared/generated/**,backend/**,rl-defense/results/**,rl-defense/fixtures/defense_lab.schema.json,.github/workflows/frontend.yml"
 
 jobs:
   static-and-unit:
@@ -19,20 +23,36 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        working-directory: ${{ github.workspace }}
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.gate.outputs.run == 'true'
         with:
           node-version: "24"
       - name: Transport (build + node tests against generated contracts)
+        if: steps.gate.outputs.run == 'true'
         run: npm ci --prefix transport && npm test --prefix transport
       - name: Install app
+        if: steps.gate.outputs.run == 'true'
         run: npm ci
       - name: ESLint
+        if: steps.gate.outputs.run == 'true'
         run: npm run lint
       - name: Strict TypeScript
+        if: steps.gate.outputs.run == 'true'
         run: npm run typecheck
       - name: Unit tests (Vitest)
+        if: steps.gate.outputs.run == 'true'
         run: npm test
       - name: Production build
+        if: steps.gate.outputs.run == 'true'
         run: npm run build
 
   e2e:
@@ -56,21 +76,34 @@ jobs:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Release gate — does this suite apply to the diff?
+        id: gate
+        run: >-
+          python3 scripts/ci/path_gate.py
+          --base "${{ github.event.pull_request.base.sha || github.event.before }}"
+          --globs "$GATE_GLOBS"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.gate.outputs.run == 'true'
         with:
           node-version: "24"
       - name: Install uv
+        if: steps.gate.outputs.run == 'true'
         run: python3 -m pip install --user "uv==0.11.28"
       - name: Install locked Python workspace
+        if: steps.gate.outputs.run == 'true'
         run: ~/.local/bin/uv sync --frozen --all-packages
       - name: Install transport and app
+        if: steps.gate.outputs.run == 'true'
         working-directory: frontend
         run: npm ci --prefix transport && npm run build --prefix transport && npm ci && npx playwright install --with-deps chromium
       - name: Browser e2e against the real stack
+        if: steps.gate.outputs.run == 'true'
         working-directory: frontend
         run: ../.venv/bin/python tests/e2e/stack.py
       - name: Upload Playwright report
-        if: failure()
+        if: failure() && steps.gate.outputs.run == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report

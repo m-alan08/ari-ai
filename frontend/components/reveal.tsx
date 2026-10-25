@@ -16,6 +16,9 @@ export function useRevealOnScroll<T extends HTMLElement>(): RefObject<T | null> 
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const box = el.getBoundingClientRect();
     if (box.top < window.innerHeight) return; // already on screen: no entrance
+    // Same end-of-document guard as Reveal: never hide what can never enter view.
+    const maxScroll = Math.max(0, (document.scrollingElement?.scrollHeight ?? 0) - window.innerHeight);
+    if (box.top + window.scrollY - maxScroll > window.innerHeight * 0.9) return;
     el.dataset.reveal = 'hidden';
     const io = new IntersectionObserver(entries => {
       if (!entries.some(e => e.isIntersecting)) return;
@@ -41,7 +44,12 @@ export function Reveal({ children, delay = 0, className = '' }: { children: Reac
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    if (el.getBoundingClientRect().top < window.innerHeight) return; // already visible
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight) return; // already visible
+    // An element at the document's end can never rise above the shrunken bottom margin:
+    // hiding it would keep it invisible forever.
+    const maxScroll = Math.max(0, (document.scrollingElement?.scrollHeight ?? 0) - window.innerHeight);
+    if (rect.top + window.scrollY - maxScroll > window.innerHeight * 0.9) return;
     el.dataset.shown = 'false';
     const io = new IntersectionObserver(
       entries => {

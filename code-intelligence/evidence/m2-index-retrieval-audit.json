@@ -1,0 +1,343 @@
+{
+  "audit_date": "2026-10-24",
+  "commit_sha": "7a5b329fe03314e89ebd60ccb40ef6a92ae1c825",
+  "redaction_reproduction": {
+    "main": {
+      "broken_after_redact": 38,
+      "line_count_changes": 2,
+      "corpus": "582 tracked .py files at 64bb24a2"
+    },
+    "pr_441": {
+      "broken_after_redact": 0,
+      "line_count_changes": 0
+    },
+    "missed_literal_secrets_on_pr": 0,
+    "over_redaction_delta_lines": 104
+  },
+  "indexes": {
+    "payments_lite": {
+      "target": "/Users/devin/repos/ari-ai",
+      "prefix": "examples/payments-lite/target",
+      "sha": "7a5b329fe03314e89ebd60ccb40ef6a92ae1c825",
+      "index_version": "python-ast-ts/0.3.1+profile.20ff1265a23bc3ee167eefc2f5eff2ac",
+      "snapshot_id": "snp_dfcdae989fa7b0d59c4b9d921c97a40b",
+      "elapsed_s": 0.32,
+      "py_heap_peak_mb": 2.2,
+      "rss_delta_mb": 4.5,
+      "store_bytes": 135168,
+      "stats": {
+        "files": 8,
+        "symbols": 45,
+        "call_edges": 114,
+        "entry_points": 8,
+        "expectations": 49
+      },
+      "ground_truth": {
+        "py_files": 6,
+        "defs": 30,
+        "classes": 9,
+        "imports": 25,
+        "calls": 109,
+        "route_decs": 8
+      },
+      "issues_count": 1,
+      "issues_by_reason": {
+        "unsupported format": 1
+      },
+      "retained": {
+        "files": "8/6+text",
+        "symbols_vs_defs+classes+modules": "45/39",
+        "imports": "25/25",
+        "call_edges": "114/109 raw calls",
+        "routes": "8/8 route decorators",
+        "expectations": 49
+      }
+    },
+    "backend_prefix": {
+      "target": "/Users/devin/repos/ari-ai",
+      "prefix": "backend",
+      "sha": "7a5b329fe03314e89ebd60ccb40ef6a92ae1c825",
+      "index_version": "python-ast-ts/0.3.1+profile.34a20310fd53ad5befd024bbb7e107e7",
+      "snapshot_id": "snp_6e00cb4f262ff6fc7db79460a78e798a",
+      "elapsed_s": 4.11,
+      "py_heap_peak_mb": 81.6,
+      "rss_delta_mb": 145.3,
+      "store_bytes": 4079616,
+      "stats": {
+        "files": 127,
+        "symbols": 1147,
+        "call_edges": 7445,
+        "entry_points": 97,
+        "expectations": 780
+      },
+      "ground_truth": {
+        "py_files": 123,
+        "defs": 956,
+        "classes": 68,
+        "imports": 2010,
+        "calls": 10823,
+        "route_decs": 99
+      },
+      "issues_count": 4,
+      "issues_by_reason": {
+        "unsupported format": 2,
+        "Route decorator @get at line 296 on backend.live_defense.owned_test_app.create_app.fixture_payment uses a non-literal path (FIXTURE_ROUTE); route not indexed": 1,
+        "Route decorator @post at line 300 on backend.live_defense.owned_test_app.create_app.control uses a non-literal path (CONTROL_PATH); route not indexed": 1
+      },
+      "retained": {
+        "files": "127/123+text",
+        "symbols_vs_defs+classes+modules": "1147/1024",
+        "imports": "2010/2010",
+        "call_edges": "7445/10823 raw calls",
+        "routes": "97/99 route decorators",
+        "expectations": 780
+      }
+    },
+    "ari_ai_full": {
+      "target": "/Users/devin/repos/ari-ai",
+      "prefix": "",
+      "sha": "7a5b329fe03314e89ebd60ccb40ef6a92ae1c825",
+      "index_version": "python-ast-ts/0.3.1",
+      "snapshot_id": "snp_95ea8bf1ec50f68ea02b580af01c5c92",
+      "elapsed_s": 92.41,
+      "py_heap_peak_mb": 617.3,
+      "rss_delta_mb": 836.7,
+      "store_bytes": 38600704,
+      "stats": {
+        "files": 1798,
+        "symbols": 5585,
+        "call_edges": 26844,
+        "entry_points": 107,
+        "expectations": 10963
+      },
+      "ground_truth": {
+        "py_files": 563,
+        "defs": 4324,
+        "classes": 698,
+        "imports": 7901,
+        "calls": 37383,
+        "route_decs": 109
+      },
+      "issues_count": 1048,
+      "issues_by_reason": {
+        "unsupported format": 963,
+        "sensitive or generated file": 3,
+        "binary or generated content": 4,
+        "oversized file": 60,
+        "ignored at pinned SHA": 18
+      },
+      "retained": {
+        "files": "1798/563+text",
+        "symbols_vs_defs+classes+modules": "5585/5022",
+        "imports": "7901/7901",
+        "call_edges": "26844/37383 raw calls",
+        "routes": "107/109 route decorators",
+        "expectations": 10963
+      }
+    }
+  },
+  "labeled_retrieval": {
+    "payments-lite": [
+      {
+        "focus": [
+          "read payment by id",
+          "/payments/{payment_id}"
+        ],
+        "required": 2,
+        "recalled": 2,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 22751,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "create refund",
+          "/refunds"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "payments_lite.app.create_app.require_owner"
+        ],
+        "chunks": 11,
+        "token_count": 23510,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "bearer token authentication",
+          "current_customer"
+        ],
+        "required": 1,
+        "recalled": 1,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 23701,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "list my payments",
+          "list_payments"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "payments_lite.app.create_app.payment_out"
+        ],
+        "chunks": 12,
+        "token_count": 23935,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "amount positive two decimals",
+          "PaymentIn"
+        ],
+        "required": 2,
+        "recalled": 2,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 23222,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "own profile only",
+          "/customers/{customer_id}"
+        ],
+        "required": 2,
+        "recalled": 2,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 23531,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "health endpoint",
+          "/health"
+        ],
+        "required": 1,
+        "recalled": 1,
+        "missing": [],
+        "chunks": 3,
+        "token_count": 6372,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "refund visible to owner",
+          "get_refund"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "payments_lite.app.create_app.require_owner"
+        ],
+        "chunks": 12,
+        "token_count": 23877,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "refund bounds test",
+          "test_refund_larger_than_payment_rejected"
+        ],
+        "required": 1,
+        "recalled": 1,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 22569,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "seeded store tokens",
+          "Store"
+        ],
+        "required": 2,
+        "recalled": 2,
+        "missing": [],
+        "chunks": 8,
+        "token_count": 15800,
+        "budget": 24000
+      }
+    ],
+    "ari-ai": [
+      {
+        "focus": [
+          "webhook signature verification",
+          "verify_signature"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "backend.github.sign"
+        ],
+        "chunks": 12,
+        "token_count": 23555,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "expectation decision endpoint",
+          "decide_expectation"
+        ],
+        "required": 1,
+        "recalled": 0,
+        "missing": [
+          "code_intelligence.api.IntelligenceService.decide_expectation"
+        ],
+        "chunks": 11,
+        "token_count": 23868,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "redact secrets before storing",
+          "redact"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "code_intelligence.privacy.redact_evidence"
+        ],
+        "chunks": 12,
+        "token_count": 23586,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "build context pack for agents",
+          "build_context_pack"
+        ],
+        "required": 2,
+        "recalled": 1,
+        "missing": [
+          "code_intelligence.retrieval.build_pack"
+        ],
+        "chunks": 10,
+        "token_count": 23369,
+        "budget": 24000
+      },
+      {
+        "focus": [
+          "health readiness route",
+          "readyz"
+        ],
+        "required": 1,
+        "recalled": 1,
+        "missing": [],
+        "chunks": 11,
+        "token_count": 23206,
+        "budget": 24000
+      }
+    ]
+  },
+  "notes": {
+    "call_edges_include_depends": "Depends()/Security() args recorded as extra edges; edge count can exceed raw call sites",
+    "route_coverage": "routes + 'Route decorator' IndexIssues == ground-truth route decorators; none silently dropped post-fix"
+  }
+}

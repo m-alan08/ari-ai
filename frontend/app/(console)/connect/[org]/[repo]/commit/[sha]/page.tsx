@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { CommitAnalysis } from '@/components/demo/commit-analysis';
-import { CommitRunWorkspace } from '@/components/commit-run-workspace';
+import { CommitRunWorkspace, type LiveCommitView } from '@/components/commit-run-workspace';
+import { ProjectReviewCta } from '@/components/project-review-cta';
 import { RealAssessmentPanel } from '@/components/real-assessment-panel';
+import { Avatar, VerdictChip } from '@/components/demo/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui';
 import type { DemoCommit, DemoRepo } from '@/lib/demo/data';
 import type { LiveResult } from '@/lib/live-analysis';
+import { relativeTime } from '@/lib/format';
 import { minutesSince } from '@/lib/simulated-attack';
 import { useAccessibleRepo } from '@/lib/real-repo';
 import { useResource } from '@/lib/use-resource';
@@ -32,38 +34,65 @@ function SelectedCommit({ org, name, sha, repo, onConnected }: {
 }) {
   const [connectedRepoId, setConnectedRepoId] = useState(repo.connected_repo_id);
   const metadata = useResource(connectedRepoId ? `selected-commit:${connectedRepoId}:${sha}` : null, signal => api().repositoryCommits(connectedRepoId!, { signal }));
-  const selectedCommit = metadata.data?.items.find(commit => commit.sha === sha);
+  const selectedCommit = metadata.data?.items.find(commit => commit.sha === sha || commit.sha.startsWith(sha));
+  const fullSha = selectedCommit?.sha ?? sha;
   const [assessmentId, setAssessmentId] = useState<string | null>(null);
-  const [request, setRequest] = useState(0);
+  // The quick read starts on arrival: it is the page's code review, not an opt-in extra.
+  const [request, setRequest] = useState(1);
   const [quick, setQuick] = useState<QuickRead | null>(null);
-  const identity = `${repo.full_name}:${sha}:${request}`;
+  const identity = `${repo.full_name}:${fullSha}:${request}`;
   useEffect(() => {
     if (!request) return;
     const ctrl = new AbortController();
-    fetch('/api/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ repo: repo.full_name, sha }), signal: ctrl.signal })
+    fetch('/api/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ repo: repo.full_name, sha: fullSha }), signal: ctrl.signal })
       .then(async res => {
         const body = await res.json().catch(() => null);
         if (!res.ok) throw new Error(body?.error?.message ?? `Quick read failed (${res.status}).`);
-        if (body.commit.sha !== sha) throw new Error('The response does not match this commit.');
+        // fullSha may be a short prefix from the URL before the commit list resolves it.
+        if (!body.commit.sha.startsWith(fullSha)) throw new Error('The response does not match this commit.');
         if (!ctrl.signal.aborted) setQuick({ key: identity, data: body as LiveResult });
       }).catch((err: unknown) => { if (!ctrl.signal.aborted) setQuick({ key: identity, error: err instanceof Error ? err.message : 'Quick read failed.' }); });
     return () => ctrl.abort();
-  }, [request, repo.full_name, sha, identity]);
+  }, [request, repo.full_name, fullSha, identity]);
   const live = quick?.key === identity ? quick : null;
-  const view = useMemo(() => {
+  const view = useMemo<LiveCommitView | null>(() => {
     if (!live?.data) return null;
     const data = live.data;
-    const commit: DemoCommit = { sha, message: data.commit.message, body: data.commit.body, author: data.commit.author, minutesAgo: minutesSince(data.commit.committedAt), branch: repo.default_branch, ci: 'pending', verdict: data.verdict, scenario: 'clean', files: data.commit.files, additions: data.commit.additions, deletions: data.commit.deletions };
+    const commit: DemoCommit = { sha: fullSha, message: data.commit.message, body: data.commit.body, author: data.commit.author, minutesAgo: minutesSince(data.commit.committedAt), branch: repo.default_branch, ci: 'pending', verdict: data.verdict, scenario: 'clean', files: data.commit.files, additions: data.commit.additions, deletions: data.commit.deletions };
     const demoRepo: DemoRepo = { org, name, description: '', language: '', visibility: repo.private ? 'private' : 'public', defaultBranch: repo.default_branch, stars: 0, components: data.components, links: data.links, commits: [commit] };
     return { commit, repo: demoRepo, analysis: data.analysis, live: { model: data.model, truncated: data.truncated, htmlUrl: data.commit.htmlUrl } };
-  }, [live, sha, repo.default_branch, repo.private, org, name]);
+  }, [live, fullSha, repo.default_branch, repo.private, org, name]);
+  const liveState = live?.error
+    ? { status: 'error' as const, error: live.error, retry: () => setRequest(n => n + 1) }
+    : view ? { status: 'ready' as const, retry: () => setRequest(n => n + 1) }
+      : { status: 'loading' as const, retry: () => setRequest(n => n + 1) };
+  const data = live?.data;
+  const htmlUrl = data?.commit.htmlUrl ?? selectedCommit?.html_url;
+  const title = data?.commit.message ?? selectedCommit?.message ?? `Commit ${fullSha.slice(0, 7)}`;
+  const author = data?.commit.author ?? selectedCommit?.author;
+  const when = data?.commit.committedAt ?? selectedCommit?.committed_at;
   const base = `/connect/${encodeURIComponent(org)}/${encodeURIComponent(name)}`;
   return <div className="commit-stage" data-testid="real-commit">
     <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-2 text-sm text-white/65">
-      <Link href="/connect">Organizations</Link><span aria-hidden="true">/</span><Link href={`/connect/${encodeURIComponent(org)}`}>{org}</Link><span aria-hidden="true">/</span><Link href={base}>{name}</Link><span aria-hidden="true">/</span><span>{sha.slice(0, 7)}</span>
+      <Link href="/connect">Organizations</Link><span aria-hidden="true">/</span><Link href={`/connect/${encodeURIComponent(org)}`}>{org}</Link><span aria-hidden="true">/</span><Link href={base}>{name}</Link><span aria-hidden="true">/</span><span>{fullSha.slice(0, 7)}</span>
     </nav>
-    <header className="workspace-heading commit-heading mb-6"><p className="workspace-eyebrow">{repo.full_name} / {sha.slice(0, 7)}</p><h1 className="mt-3 text-3xl font-semibold">{selectedCommit?.message ?? `Commit ${sha.slice(0, 7)}`}</h1><p className="mt-2 text-sm text-white/60">Code review, seven agents, and recorded replay for this change.</p>{selectedCommit?.html_url && /^https?:\/\//.test(selectedCommit.html_url) && <a className="mt-3 inline-block text-xs text-white/65 underline" href={selectedCommit.html_url} target="_blank" rel="noreferrer">View commit on GitHub ↗</a>}</header>
-    <RealAssessmentPanel org={org} repo={{ ...repo, connected_repo_id: connectedRepoId }} sha={sha} onConnected={id => { setConnectedRepoId(id); onConnected(); }} onRunSelected={setAssessmentId} />
-    <CommitRunWorkspace assessmentId={assessmentId} repoId={connectedRepoId} sha={sha} fullName={repo.full_name} quickRead={<details className="mt-6 border-t border-white/10 pt-4"><summary>Optional quick read</summary><p className="mt-3 text-xs text-white/55" data-testid="real-commit-provenance" title="The diff comes from GitHub. This is one Claude call, not an executed assessment.">Quick read · nothing executed</p><button type="button" className="mt-3 rounded-full bg-white/10 px-4 py-2 text-sm" disabled={request > 0 && !live} onClick={() => setRequest(n => n + 1)}>{request > 0 && !live ? 'Reading…' : 'Read this diff'}</button>{live?.error && <p role="alert" className="mt-3 text-sm">{live.error}</p>}{view && <div className="mt-4"><CommitAnalysis {...view} reviewOnly /></div>}</details>} />
+    <header className="workspace-heading commit-heading mb-6">
+      <p className="workspace-eyebrow">{repo.full_name} / {fullSha.slice(0, 7)}</p>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+        <h1 className="max-w-2xl text-3xl font-semibold">{title}</h1>
+        {data && <VerdictChip verdict={data.verdict} />}
+      </div>
+      <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white/60">
+        {author && <span className="inline-flex items-center gap-2"><Avatar login={author} size={20} />{author}</span>}
+        {when && <span>{relativeTime(when)}</span>}
+        {data && <span className="demo-chip demo-chip-ok">+{data.commit.additions}</span>}
+        {data && <span className="demo-chip demo-chip-bad">−{data.commit.deletions}</span>}
+        {data && <span>{data.commit.files} file{data.commit.files === 1 ? '' : 's'}</span>}
+        {htmlUrl && /^https?:\/\//.test(htmlUrl) && <a className="underline" href={htmlUrl} target="_blank" rel="noreferrer">View on GitHub ↗</a>}
+      </p>
+    </header>
+    <div className="mb-4"><ProjectReviewCta repoId={connectedRepoId} /></div>
+    <RealAssessmentPanel org={org} repo={{ ...repo, connected_repo_id: connectedRepoId }} sha={fullSha} onConnected={id => { setConnectedRepoId(id); onConnected(); }} onRunSelected={setAssessmentId} />
+    <CommitRunWorkspace assessmentId={assessmentId} repoId={connectedRepoId} sha={fullSha} fullName={repo.full_name} liveView={view} liveState={liveState} />
   </div>;
 }

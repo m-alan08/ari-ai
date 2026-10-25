@@ -18,7 +18,9 @@ import sys
 
 import sqlalchemy as sa
 
-TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "BUDGET_EXHAUSTED"}
+# UNSCORED is a case-verdict state (missing case fields), not an assessment state
+# the API can emit — it only keeps malformed cases from counting as pending.
+TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "BUDGET_EXHAUSTED", "UNSCORED"}
 VALIDATED = {
     "validated",
     "diagnosed",
@@ -40,22 +42,47 @@ def _engine() -> sa.Engine:
 
 
 def score_case(case: dict, assessment: dict | None, findings: list[dict]) -> dict:
-    out = {"case_id": case["id"], "kind": case["kind"], "cwe": case.get("cwe")}
+    """A case is only *scored* when its assessment COMPLETED and the case is well
+    formed. Anything else returns ``scored: False`` + ``unscored_reason`` and no
+    verdict fields — a failed or pending run must never read as a clean miss."""
+    out = {"case_id": case.get("id"), "kind": case.get("kind"), "cwe": case.get("cwe")}
+    missing = [k for k in ("id", "kind", "files") if not case.get(k)]
+    if missing:
+        return {
+            **out,
+            "state": "UNSCORED",
+            "scored": False,
+            "unscored_reason": f"case missing fields: {', '.join(missing)}",
+        }
     if assessment is None:
-        return {**out, "state": "NOT_STARTED"}
+        return {
+            **out,
+            "state": "NOT_STARTED",
+            "scored": False,
+            "unscored_reason": "no assessment found for the pushed sha",
+        }
+    detail = {
+        **out,
+        "assessment_id": assessment["id"],
+        "state": assessment["state"],
+        "seconds": assessment.get("seconds"),
+        "usd": assessment.get("usd"),
+    }
+    if assessment["state"] != "COMPLETED":
+        return {**detail, "scored": False, "unscored_reason": f"assessment ended {assessment['state']}"}
     files = set(case["files"])
     on_files = [
         f for f in findings if f["kind"] == "security" and files & {p.split(":")[0] for p in f["paths"]}
     ]
+    any_files = [f for f in findings if files & {p.split(":")[0] for p in f["paths"]}]
     return {
-        **out,
-        "assessment_id": assessment["id"],
-        "state": assessment["state"],
-        "seconds": assessment["seconds"],
-        "usd": assessment["usd"],
+        **detail,
+        "scored": True,
         "flagged": bool(on_files),
         "validated": any(f["status"] in VALIDATED for f in on_files),
         "fixed": any(f["status"] in FIXED for f in on_files),
+        "validated_any": any(f["status"] in VALIDATED for f in any_files),
+        "fixed_any": any(f["status"] in FIXED for f in any_files),
         "findings": [
             {"kind": f["kind"], "status": f["status"], "title": f["title"][:120], "cwe": f["cwe"]}
             for f in findings
@@ -88,7 +115,7 @@ def main() -> int:
                 {
                     "id": row["id"],
                     "state": row["state"],
-                    "seconds": round(float(row["seconds"])),
+                    "seconds": round(float(row["seconds"] or 0)),
                     "usd": float(row["usd"] or 0),
                 }
                 if row
@@ -101,11 +128,18 @@ def main() -> int:
                     {"a": assessment["id"]},
                 ).mappings():
                     std = (f["doc"] or {}).get("standards") or {}
+                    # a NULL paths column falls back to source_span evidence,
+                    # matching score_api.py
+                    paths = f["paths"] or [
+                        e.get("path")
+                        for e in (f["doc"] or {}).get("evidence") or []
+                        if e.get("kind") == "source_span" and e.get("path")
+                    ]
                     findings.append(
                         {
                             "kind": f["kind"],
                             "status": f["status"],
-                            "paths": [str(p) for p in f["paths"] or []],
+                            "paths": [str(p) for p in paths],
                             "title": str((f["doc"] or {}).get("title") or ""),
                             "cwe": (std.get("cwe") or {}).get("id"),
                         }

@@ -100,8 +100,9 @@ by FastAPI is the source for frontend client generation.
 ### Ops
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/healthz` | Liveness |
-| GET | `/readyz` | DB + queue reachable |
+| GET | `/healthz` | Liveness (`git_sha`, `schema_version`) |
+| GET | `/readyz` | Readiness: db/queue/worker-heartbeats + per-capability assessment readiness (`capabilities_ready`, 503 on `not_ready`/`degraded`) |
+| GET | `/diagnostics` | `/readyz` + verified GitHub App call, sandbox SDK/daemon detail, migration head vs `alembic_version`, queue counts, worker rows |
 | GET | `/audit?project_id=&limit=&cursor=` | Audit log (owners), newest first; `next_cursor` = last `seq` when older exist; chain verification covers the whole org |
 
 ## SSE event shape
@@ -114,8 +115,12 @@ Event types: `assessment.state_changed`, `assessment.progress`, `finding.updated
 `approval.requested`, `assessment.completed`, `assessment.failed`.
 
 ## Rate limits (MVP)
-Per user: 60 req/min general; 5 assessment starts/hour. Webhooks: 100/min per
-installation. Implemented in-process (no Redis) for MVP.
+Per user: 60 req/min general. Shared project quotas allow 10 assessments per rolling
+hour and 50 per rolling day across every trigger; the global daily spend cap is $50
+across all projects and triggers. Manual starts blocked by a quota return 429
+`RATE_LIMITED` with a reset time. Automatic starts blocked by a quota are recorded
+as skipped and are not queued or retried. Webhooks are limited to 100/min per
+installation. General API and webhook limiters are in-process (no Redis) for MVP.
 
 ## Not in the API by design
 - No endpoint executes arbitrary commands or accepts code to run.
