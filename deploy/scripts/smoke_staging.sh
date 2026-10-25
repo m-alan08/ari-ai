@@ -61,8 +61,12 @@ else
   else FAIL=$((FAIL+1)); echo "FAIL ops status open without token ($OPS_CODE)"; fi
 fi
 
-# --- OpenAPI reachable (proves app booted fully) ---
-check "openapi.json served" 200 "$(code "$BASE/api/openapi.json")"
+# --- OpenAPI: served (dev) or dev-gated to 404 (pilot hardening) — both are valid;
+# anything else means the app didn't boot fully. ---
+OC="$(code "$BASE/api/openapi.json")"
+if [ "$OC" = "200" ] || [ "$OC" = "404" ]; then
+  PASS=$((PASS+1)); echo "PASS openapi.json served-or-gated ($OC)"
+else FAIL=$((FAIL+1)); echo "FAIL openapi.json served-or-gated expected=200-or-404 actual=$OC"; fi
 
 echo "---"
 echo "smoke: $PASS passed, $FAIL failed ($BASE)"

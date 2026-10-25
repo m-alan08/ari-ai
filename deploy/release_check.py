@@ -41,6 +41,17 @@ def get_json(url: str, headers: dict[str, str] | None = None) -> tuple[int, dict
             return e.code, {}
 
 
+def req_status(url: str, method: str = "GET") -> tuple[int, dict]:
+    req = urllib.request.Request(url, method=method, data=b"{}" if method != "GET" else None)
+    if method != "GET":
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, {}
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+
+
 def check_ci() -> None:
     gh = subprocess.run(["which", "gh"], capture_output=True)
     if gh.returncode != 0:
@@ -160,20 +171,37 @@ def check_http(base: str, ops_token: str | None) -> None:
 
 def check_controls(base: str) -> None:
     code, body = get_json(f"{base}/api/openapi.json")
-    if code != 200:
-        report("SKIP", "cancellation and emergency-stop surface", f"openapi -> {code}")
+    if code == 200:
+        paths = " ".join(body.get("paths", {}).keys())
+        report(
+            "PASS" if "emergency-stop" in paths else "FAIL",
+            "emergency-stop endpoint",
+            "present in API" if "emergency-stop" in paths else "absent",
+        )
+        report(
+            "PASS" if "cancel" in paths else "WARN",
+            "cancellation endpoint",
+            "present in API" if "cancel" in paths else "not found",
+        )
         return
-    paths = " ".join(body.get("paths", {}).keys())
-    report(
-        "PASS" if "emergency-stop" in paths else "FAIL",
-        "emergency-stop endpoint",
-        "present in API" if "emergency-stop" in paths else "absent",
-    )
-    report(
-        "PASS" if "cancel" in paths else "WARN",
-        "cancellation endpoint",
-        "present in API" if "cancel" in paths else "not found",
-    )
+    # OpenAPI is dev-gated by pilot hardening: probe the real routes instead.
+    # An auth rejection (401/403) proves the route is mounted; 404 means absent.
+    for label, method, path, warn_only in (
+        (
+            "emergency-stop endpoint",
+            "GET",
+            "/api/v1/projects/release-check-probe/emergency-stop",
+            False,
+        ),
+        ("cancellation endpoint", "POST", "/api/v1/assessments/release-check-probe/cancel", True),
+    ):
+        code, _ = req_status(f"{base}{path}", method)
+        if code in (401, 403):
+            report("PASS", label, "mounted (unauthenticated request rejected)")
+        elif code == 404:
+            report("WARN" if warn_only else "FAIL", label, "route absent")
+        else:
+            report("WARN", label, f"probe -> {code}")
 
 
 def check_first_responder_db() -> None:

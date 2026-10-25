@@ -1,0 +1,72 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "bc49048432d02f9f9b25a9032197acfac35f9460",
+    "git_branch": "scratch/rc-rereview",
+    "schema_version": "0.26.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-25T04:15:12.478605+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_release_rereview.py::test_abrupt_process_death_during_provider_send_requires_recovery",
+      "outcome": "failed",
+      "duration_s": 0.521,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_release_rereview.py:44: AssertionError: assert 'queued' == 'recovery_required'",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_release_rereview.py::test_repo_picker_does_not_disclose_other_tenant_connection",
+      "outcome": "failed",
+      "duration_s": 0.055,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_release_rereview.py:68: AssertionError: assert 'rep_01M5RMA18Z7E3JHQ803A8YW065' is None",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_release_rereview.py::test_reconnect_refuses_stale_access_when_fresh_check_fails",
+      "outcome": "failed",
+      "duration_s": 0.067,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_release_rereview.py:113: AssertionError: {\"automatic_assessments\":false,\"id\":\"rep_01M5RMA1BSX6WQ2KTTQQB3T2CE\",\"project_id\":\"prj_01M5RMA1BMXA7GS7X5ZSBHQ1CD\",\"provider\":\"github\",\"full_name\":\"acme/payments\",\"default_branch\":\"main\",\"installation_id\":123,\"disconnected_at\":null,\"disconnected\":false,\"created_at\":\"2026-10-25T04:15:11.224675Z\"}",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_release_rereview.py::test_repository_disconnect_stops_next_provider_turn",
+      "outcome": "failed",
+      "duration_s": 0.261,
+      "failure_stage": "/Users/devin/repos/ari-ai/backend/tests/live_defense_e2e/test_release_rereview.py:138: AssertionError: provider turns after repository disconnect: 3",
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_release_rereview.py::test_job_api_does_not_expose_infrastructure_credentials",
+      "outcome": "passed",
+      "duration_s": 0.059,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

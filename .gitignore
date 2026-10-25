@@ -100,3 +100,9 @@ deploy/reports/
 scripts/rehearsal/bindings.json
 scripts/rehearsal/target-app/app/books.db
 scripts/rehearsal/target-app/.git
+
+# Database backup dumps (local restore drills)
+backups/
+
+# Generated release-readiness reports (deploy/release_readiness.py)
+deploy/reports/

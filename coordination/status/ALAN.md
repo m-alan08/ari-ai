@@ -568,3 +568,49 @@ staging profile: preflight PASS, smoke 15/15, release check 18/0 fail, backup→
 drill parity at head 0015, job_dead alert delivered redacted. Integration branch:
 #441+#458 merge + 348 tests pass; #412/#496 conflict — needs owner resolution.
 No migrations added, no first_responder.py or security-hardening files touched.
+
+## Pilot deployment + release ops — feat/alan/pilot-deployment-ops
+
+Ops track PR open for review (no merge without approval). Startup config preflight,
+Alembic-head check, token-gated ops/status (queue + worker leases + first-responder
+default), JSON logs with secret redaction, ALERT_WEBHOOK_URL critical alerting,
+FEATURE_FLAGS allowlist, compose resource bounds, db backup/restore scripts with
+RESTORE_CONFIRM gate, staging env template, smoke suite, release checklist runner,
+and integration_branch.sh for validating open PRs together. Verified live on local
+staging profile: preflight PASS, smoke 15/15, release check 18/0 fail, backup→restore
+drill parity at head 0015, job_dead alert delivered redacted. Integration branch:
+#441+#458 merge + 348 tests pass; #412/#496 conflict — needs owner resolution.
+No migrations added, no first_responder.py or security-hardening files touched.
+
+## Release readiness harness — feat/devin/release-validation
+
+Automated pilot release-readiness rehearsal, stacked on `feat/alan/pilot-deployment-ops`.
+`deploy/release_readiness.py` boots the real staging-profile stack on a scratch DB
+and proves 24 checks end-to-end (preflight gates, boot/drain, smoke, job exec,
+alert+redaction, SIGKILL crash recovery, backup→restore parity, authz/CSRF/estop
+gates, off-mode default, artifacts, release_check). First run: GO — 23 PASS /
+1 WARN (harness poll, fixed) / 0 FAIL. Also fixed `.gitignore` hiding
+`.env.staging.example`. Playwright real-stack: build verified, spec run in flight.
+Will re-run everything against the integration branch when it lands.
+
+Integration branch validated: `integration/2026-11-02-release` @ 4f845f4f passes
+the full readiness suite — GO, 25/25 (migrations to 0017, smoke 15/15, crash
+recovery, restore parity, authz/estop, alert redaction). One cross-PR defect
+found+fixed on my branch (openapi dev-gate vs smoke/release_check). My verdict
+matches theirs: infra GO; deploy stays NO-GO until Codex P1s F1/F2 land.
+
+Recomposition-2 (7cfba90f): one regression — worker.py lost the alerts import +
+send_alert calls (alerting dead). Fix on `fix/devin/alert-webhook-wiring`, GO
+25/25 verified. Integration session merging it.
+
+FINAL GATE GREEN: integration tip dd530ae3 passes release_readiness.py 25/25.
+Alert cherry-pick verified live. Readiness suite is now the repeatable pilot gate;
+re-run on any further recomposition.
+
+Upstream-reconciled tip 070f75a9 (head 0019, upstream ops/storage + heartbeat
+surface merged): release_readiness GO 25/25 unchanged. Gate still green.
+
+RC GATE GREEN: release_readiness.py GO 25/25 on RC SHA bc490484 (upstream
+580d2f67 reconciled — onboarding lifecycle, release-gate+dead-letter, intel
+audit + write-time redaction, ops-alias fix; head stays 0019). Gate stable
+across the entire reconciliation.
