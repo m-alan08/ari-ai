@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "description": "A queued first-responder job still waiting on its backoff window.",
+  "properties": {
+    "attempts": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "enqueued_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Enqueued At"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "maxLength": 500,
+      "title": "Kind",
+      "type": "string"
+    },
+    "run_after": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run After"
+    }
+  },
+  "required": [
+    "job_id",
+    "kind"
+  ],
+  "title": "WaitingJobView",
+  "type": "object"
+}

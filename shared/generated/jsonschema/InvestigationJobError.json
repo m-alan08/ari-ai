@@ -1,0 +1,100 @@
+{
+  "additionalProperties": false,
+  "description": "A recent persisted job error, redacted before it leaves the API.",
+  "properties": {
+    "agent": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent"
+    },
+    "at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "At"
+    },
+    "code": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Code"
+    },
+    "decision_id": {
+      "anyOf": [
+        {
+          "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Decision Id"
+    },
+    "invocation_id": {
+      "anyOf": [
+        {
+          "pattern": "^fri_[0-9A-Za-z_\\-]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Invocation Id"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "maxLength": 500,
+      "title": "Kind",
+      "type": "string"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    }
+  },
+  "required": [
+    "job_id",
+    "kind"
+  ],
+  "title": "InvestigationJobError",
+  "type": "object"
+}

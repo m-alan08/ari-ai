@@ -29,6 +29,7 @@ from shared.base import CommitSha, Sha256Hex, ShortText, StrictModel, UtcDatetim
 from shared.ids import (
     AnalystHandoffId,
     AnalystReviewId,
+    ArtifactId,
     ConnectedApplicationId,
     ControlChannelId,
     ControlGrantId,
@@ -48,7 +49,7 @@ from shared.ids import (
     RepositoryId,
     UserId,
 )
-from shared.monitoring import PrincipalRef, RuntimeSource
+from shared.monitoring import MonitoringEvent, PrincipalRef, RuntimeSource
 from shared.rl import ActionScore, DefenseActionName, NodeName
 
 
@@ -978,3 +979,181 @@ class AnalystHandoff(StrictModel):
         if self.threat_confirmed and self.confirmation is not ConfirmationState.confirmed:
             raise ValueError("threat_confirmed requires confirmation=confirmed")
         return self
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 observability — read-only investigation views (additive, no mutation)
+# ---------------------------------------------------------------------------
+#
+# These DTOs are assembled by read endpoints from persisted records only.
+# ``AgentExecutionView`` mirrors the Phase 7C ``AgentExecutionRecord`` payload
+# stored inside ``FirstResponderInvocation.execution``; every field is optional
+# so missing values render as "unavailable" rather than being fabricated.
+
+
+class AgentExecutionView(StrictModel):
+    """Recorded agent-loop outcome. Absent fields stay unknown; never invented."""
+
+    provider_mode: Literal["fake", "live", "none"] | None = None
+    model_id: ShortText | None = None
+    cost_usd: float | None = Field(default=None, ge=0)
+    latency_ms: int | None = Field(default=None, ge=0)
+    llm_turns: int | None = Field(default=None, ge=0)
+    tool_call_count: int | None = Field(default=None, ge=0)
+    started_at: UtcDatetime | None = None
+    ended_at: UtcDatetime | None = None
+    transcript_artifact_id: ArtifactId | None = None
+    output_artifact_id: ArtifactId | None = None
+    error_code: ShortText | None = None
+    typed_output: bool | None = None
+    hypothesis_count: int | None = Field(default=None, ge=0)
+    execution_integrity: ShortText | None = None
+    independent_verification_id: ShortText | None = None
+    evidence_verified: bool | None = None
+    confirmation: ShortText | None = None
+    predicted_probability: None = None
+    execution_is_not_confirmation: Literal[True] = True
+
+
+class InvocationJobView(StrictModel):
+    """Durable queue state joined onto one invocation. Retry = attempts > 1."""
+
+    job_id: JobId
+    kind: ShortText
+    status: ShortText
+    attempts: int = Field(ge=0)
+    max_attempts: int = Field(ge=0)
+    run_after: UtcDatetime | None = None
+    heartbeat_at: UtcDatetime | None = None
+    cancel_requested: bool = False
+    error_code: ShortText | None = None
+    error_message: ShortText | None = None
+    enqueued_at: UtcDatetime | None = None
+    updated_at: UtcDatetime | None = None
+    stalled: bool = False
+    wall_time_ms: int | None = Field(default=None, ge=0)
+
+
+class FirstResponderInvocationView(StrictModel):
+    """One invocation plus its queue state and optional execution record."""
+
+    invocation: FirstResponderInvocation
+    job: InvocationJobView | None = None
+    execution: AgentExecutionView | None = None
+    execution_recorded: bool = False
+    token_usage_available: Literal[False] = False
+    token_usage_note: ShortText = (
+        "Per-invocation token usage is not persisted yet; shown as unavailable, not estimated."
+    )
+
+
+class InvestigationSnapshotView(StrictModel):
+    """Whether the decision's mapped commit resolved to an indexed snapshot."""
+
+    repo_id: RepositoryId | None = None
+    commit_sha: CommitSha | None = None
+    mapping_id: DeployCommitMappingId | None = None
+    snapshot_id: ShortText | None = None
+    resolved: bool = False
+    note: ShortText
+
+
+class InvestigationTimeline(StrictModel):
+    """Event → decision → invocations → artifacts → handoff, from persisted rows."""
+
+    decision: FirstResponderDecision
+    trigger_events: list[MonitoringEvent] = Field(default_factory=list)
+    application: ConnectedApplication | None = None
+    mapping: DeployCommitMapping | None = None
+    snapshot: InvestigationSnapshotView | None = None
+    invocations: list[FirstResponderInvocationView] = Field(default_factory=list)
+    handoff: AnalystHandoff | None = None
+    final_state: ShortText
+    caveat: ShortText = (
+        "Persisted first-responder records only. Investigative execution is not "
+        "a confirmed compromise and not executed enforcement. Missing fields are "
+        "unavailable, never estimated."
+    )
+
+
+class InvestigationSummary(StrictModel):
+    """One row of the bounded investigations list."""
+
+    decision_id: FirstResponderDecisionId
+    created_at: UtcDatetime
+    action: ShortText
+    evidence_state: ShortText
+    confirmation: ShortText
+    application_id: ConnectedApplicationId | None = None
+    simulated: bool = False
+    cancelled: bool = False
+    trigger_event_count: int = Field(default=0, ge=0)
+    invocations_total: int = Field(default=0, ge=0)
+    invocations_queued_or_running: int = Field(default=0, ge=0)
+    invocations_completed: int = Field(default=0, ge=0)
+    invocations_failed: int = Field(default=0, ge=0)
+    invocations_skipped: int = Field(default=0, ge=0)
+    invocations_cancelled: int = Field(default=0, ge=0)
+    handoff_state: ShortText | None = None
+
+
+class InvestigationJobError(StrictModel):
+    """A recent persisted job error, redacted before it leaves the API."""
+
+    job_id: JobId
+    kind: ShortText
+    decision_id: FirstResponderDecisionId | None = None
+    invocation_id: FirstResponderInvocationId | None = None
+    agent: ShortText | None = None
+    code: ShortText | None = None
+    message: ShortText | None = None
+    at: UtcDatetime | None = None
+
+
+class JobLatencyStats(StrictModel):
+    """Wall-clock job durations (queue + run). Not model latency."""
+
+    samples: int = Field(ge=0)
+    avg_ms: int | None = Field(default=None, ge=0)
+    max_ms: int | None = Field(default=None, ge=0)
+
+
+class WaitingJobView(StrictModel):
+    """A queued first-responder job still waiting on its backoff window."""
+
+    job_id: JobId
+    kind: ShortText
+    run_after: UtcDatetime | None = None
+    enqueued_at: UtcDatetime | None = None
+    attempts: int = Field(default=0, ge=0)
+
+
+class FirstResponderDiagnostics(StrictModel):
+    """Operational aggregate over persisted first-responder jobs and invocations.
+
+    ``stalled`` means a running job whose lease expired (another worker may
+    reclaim it). Cost is unavailable until execution records exist (Phase 7C).
+    """
+
+    generated_at: UtcDatetime
+    investigations_total: int = Field(ge=0)
+    decisions_cancelled: int = Field(ge=0)
+    invocations_by_status: dict[str, int] = Field(default_factory=dict)
+    failures_by_agent: dict[str, int] = Field(default_factory=dict)
+    missing_prerequisites: dict[str, int] = Field(default_factory=dict)
+    jobs_queued: int = Field(ge=0)
+    jobs_running: int = Field(ge=0)
+    jobs_stalled: int = Field(ge=0)
+    jobs_succeeded: int = Field(ge=0)
+    jobs_failed: int = Field(ge=0)
+    jobs_cancelled: int = Field(ge=0)
+    jobs_dead: int = Field(ge=0)
+    waiting_jobs: list[WaitingJobView] = Field(default_factory=list)
+    recent_errors: list[InvestigationJobError] = Field(default_factory=list)
+    agent_step_latency: JobLatencyStats | None = None
+    cost_usd_total: float | None = Field(default=None, ge=0)
+    cost_note: ShortText = (
+        "Per-invocation cost requires persisted execution records (Phase 7C). "
+        "Unavailable is reported, not estimated."
+    )
+    notes: list[ShortText] = Field(default_factory=list)

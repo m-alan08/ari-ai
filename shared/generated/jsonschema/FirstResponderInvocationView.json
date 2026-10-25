@@ -1,0 +1,590 @@
+{
+  "$defs": {
+    "AgentCapabilityClass": {
+      "enum": [
+        "investigative_readonly",
+        "code_changing",
+        "disruptive_scoped"
+      ],
+      "title": "AgentCapabilityClass",
+      "type": "string"
+    },
+    "AgentExecutionView": {
+      "additionalProperties": false,
+      "description": "Recorded agent-loop outcome. Absent fields stay unknown; never invented.",
+      "properties": {
+        "confirmation": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confirmation"
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "evidence_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Verified"
+        },
+        "execution_integrity": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Integrity"
+        },
+        "execution_is_not_confirmation": {
+          "const": true,
+          "default": true,
+          "title": "Execution Is Not Confirmation",
+          "type": "boolean"
+        },
+        "hypothesis_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis Count"
+        },
+        "independent_verification_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Independent Verification Id"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency Ms"
+        },
+        "llm_turns": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Turns"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "output_artifact_id": {
+          "anyOf": [
+            {
+              "pattern": "^art_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Artifact Id"
+        },
+        "predicted_probability": {
+          "default": null,
+          "title": "Predicted Probability",
+          "type": "null"
+        },
+        "provider_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "fake",
+                "live",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Mode"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "tool_call_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Call Count"
+        },
+        "transcript_artifact_id": {
+          "anyOf": [
+            {
+              "pattern": "^art_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transcript Artifact Id"
+        },
+        "typed_output": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typed Output"
+        }
+      },
+      "title": "AgentExecutionView",
+      "type": "object"
+    },
+    "AgentInvocationStatus": {
+      "enum": [
+        "eligible",
+        "blocked",
+        "queued",
+        "skipped_no_mapping",
+        "skipped_no_snapshot",
+        "skipped_mode",
+        "skipped_no_scope",
+        "skipped_no_approval",
+        "skipped_no_patch",
+        "completed_unverified",
+        "failed",
+        "cancelled"
+      ],
+      "title": "AgentInvocationStatus",
+      "type": "string"
+    },
+    "AgentName": {
+      "enum": [
+        "scout",
+        "probe",
+        "trace",
+        "diagnose",
+        "patch",
+        "fortify",
+        "verify",
+        "reviewer"
+      ],
+      "title": "AgentName",
+      "type": "string"
+    },
+    "FirstResponderInvocation": {
+      "additionalProperties": false,
+      "description": "One attempted agent step. Missing execution is skipped, never faked as success.",
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentName"
+        },
+        "authorized_scope_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorized Scope Id"
+        },
+        "capability_class": {
+          "$ref": "#/$defs/AgentCapabilityClass"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "decision_id": {
+          "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^fri_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "independent_of_patch": {
+          "default": false,
+          "title": "Independent Of Patch",
+          "type": "boolean"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provider_mode": {
+          "default": "none",
+          "enum": [
+            "fake",
+            "live",
+            "none"
+          ],
+          "title": "Provider Mode",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "silent_deploy": {
+          "const": false,
+          "default": false,
+          "title": "Silent Deploy",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/AgentInvocationStatus"
+        },
+        "worktree_only": {
+          "default": false,
+          "title": "Worktree Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "decision_id",
+        "project_id",
+        "agent",
+        "capability_class",
+        "status",
+        "created_at"
+      ],
+      "title": "FirstResponderInvocation",
+      "type": "object"
+    },
+    "InvocationJobView": {
+      "additionalProperties": false,
+      "description": "Durable queue state joined onto one invocation. Retry = attempts > 1.",
+      "properties": {
+        "attempts": {
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "cancel_requested": {
+          "default": false,
+          "title": "Cancel Requested",
+          "type": "boolean"
+        },
+        "enqueued_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enqueued At"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "heartbeat_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat At"
+        },
+        "job_id": {
+          "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 500,
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_attempts": {
+          "minimum": 0,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "run_after": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run After"
+        },
+        "stalled": {
+          "default": false,
+          "title": "Stalled",
+          "type": "boolean"
+        },
+        "status": {
+          "maxLength": 500,
+          "title": "Status",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "wall_time_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wall Time Ms"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind",
+        "status",
+        "attempts",
+        "max_attempts"
+      ],
+      "title": "InvocationJobView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One invocation plus its queue state and optional execution record.",
+  "properties": {
+    "execution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentExecutionView"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "execution_recorded": {
+      "default": false,
+      "title": "Execution Recorded",
+      "type": "boolean"
+    },
+    "invocation": {
+      "$ref": "#/$defs/FirstResponderInvocation"
+    },
+    "job": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InvocationJobView"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "token_usage_available": {
+      "const": false,
+      "default": false,
+      "title": "Token Usage Available",
+      "type": "boolean"
+    },
+    "token_usage_note": {
+      "default": "Per-invocation token usage is not persisted yet; shown as unavailable, not estimated.",
+      "maxLength": 500,
+      "title": "Token Usage Note",
+      "type": "string"
+    }
+  },
+  "required": [
+    "invocation"
+  ],
+  "title": "FirstResponderInvocationView",
+  "type": "object"
+}

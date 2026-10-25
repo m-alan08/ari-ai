@@ -1,0 +1,141 @@
+{
+  "additionalProperties": false,
+  "description": "Durable queue state joined onto one invocation. Retry = attempts > 1.",
+  "properties": {
+    "attempts": {
+      "minimum": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "cancel_requested": {
+      "default": false,
+      "title": "Cancel Requested",
+      "type": "boolean"
+    },
+    "enqueued_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Enqueued At"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    },
+    "error_message": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Message"
+    },
+    "heartbeat_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Heartbeat At"
+    },
+    "job_id": {
+      "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "maxLength": 500,
+      "title": "Kind",
+      "type": "string"
+    },
+    "max_attempts": {
+      "minimum": 0,
+      "title": "Max Attempts",
+      "type": "integer"
+    },
+    "run_after": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run After"
+    },
+    "stalled": {
+      "default": false,
+      "title": "Stalled",
+      "type": "boolean"
+    },
+    "status": {
+      "maxLength": 500,
+      "title": "Status",
+      "type": "string"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    },
+    "wall_time_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wall Time Ms"
+    }
+  },
+  "required": [
+    "job_id",
+    "kind",
+    "status",
+    "attempts",
+    "max_attempts"
+  ],
+  "title": "InvocationJobView",
+  "type": "object"
+}

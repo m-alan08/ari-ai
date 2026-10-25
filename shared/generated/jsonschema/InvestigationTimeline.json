@@ -1,0 +1,1915 @@
+{
+  "$defs": {
+    "ActionScore": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "noop",
+            "raise_monitoring",
+            "rate_limit",
+            "isolate",
+            "request_reassessment",
+            "escalate_to_human",
+            "block_principal",
+            "block_principal_long",
+            "block_top_principal_long"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "enum": [
+                "gateway",
+                "api",
+                "auth",
+                "payments",
+                "db"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Node"
+        },
+        "q_value": {
+          "title": "Q Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "action",
+        "node",
+        "q_value"
+      ],
+      "title": "ActionScore",
+      "type": "object"
+    },
+    "AgentCapabilityClass": {
+      "enum": [
+        "investigative_readonly",
+        "code_changing",
+        "disruptive_scoped"
+      ],
+      "title": "AgentCapabilityClass",
+      "type": "string"
+    },
+    "AgentExecutionView": {
+      "additionalProperties": false,
+      "description": "Recorded agent-loop outcome. Absent fields stay unknown; never invented.",
+      "properties": {
+        "confirmation": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confirmation"
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd"
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ended At"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "evidence_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Verified"
+        },
+        "execution_integrity": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Integrity"
+        },
+        "execution_is_not_confirmation": {
+          "const": true,
+          "default": true,
+          "title": "Execution Is Not Confirmation",
+          "type": "boolean"
+        },
+        "hypothesis_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis Count"
+        },
+        "independent_verification_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Independent Verification Id"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency Ms"
+        },
+        "llm_turns": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Turns"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "output_artifact_id": {
+          "anyOf": [
+            {
+              "pattern": "^art_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Artifact Id"
+        },
+        "predicted_probability": {
+          "default": null,
+          "title": "Predicted Probability",
+          "type": "null"
+        },
+        "provider_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "fake",
+                "live",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Mode"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "tool_call_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Call Count"
+        },
+        "transcript_artifact_id": {
+          "anyOf": [
+            {
+              "pattern": "^art_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transcript Artifact Id"
+        },
+        "typed_output": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typed Output"
+        }
+      },
+      "title": "AgentExecutionView",
+      "type": "object"
+    },
+    "AgentInvocationStatus": {
+      "enum": [
+        "eligible",
+        "blocked",
+        "queued",
+        "skipped_no_mapping",
+        "skipped_no_snapshot",
+        "skipped_mode",
+        "skipped_no_scope",
+        "skipped_no_approval",
+        "skipped_no_patch",
+        "completed_unverified",
+        "failed",
+        "cancelled"
+      ],
+      "title": "AgentInvocationStatus",
+      "type": "string"
+    },
+    "AgentName": {
+      "enum": [
+        "scout",
+        "probe",
+        "trace",
+        "diagnose",
+        "patch",
+        "fortify",
+        "verify",
+        "reviewer"
+      ],
+      "title": "AgentName",
+      "type": "string"
+    },
+    "AnalystHandoff": {
+      "additionalProperties": false,
+      "properties": {
+        "application_id": {
+          "anyOf": [
+            {
+              "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "assigned_to": {
+          "anyOf": [
+            {
+              "pattern": "^usr_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assigned To"
+        },
+        "caveat": {
+          "default": "An alert is not delivered until the provider confirms receipt. Confirmed and unverified remain distinct. LLM prose cannot confirm a threat.",
+          "maxLength": 500,
+          "title": "Caveat",
+          "type": "string"
+        },
+        "confirmation": {
+          "$ref": "#/$defs/ConfirmationState",
+          "default": "unverified"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "pattern": "^usr_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Created By",
+          "type": "string"
+        },
+        "decision_id": {
+          "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "delivery_attempted_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Attempted At"
+        },
+        "delivery_confirmed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Confirmed At"
+        },
+        "delivery_provider": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Provider"
+        },
+        "delivery_provider_message_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Provider Message Id"
+        },
+        "evidence_event_ids": {
+          "items": {
+            "pattern": "^evt_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Evidence Event Ids",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^ahl_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "recommended_actions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": "Recommended Actions",
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/AnalystHandoffState"
+        },
+        "summary": {
+          "maxLength": 500,
+          "title": "Summary",
+          "type": "string"
+        },
+        "threat_confirmed": {
+          "default": false,
+          "title": "Threat Confirmed",
+          "type": "boolean"
+        },
+        "title": {
+          "maxLength": 500,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "decision_id",
+        "state",
+        "title",
+        "summary",
+        "created_by",
+        "created_at"
+      ],
+      "title": "AnalystHandoff",
+      "type": "object"
+    },
+    "AnalystHandoffState": {
+      "enum": [
+        "draft",
+        "queued",
+        "delivery_pending",
+        "delivered",
+        "delivery_failed",
+        "acknowledged",
+        "investigating",
+        "confirmed",
+        "unverified",
+        "resolved",
+        "cancelled"
+      ],
+      "title": "AnalystHandoffState",
+      "type": "string"
+    },
+    "ApplicationVerification": {
+      "enum": [
+        "unverified",
+        "ingest_seen",
+        "token_revoked",
+        "disconnected"
+      ],
+      "title": "ApplicationVerification",
+      "type": "string"
+    },
+    "BlockedAgent": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_class": {
+          "$ref": "#/$defs/AgentCapabilityClass"
+        },
+        "name": {
+          "$ref": "#/$defs/AgentName"
+        },
+        "reason": {
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "reason",
+        "capability_class"
+      ],
+      "title": "BlockedAgent",
+      "type": "object"
+    },
+    "CommitRange": {
+      "additionalProperties": false,
+      "properties": {
+        "base_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Sha"
+        },
+        "head_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Head Sha",
+          "type": "string"
+        }
+      },
+      "required": [
+        "head_sha"
+      ],
+      "title": "CommitRange",
+      "type": "object"
+    },
+    "ConfirmationState": {
+      "description": "Confirmed vs unverified stay distinct. LLM prose cannot set confirmed.",
+      "enum": [
+        "unverified",
+        "confirmed"
+      ],
+      "title": "ConfirmationState",
+      "type": "string"
+    },
+    "ConnectedApplication": {
+      "additionalProperties": false,
+      "description": "Owner-registered staging app under watch. Never includes secrets.",
+      "properties": {
+        "control_channel_configured": {
+          "default": false,
+          "description": "True when a control channel exists; the HMAC secret is never returned",
+          "title": "Control Channel Configured",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "pattern": "^usr_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Created By",
+          "type": "string"
+        },
+        "disconnected_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disconnected At"
+        },
+        "environment": {
+          "$ref": "#/$defs/StagingEnvironment"
+        },
+        "id": {
+          "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "ingest_configured": {
+          "description": "True when a non-revoked ingest token exists; the token itself is never returned",
+          "title": "Ingest Configured",
+          "type": "boolean"
+        },
+        "last_ingest_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Ingest At"
+        },
+        "name": {
+          "maxLength": 500,
+          "title": "Name",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "shadow_mode": {
+          "const": true,
+          "default": true,
+          "title": "Shadow Mode",
+          "type": "boolean"
+        },
+        "verification": {
+          "$ref": "#/$defs/ApplicationVerification"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "name",
+        "environment",
+        "ingest_configured",
+        "verification",
+        "created_by",
+        "created_at"
+      ],
+      "title": "ConnectedApplication",
+      "type": "object"
+    },
+    "CorrelationConfidence": {
+      "description": "Explicit correlation confidence. Never a probability. UNKNOWN without a mapping.",
+      "enum": [
+        "unknown",
+        "none",
+        "low",
+        "medium"
+      ],
+      "title": "CorrelationConfidence",
+      "type": "string"
+    },
+    "DeployCommitMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "application_id": {
+          "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "commit_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Commit Sha",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "pattern": "^usr_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Created By",
+          "type": "string"
+        },
+        "deployed_at": {
+          "format": "date-time",
+          "title": "Deployed At",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^dcm_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "repo_id": {
+          "pattern": "^rep_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Repo Id",
+          "type": "string"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revoked At"
+        },
+        "source": {
+          "const": "owner_attested",
+          "default": "owner_attested",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "application_id",
+        "repo_id",
+        "commit_sha",
+        "deployed_at",
+        "created_by",
+        "created_at"
+      ],
+      "title": "DeployCommitMapping",
+      "type": "object"
+    },
+    "EventSource": {
+      "enum": [
+        "github",
+        "runtime",
+        "internal",
+        "advisory"
+      ],
+      "title": "EventSource",
+      "type": "string"
+    },
+    "EventStatus": {
+      "enum": [
+        "received",
+        "processing",
+        "processed",
+        "ignored",
+        "failed"
+      ],
+      "title": "EventStatus",
+      "type": "string"
+    },
+    "EventType": {
+      "enum": [
+        "push",
+        "pull_request",
+        "log_anomaly",
+        "assessment_completed",
+        "advisory"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "EvidenceLifecycleState": {
+      "description": "UI case states. Recommended is not executed. RL rec is never Executed.",
+      "enum": [
+        "observed",
+        "suspected",
+        "verified",
+        "recommended",
+        "authorized",
+        "executed",
+        "failed",
+        "rolled_back"
+      ],
+      "title": "EvidenceLifecycleState",
+      "type": "string"
+    },
+    "FirstResponderDecision": {
+      "additionalProperties": false,
+      "description": "Versioned decision record. Future RL must beat this baseline. No invented probabilities.",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/OrchestratorAction"
+        },
+        "application_id": {
+          "anyOf": [
+            {
+              "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "auto_execute": {
+          "const": false,
+          "default": false,
+          "title": "Auto Execute",
+          "type": "boolean"
+        },
+        "blocked_agents": {
+          "items": {
+            "$ref": "#/$defs/BlockedAgent"
+          },
+          "title": "Blocked Agents",
+          "type": "array"
+        },
+        "budget_usd_remaining": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Budget Usd Remaining"
+        },
+        "cancel_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cancel Reason"
+        },
+        "cancelled": {
+          "default": false,
+          "title": "Cancelled",
+          "type": "boolean"
+        },
+        "caveat": {
+          "default": "Deterministic first-responder decision. LLM prose is never proof of a confirmed threat. RL recommendations are not executed defense. AUTO-EXECUTE does not exist.",
+          "maxLength": 500,
+          "title": "Caveat",
+          "type": "string"
+        },
+        "confirmation": {
+          "$ref": "#/$defs/ConfirmationState",
+          "default": "unverified"
+        },
+        "correlation": {
+          "$ref": "#/$defs/RuntimeCodeCorrelation"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline At"
+        },
+        "effective_mode": {
+          "$ref": "#/$defs/FirstResponderIntent"
+        },
+        "evidence_state": {
+          "$ref": "#/$defs/EvidenceLifecycleState"
+        },
+        "executed": {
+          "const": false,
+          "default": false,
+          "title": "Executed",
+          "type": "boolean"
+        },
+        "id": {
+          "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "incident_id": {
+          "anyOf": [
+            {
+              "pattern": "^inc_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Incident Id"
+        },
+        "intent_mode": {
+          "$ref": "#/$defs/FirstResponderIntent"
+        },
+        "live_policy_decision_id": {
+          "anyOf": [
+            {
+              "pattern": "^lpd_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Live Policy Decision Id"
+        },
+        "llm_prose_is_not_confirmation": {
+          "const": true,
+          "default": true,
+          "title": "Llm Prose Is Not Confirmation",
+          "type": "boolean"
+        },
+        "loop_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Loop Count",
+          "type": "integer"
+        },
+        "orchestrator_version": {
+          "default": "7a.1.1",
+          "maxLength": 500,
+          "title": "Orchestrator Version",
+          "type": "string"
+        },
+        "outcome_label": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Human later; never auto-assigned as an RL label",
+          "title": "Outcome Label"
+        },
+        "predicted_probability": {
+          "default": null,
+          "title": "Predicted Probability",
+          "type": "null"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "q_values": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ActionScore"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Copied only when frozen v6 inference actually ran",
+          "title": "Q Values"
+        },
+        "recommended_control": {
+          "anyOf": [
+            {
+              "enum": [
+                "noop",
+                "raise_monitoring",
+                "rate_limit",
+                "isolate",
+                "request_reassessment",
+                "escalate_to_human",
+                "block_principal",
+                "block_principal_long",
+                "block_top_principal_long"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Control"
+        },
+        "recommended_is_not_executed": {
+          "const": true,
+          "default": true,
+          "title": "Recommended Is Not Executed",
+          "type": "boolean"
+        },
+        "retry_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Retry Count",
+          "type": "integer"
+        },
+        "selected_agents": {
+          "items": {
+            "$ref": "#/$defs/AgentName"
+          },
+          "title": "Selected Agents",
+          "type": "array"
+        },
+        "simulated": {
+          "default": false,
+          "title": "Simulated",
+          "type": "boolean"
+        },
+        "transition": {
+          "maxLength": 500,
+          "title": "Transition",
+          "type": "string"
+        },
+        "trigger_event_ids": {
+          "items": {
+            "pattern": "^evt_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Trigger Event Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "created_at",
+        "intent_mode",
+        "effective_mode",
+        "action",
+        "evidence_state",
+        "correlation",
+        "transition"
+      ],
+      "title": "FirstResponderDecision",
+      "type": "object"
+    },
+    "FirstResponderIntent": {
+      "description": "Server-enforced modes. MONITOR and SHADOW are the same mode.\n\nThere is no AUTO-EXECUTE value. Unknown or auto-execute input fails closed.",
+      "enum": [
+        "off",
+        "monitor",
+        "assisted_response"
+      ],
+      "title": "FirstResponderIntent",
+      "type": "string"
+    },
+    "FirstResponderInvocation": {
+      "additionalProperties": false,
+      "description": "One attempted agent step. Missing execution is skipped, never faked as success.",
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentName"
+        },
+        "authorized_scope_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorized Scope Id"
+        },
+        "capability_class": {
+          "$ref": "#/$defs/AgentCapabilityClass"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "decision_id": {
+          "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^fri_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "independent_of_patch": {
+          "default": false,
+          "title": "Independent Of Patch",
+          "type": "boolean"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provider_mode": {
+          "default": "none",
+          "enum": [
+            "fake",
+            "live",
+            "none"
+          ],
+          "title": "Provider Mode",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "silent_deploy": {
+          "const": false,
+          "default": false,
+          "title": "Silent Deploy",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/AgentInvocationStatus"
+        },
+        "worktree_only": {
+          "default": false,
+          "title": "Worktree Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "decision_id",
+        "project_id",
+        "agent",
+        "capability_class",
+        "status",
+        "created_at"
+      ],
+      "title": "FirstResponderInvocation",
+      "type": "object"
+    },
+    "FirstResponderInvocationView": {
+      "additionalProperties": false,
+      "description": "One invocation plus its queue state and optional execution record.",
+      "properties": {
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentExecutionView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution_recorded": {
+          "default": false,
+          "title": "Execution Recorded",
+          "type": "boolean"
+        },
+        "invocation": {
+          "$ref": "#/$defs/FirstResponderInvocation"
+        },
+        "job": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InvocationJobView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "token_usage_available": {
+          "const": false,
+          "default": false,
+          "title": "Token Usage Available",
+          "type": "boolean"
+        },
+        "token_usage_note": {
+          "default": "Per-invocation token usage is not persisted yet; shown as unavailable, not estimated.",
+          "maxLength": 500,
+          "title": "Token Usage Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "invocation"
+      ],
+      "title": "FirstResponderInvocationView",
+      "type": "object"
+    },
+    "ImpactResolution": {
+      "enum": [
+        "symbol",
+        "path_only"
+      ],
+      "title": "ImpactResolution",
+      "type": "string"
+    },
+    "ImpactSet": {
+      "additionalProperties": false,
+      "description": "What a commit range touches (docs/10 'Correlate').",
+      "properties": {
+        "base_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Sha"
+        },
+        "base_snapshot_id": {
+          "anyOf": [
+            {
+              "pattern": "^snp_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Snapshot Id"
+        },
+        "changed_paths": {
+          "items": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Changed Paths",
+          "type": "array"
+        },
+        "expectations": {
+          "items": {
+            "pattern": "^exp_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Expectations",
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "pattern": "^fnd_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "head_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Head Sha",
+          "type": "string"
+        },
+        "head_snapshot_id": {
+          "anyOf": [
+            {
+              "pattern": "^snp_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Head Snapshot Id"
+        },
+        "regression_tests": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": "Regression Tests",
+          "type": "array"
+        },
+        "repo_id": {
+          "pattern": "^rep_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Repo Id",
+          "type": "string"
+        },
+        "resolution": {
+          "$ref": "#/$defs/ImpactResolution"
+        },
+        "symbols": {
+          "items": {
+            "pattern": "^sym_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Symbols",
+          "type": "array"
+        }
+      },
+      "required": [
+        "repo_id",
+        "head_sha",
+        "resolution"
+      ],
+      "title": "ImpactSet",
+      "type": "object"
+    },
+    "InvestigationSnapshotView": {
+      "additionalProperties": false,
+      "description": "Whether the decision's mapped commit resolved to an indexed snapshot.",
+      "properties": {
+        "commit_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Sha"
+        },
+        "mapping_id": {
+          "anyOf": [
+            {
+              "pattern": "^dcm_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapping Id"
+        },
+        "note": {
+          "maxLength": 500,
+          "title": "Note",
+          "type": "string"
+        },
+        "repo_id": {
+          "anyOf": [
+            {
+              "pattern": "^rep_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo Id"
+        },
+        "resolved": {
+          "default": false,
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "snapshot_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Snapshot Id"
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "title": "InvestigationSnapshotView",
+      "type": "object"
+    },
+    "InvocationJobView": {
+      "additionalProperties": false,
+      "description": "Durable queue state joined onto one invocation. Retry = attempts > 1.",
+      "properties": {
+        "attempts": {
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "cancel_requested": {
+          "default": false,
+          "title": "Cancel Requested",
+          "type": "boolean"
+        },
+        "enqueued_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enqueued At"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "heartbeat_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heartbeat At"
+        },
+        "job_id": {
+          "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 500,
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_attempts": {
+          "minimum": 0,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "run_after": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run After"
+        },
+        "stalled": {
+          "default": false,
+          "title": "Stalled",
+          "type": "boolean"
+        },
+        "status": {
+          "maxLength": 500,
+          "title": "Status",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "wall_time_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wall Time Ms"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind",
+        "status",
+        "attempts",
+        "max_attempts"
+      ],
+      "title": "InvocationJobView",
+      "type": "object"
+    },
+    "MonitoringEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "commit_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommitRange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dedupe_key": {
+          "maxLength": 500,
+          "title": "Dedupe Key",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^evt_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "impact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImpactSet"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "payload_artifact_id": {
+          "anyOf": [
+            {
+              "pattern": "^art_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payload Artifact Id"
+        },
+        "pr_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pr Number"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "received_at": {
+          "format": "date-time",
+          "title": "Received At",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "git ref, e.g. refs/heads/main",
+          "title": "Ref"
+        },
+        "repo_id": {
+          "anyOf": [
+            {
+              "pattern": "^rep_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo Id"
+        },
+        "simulated": {
+          "default": false,
+          "description": "True for replayed/fixture events; UI must label them",
+          "title": "Simulated",
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/EventSource"
+        },
+        "status": {
+          "$ref": "#/$defs/EventStatus"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status Reason"
+        },
+        "type": {
+          "$ref": "#/$defs/EventType"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "source",
+        "type",
+        "occurred_at",
+        "received_at",
+        "dedupe_key",
+        "status"
+      ],
+      "title": "MonitoringEvent",
+      "type": "object"
+    },
+    "OrchestratorAction": {
+      "description": "Deterministic first-responder actions. None of these execute a LiveControl.",
+      "enum": [
+        "ignore",
+        "record_observation",
+        "correlate",
+        "investigate",
+        "confirm_with_probe",
+        "propose_worktree_patch",
+        "verify_independently",
+        "recommend_control",
+        "escalate_to_analyst",
+        "defer_budget",
+        "cancel_run",
+        "reject_auto_execute"
+      ],
+      "title": "OrchestratorAction",
+      "type": "string"
+    },
+    "RuntimeCodeCorrelation": {
+      "additionalProperties": false,
+      "properties": {
+        "application_id": {
+          "anyOf": [
+            {
+              "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "commit_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Sha"
+        },
+        "confidence": {
+          "$ref": "#/$defs/CorrelationConfidence"
+        },
+        "finding_ids_at_commit": {
+          "items": {
+            "pattern": "^fnd_[0-9A-Za-z_\\-]{8,64}$",
+            "type": "string"
+          },
+          "title": "Finding Ids At Commit",
+          "type": "array"
+        },
+        "finding_is_not_proof_of_this_request": {
+          "const": true,
+          "default": true,
+          "title": "Finding Is Not Proof Of This Request",
+          "type": "boolean"
+        },
+        "mapping_id": {
+          "anyOf": [
+            {
+              "pattern": "^dcm_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapping Id"
+        },
+        "note": {
+          "maxLength": 500,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "confidence",
+        "note"
+      ],
+      "title": "RuntimeCodeCorrelation",
+      "type": "object"
+    },
+    "StagingEnvironment": {
+      "description": "Environments a shadow-pilot app may declare. Production is not allowed.",
+      "enum": [
+        "sandbox",
+        "owned_test"
+      ],
+      "title": "StagingEnvironment",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Event \u2192 decision \u2192 invocations \u2192 artifacts \u2192 handoff, from persisted rows.",
+  "properties": {
+    "application": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConnectedApplication"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "caveat": {
+      "default": "Persisted first-responder records only. Investigative execution is not a confirmed compromise and not executed enforcement. Missing fields are unavailable, never estimated.",
+      "maxLength": 500,
+      "title": "Caveat",
+      "type": "string"
+    },
+    "decision": {
+      "$ref": "#/$defs/FirstResponderDecision"
+    },
+    "final_state": {
+      "maxLength": 500,
+      "title": "Final State",
+      "type": "string"
+    },
+    "handoff": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnalystHandoff"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "invocations": {
+      "items": {
+        "$ref": "#/$defs/FirstResponderInvocationView"
+      },
+      "title": "Invocations",
+      "type": "array"
+    },
+    "mapping": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeployCommitMapping"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InvestigationSnapshotView"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "trigger_events": {
+      "items": {
+        "$ref": "#/$defs/MonitoringEvent"
+      },
+      "title": "Trigger Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "decision",
+    "final_state"
+  ],
+  "title": "InvestigationTimeline",
+  "type": "object"
+}

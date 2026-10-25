@@ -2005,3 +2005,13 @@ selected run is still loading.
 - Note: `CHANGELOG.md` on upstream main contains a leftover `|||||||` merge marker under Unreleased (pre-existing, not touched).
 
 - Follow-up review: `end_effect(applied=False)` now keeps a `settled` marker when an earlier effect was already applied (prevents replay of an applied effect); `end_effect` regression test added; control-doc caveat documented.
+
+## 2026-10-24 — Devin: first-responder observability (Executions tab, schema 0.23.0)
+
+- Branch `feat/devin-investigation-observability` (on `m-alan08/ari-ai` fork; upstream push denied): read-only investigation observability over Phase 7A persisted records.
+- New shared DTOs in `shared/live_defense.py` at schema 0.23.0 — 0.20.0 stays reserved for open #412, 0.22.0 for open #458. `AgentExecutionView` mirrors the 7C `AgentExecutionRecord` with all fields optional: works today, populates automatically when #458 lands.
+- New read-only API (`backend/api/live_defense_investigations.py`): bounded investigations list (keyset, limit<=200), decision timeline (events, application, deploy mapping, snapshot resolution, invocations + joined job state, handoff, final state), invocation detail, project diagnostics (stalled leases, status distribution, missing prerequisites, waiting jobs, redacted recent errors, wall-clock latency, cost rollup = unavailable until 7C).
+- New Live Defense "Executions" tab: list + timeline + diagnostics; every missing field renders "unavailable"; no mutation controls.
+- Evidence: `backend/tests/test_live_defense_investigations.py` (9 pass), `frontend/tests/unit/live-defense-executions.test.tsx` (7 pass), `frontend/tests/e2e/live-defense-investigations.spec.ts`, transport methods + node tests.
+- Coordination: `coordination/messages/20261024T182202Z-devin-to-all-live-defense-observability-schema-0-23.md`; status `coordination/status/DEVIN.md`.
+- Next: PR review/merge by a human; do not merge from the agent.

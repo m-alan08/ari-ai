@@ -1,0 +1,118 @@
+{
+  "additionalProperties": false,
+  "description": "One row of the bounded investigations list.",
+  "properties": {
+    "action": {
+      "maxLength": 500,
+      "title": "Action",
+      "type": "string"
+    },
+    "application_id": {
+      "anyOf": [
+        {
+          "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Application Id"
+    },
+    "cancelled": {
+      "default": false,
+      "title": "Cancelled",
+      "type": "boolean"
+    },
+    "confirmation": {
+      "maxLength": 500,
+      "title": "Confirmation",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "decision_id": {
+      "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "evidence_state": {
+      "maxLength": 500,
+      "title": "Evidence State",
+      "type": "string"
+    },
+    "handoff_state": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Handoff State"
+    },
+    "invocations_cancelled": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Cancelled",
+      "type": "integer"
+    },
+    "invocations_completed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Completed",
+      "type": "integer"
+    },
+    "invocations_failed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Failed",
+      "type": "integer"
+    },
+    "invocations_queued_or_running": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Queued Or Running",
+      "type": "integer"
+    },
+    "invocations_skipped": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Skipped",
+      "type": "integer"
+    },
+    "invocations_total": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Invocations Total",
+      "type": "integer"
+    },
+    "simulated": {
+      "default": false,
+      "title": "Simulated",
+      "type": "boolean"
+    },
+    "trigger_event_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Trigger Event Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "decision_id",
+    "created_at",
+    "action",
+    "evidence_state",
+    "confirmation"
+  ],
+  "title": "InvestigationSummary",
+  "type": "object"
+}

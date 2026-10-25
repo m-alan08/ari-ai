@@ -1,0 +1,341 @@
+{
+  "$defs": {
+    "InvestigationJobError": {
+      "additionalProperties": false,
+      "description": "A recent persisted job error, redacted before it leaves the API.",
+      "properties": {
+        "agent": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "pattern": "^frd_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Id"
+        },
+        "invocation_id": {
+          "anyOf": [
+            {
+              "pattern": "^fri_[0-9A-Za-z_\\-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Invocation Id"
+        },
+        "job_id": {
+          "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 500,
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind"
+      ],
+      "title": "InvestigationJobError",
+      "type": "object"
+    },
+    "JobLatencyStats": {
+      "additionalProperties": false,
+      "description": "Wall-clock job durations (queue + run). Not model latency.",
+      "properties": {
+        "avg_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avg Ms"
+        },
+        "max_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Ms"
+        },
+        "samples": {
+          "minimum": 0,
+          "title": "Samples",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "title": "JobLatencyStats",
+      "type": "object"
+    },
+    "WaitingJobView": {
+      "additionalProperties": false,
+      "description": "A queued first-responder job still waiting on its backoff window.",
+      "properties": {
+        "attempts": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "enqueued_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enqueued At"
+        },
+        "job_id": {
+          "pattern": "^job_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 500,
+          "title": "Kind",
+          "type": "string"
+        },
+        "run_after": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run After"
+        }
+      },
+      "required": [
+        "job_id",
+        "kind"
+      ],
+      "title": "WaitingJobView",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Operational aggregate over persisted first-responder jobs and invocations.\n\n``stalled`` means a running job whose lease expired (another worker may\nreclaim it). Cost is unavailable until execution records exist (Phase 7C).",
+  "properties": {
+    "agent_step_latency": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JobLatencyStats"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cost_note": {
+      "default": "Per-invocation cost requires persisted execution records (Phase 7C). Unavailable is reported, not estimated.",
+      "maxLength": 500,
+      "title": "Cost Note",
+      "type": "string"
+    },
+    "cost_usd_total": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Usd Total"
+    },
+    "decisions_cancelled": {
+      "minimum": 0,
+      "title": "Decisions Cancelled",
+      "type": "integer"
+    },
+    "failures_by_agent": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Failures By Agent",
+      "type": "object"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "investigations_total": {
+      "minimum": 0,
+      "title": "Investigations Total",
+      "type": "integer"
+    },
+    "invocations_by_status": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Invocations By Status",
+      "type": "object"
+    },
+    "jobs_cancelled": {
+      "minimum": 0,
+      "title": "Jobs Cancelled",
+      "type": "integer"
+    },
+    "jobs_dead": {
+      "minimum": 0,
+      "title": "Jobs Dead",
+      "type": "integer"
+    },
+    "jobs_failed": {
+      "minimum": 0,
+      "title": "Jobs Failed",
+      "type": "integer"
+    },
+    "jobs_queued": {
+      "minimum": 0,
+      "title": "Jobs Queued",
+      "type": "integer"
+    },
+    "jobs_running": {
+      "minimum": 0,
+      "title": "Jobs Running",
+      "type": "integer"
+    },
+    "jobs_stalled": {
+      "minimum": 0,
+      "title": "Jobs Stalled",
+      "type": "integer"
+    },
+    "jobs_succeeded": {
+      "minimum": 0,
+      "title": "Jobs Succeeded",
+      "type": "integer"
+    },
+    "missing_prerequisites": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Missing Prerequisites",
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "recent_errors": {
+      "items": {
+        "$ref": "#/$defs/InvestigationJobError"
+      },
+      "title": "Recent Errors",
+      "type": "array"
+    },
+    "waiting_jobs": {
+      "items": {
+        "$ref": "#/$defs/WaitingJobView"
+      },
+      "title": "Waiting Jobs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "generated_at",
+    "investigations_total",
+    "decisions_cancelled",
+    "jobs_queued",
+    "jobs_running",
+    "jobs_stalled",
+    "jobs_succeeded",
+    "jobs_failed",
+    "jobs_cancelled",
+    "jobs_dead"
+  ],
+  "title": "FirstResponderDiagnostics",
+  "type": "object"
+}

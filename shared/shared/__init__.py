@@ -6,10 +6,7 @@ coordination/CONTRACTS.md.
 """
 
 SCHEMA_VERSION = (
-    "0.22.0"  # 0.2 RLExplanation; 0.3 runtime signals; 0.4 ids allow _-; 0.5 early REPORTING;
-    # 0.22 ops readiness (additive): ReadinessStatus gains workers/capabilities/
-    #      capabilities_ready/git_sha/schema_version; HealthStatus gains
-    #      git_sha/schema_version; new DiagnosticsReport. /readyz consumers only.
+    "0.24.0"  # 0.23 reserved by upstream PR #458 (Phase 7C). 0.24 live-defense investigation observability (additive): Executions read APIs + console tab.
     # 0.6 intelligence memory (PR #39); 0.7 security standards + incidents (PR #49);
     # 0.8 FindingDetail / AssessmentReport response DTOs (additive);
     # 0.9 CheckCategory enum (Probe ids + V0 fixture aliases);
@@ -49,4 +46,8 @@ SCHEMA_VERSION = (
     #      No AUTO-EXECUTE. LLM prose is never proof of a confirmed threat.
     #      evidence_state=verified requires independently executed verification
     #      evidence, not Verify eligibility.
+    # 0.22 reserved by open PR #458 (Phase 7C agent execution). Not claimed here.
+    # 0.23 first-responder observability (additive, read-only): investigation
+    #      timeline/summary DTOs, invocation view with queue state, execution
+    #      view mirroring the 7C record (all fields optional), diagnostics.
 )

@@ -376,6 +376,22 @@ export class ApiClient {
   firstResponderHandoffs(projectId: string, options?: RequestOptions): Promise<Page<C.AnalystHandoff>> {
     return this.list(`/projects/${segment(projectId)}/first-responder/handoffs`, 'AnalystHandoff', options);
   }
+  firstResponderInvestigations(projectId: string, options?: RequestOptions & { cursor?: string; limit?: number }): Promise<Page<C.InvestigationSummary>> {
+    const qs = new URLSearchParams();
+    if (options?.cursor) qs.set('cursor', options.cursor);
+    if (options?.limit) qs.set('limit', String(options.limit));
+    const suffix = qs.size ? `?${qs}` : '';
+    return this.list(`/projects/${segment(projectId)}/first-responder/investigations${suffix}`, 'InvestigationSummary', options?.signal ? { signal: options.signal } : undefined);
+  }
+  firstResponderInvestigation(decisionId: string, options?: RequestOptions): Promise<C.InvestigationTimeline> {
+    return this.request(`/first-responder/investigations/${segment(decisionId)}`, 'InvestigationTimeline', options) as Promise<C.InvestigationTimeline>;
+  }
+  firstResponderInvocationDetail(invocationId: string, options?: RequestOptions): Promise<C.FirstResponderInvocationView> {
+    return this.request(`/first-responder/invocations/${segment(invocationId)}`, 'FirstResponderInvocationView', options) as Promise<C.FirstResponderInvocationView>;
+  }
+  firstResponderDiagnostics(projectId: string, options?: RequestOptions): Promise<C.FirstResponderDiagnostics> {
+    return this.request(`/projects/${segment(projectId)}/first-responder/diagnostics`, 'FirstResponderDiagnostics', options) as Promise<C.FirstResponderDiagnostics>;
+  }
   createDeployCommitMapping(appId: string, body: C.DeployCommitMappingCreate, options?: RequestOptions): Promise<C.DeployCommitMapping> {
     return this.request(`/applications/${segment(appId)}/deploy-mappings`, 'DeployCommitMapping', options, body) as Promise<C.DeployCommitMapping>;
   }
