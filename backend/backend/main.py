@@ -66,7 +66,7 @@ def create_app() -> FastAPI:
         version=VERSION,
         description=f"Control-plane API. Contract schema {SCHEMA_VERSION}.",
         docs_url="/api/docs" if s.is_dev else None,
-        openapi_url="/api/openapi.json",
+        openapi_url="/api/openapi.json" if s.is_dev else None,
     )
     app.add_middleware(
         CORSMiddleware,

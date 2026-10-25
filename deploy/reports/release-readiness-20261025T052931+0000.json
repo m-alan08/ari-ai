@@ -1,0 +1,184 @@
+{
+  "verdict": "GO",
+  "mode": "local",
+  "git_sha": "3f16c99f",
+  "started_at": "2026-10-25T05:28:23+00:00",
+  "finished_at": "2026-10-25T05:29:31+00:00",
+  "checks": [
+    {
+      "cid": "env.postgres",
+      "name": "Scratch PostgreSQL",
+      "status": "PASS",
+      "evidence": "embedded pgserver",
+      "duration_s": 1.1
+    },
+    {
+      "cid": "preflight.gate",
+      "name": "Preflight rejects staging without secrets",
+      "status": "PASS",
+      "evidence": "exit=1; errors include missing secrets",
+      "duration_s": 0.7
+    },
+    {
+      "cid": "preflight.config",
+      "name": "Preflight accepts complete staging config",
+      "status": "PASS",
+      "evidence": "config+worker checks pass",
+      "duration_s": 0.3
+    },
+    {
+      "cid": "migrate",
+      "name": "Alembic migrations to unified head",
+      "status": "PASS",
+      "evidence": "at head ['0019']",
+      "duration_s": 0.6
+    },
+    {
+      "cid": "boot.api",
+      "name": "API boots under staging config",
+      "status": "PASS",
+      "evidence": "/healthz 200 on :64271",
+      "duration_s": 1.0
+    },
+    {
+      "cid": "boot.worker",
+      "name": "Worker boots (preflight + migrate gate)",
+      "status": "PASS",
+      "evidence": "real hackatl-worker started",
+      "duration_s": 3.0
+    },
+    {
+      "cid": "worker.sigterm",
+      "name": "Worker graceful SIGTERM (deploy drain)",
+      "status": "PASS",
+      "evidence": "idle worker exited rc=0",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "http.smoke",
+      "name": "Staging smoke suite (real HTTP)",
+      "status": "PASS",
+      "evidence": "smoke: 15 passed, 0 failed (http://127.0.0.1:64271)",
+      "duration_s": 0.3
+    },
+    {
+      "cid": "job.success",
+      "name": "Job claim \u2192 run \u2192 complete",
+      "status": "PASS",
+      "evidence": "release_probe_success job job_01M5RRHDQDJSP8NWYZKSBP6FJB succeeded (attempts=1)",
+      "duration_s": 2.6
+    },
+    {
+      "cid": "alert.webhook",
+      "name": "Critical-failure alert webhook",
+      "status": "PASS",
+      "evidence": "sink received job_failed_permanent severity=critical",
+      "duration_s": 0.6
+    },
+    {
+      "cid": "logs.redaction",
+      "name": "Secret redaction in alert payload",
+      "status": "PASS",
+      "evidence": "payload carries [REDACTED:anthropic_key], raw key absent",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "logs.json",
+      "name": "Worker JSON log format (staging auto)",
+      "status": "PASS",
+      "evidence": "4 parseable JSON log lines",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "logs.redact_stream",
+      "name": "Secret never reaches worker log stream",
+      "status": "PASS",
+      "evidence": "raw probe secret absent from worker output",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "worker.recovery",
+      "name": "Worker crash \u2192 lease expiry \u2192 re-claim",
+      "status": "PASS",
+      "evidence": "killed owner ip-172-16-4-2.us-west-2.compute.internal:37832; job job_01M5RRHEV2J6Q143MY9W07W0RB succeeded attempts=2",
+      "duration_s": 20.3
+    },
+    {
+      "cid": "backup",
+      "name": "pg_dump backup",
+      "status": "PASS",
+      "evidence": "hackatl-20261025T052929Z.dump (size:   124K)",
+      "duration_s": 0.1
+    },
+    {
+      "cid": "restore",
+      "name": "Restore drill into scratch DB",
+      "status": "PASS",
+      "evidence": "restored DB at head, jobs rows=3",
+      "duration_s": 0.5
+    },
+    {
+      "cid": "authz.setup",
+      "name": "Operator session \u2192 create project",
+      "status": "PASS",
+      "evidence": "project prj_01M5RRJ3DXA28P8QY794XFGXAC via minted session",
+      "duration_s": 0.1
+    },
+    {
+      "cid": "authz.nonmember",
+      "name": "Non-member cannot read foreign project",
+      "status": "PASS",
+      "evidence": "GET /projects/prj_01M5RRJ3DXA28P8QY794XFGXAC as non-member -> 404",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "authz.owner_gate",
+      "name": "Emergency stop requires owner role",
+      "status": "PASS",
+      "evidence": "non-owner POST emergency-stop -> 404",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "control.estop",
+      "name": "Emergency-stop end-to-end (API\u2192queue\u2192worker)",
+      "status": "PASS",
+      "evidence": "POST -> 201; worker job status=succeeded",
+      "duration_s": 0.5
+    },
+    {
+      "cid": "control.estop_clear",
+      "name": "Emergency-stop clear path",
+      "status": "PASS",
+      "evidence": "clear -> 200, active=False",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "control.off_mode",
+      "name": "First-responder OFF by default",
+      "status": "PASS",
+      "evidence": "ops/status non-default modes: 0 (default=off)",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "artifacts",
+      "name": "Artifact storage write+address",
+      "status": "PASS",
+      "evidence": "content-addressed artifact at sha256/b90923ce47dc\u2026",
+      "duration_s": 0.0
+    },
+    {
+      "cid": "release.check",
+      "name": "release_check.py release checklist",
+      "status": "PASS",
+      "evidence": "release check: 18 checks, 0 failed",
+      "duration_s": 0.5
+    },
+    {
+      "cid": "ops.visibility",
+      "name": "Ops status: migrations + queue visibility",
+      "status": "PASS",
+      "evidence": "at_head=True; queue counts={'succeeded': 3, 'failed': 1}",
+      "duration_s": 0.0
+    }
+  ]
+}

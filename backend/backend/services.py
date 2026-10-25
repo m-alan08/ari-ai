@@ -9,7 +9,14 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 
 from backend import audit, jobs
-from backend.db import assessments, authorized_scopes, findings, projects, repositories
+from backend.db import (
+    assessments,
+    authorized_scopes,
+    deploy_commit_mappings,
+    findings,
+    projects,
+    repositories,
+)
 from backend.host import emit_event, scope_problem
 from backend.settings import get_settings
 from shared.assessment import TERMINAL_STATES, Assessment, AssessmentState, AssessmentTrigger
@@ -117,11 +124,19 @@ def create_assessment(
     reassessment_request_id: str | None = None,
 ) -> tuple[Assessment, str]:
     """Create an assessment in CREATED, emit its first event, audit, and enqueue the run job."""
-    repo_project = conn.execute(
-        sa.select(repositories.c.project_id).where(repositories.c.id == repo_id).with_for_update()
-    ).scalar()
-    if repo_project != project_id:
+    repo_row = (
+        conn.execute(
+            sa.select(repositories.c.project_id, repositories.c.disconnected_at)
+            .where(repositories.c.id == repo_id)
+            .with_for_update()
+        )
+        .mappings()
+        .first()
+    )
+    if repo_row is None or repo_row["project_id"] != project_id:
         raise DomainError(ErrorCode.NOT_FOUND, f"repository {repo_id} not found in project", 404)
+    if repo_row["disconnected_at"] is not None:
+        raise DomainError(ErrorCode.CONFLICT_STATE, "repository is disconnected", 409)
     scope = load_scope(conn, scope_id)
     if scope is None or scope.project_id != project_id:
         raise DomainError(ErrorCode.NOT_FOUND, f"scope {scope_id} not found in project", 404)
@@ -282,6 +297,50 @@ def verified_finding_paths(conn: Connection, project_id: str) -> dict[str, list[
         )
     ).all()
     return {r.id: list(r.paths or []) for r in rows}
+
+
+def repository_revocation(
+    conn: Connection,
+    *,
+    repo_id: str | None,
+    application_id: str | None = None,
+    mapping_id: str | None = None,
+) -> str | None:
+    """Canonical revocation check for provider/agent callbacks and persists.
+
+    ``repositories.disconnected_at`` is the single source of truth — never infer
+    revocation from ``installation_id`` being null (it is the access record, not
+    the signal). Returns ``'repository_disconnected'`` or
+    ``'deploy_mapping_revoked'`` when the repo context is revoked, else ``None``.
+    Callers must run this inside their transaction before every billable
+    provider turn and before persisting output; any non-None value means stop
+    without spending or writing. Pair the read with a lock on the repo/mapping
+    row when a caller needs serialization against a concurrent disconnect."""
+    if repo_id:
+        disconnected = conn.execute(
+            sa.select(repositories.c.disconnected_at).where(repositories.c.id == repo_id)
+        ).scalar_one_or_none()
+        if disconnected is not None:
+            return "repository_disconnected"
+    clauses = []
+    if mapping_id:
+        clauses.append(deploy_commit_mappings.c.id == mapping_id)
+    elif application_id and repo_id:
+        clauses.extend(
+            [
+                deploy_commit_mappings.c.application_id == application_id,
+                deploy_commit_mappings.c.repo_id == repo_id,
+            ]
+        )
+    if clauses:
+        active = conn.execute(
+            sa.select(deploy_commit_mappings.c.id).where(
+                *clauses, deploy_commit_mappings.c.revoked_at.is_(None)
+            )
+        ).first()
+        if active is None:
+            return "deploy_mapping_revoked"
+    return None
 
 
 def monitoring_assessment_state(conn: Connection, repo_id: str) -> tuple[bool, float | None]:

@@ -10766,6 +10766,19 @@
           "title": "Default Branch",
           "type": "string"
         },
+        "disconnected_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disconnected At"
+        },
         "full_name": {
           "pattern": "^[A-Za-z0-9_.\\-]+/[A-Za-z0-9_.\\-]+$",
           "title": "Full Name",
@@ -10807,6 +10820,7 @@
         "full_name",
         "default_branch",
         "installation_id",
+        "disconnected_at",
         "created_at"
       ],
       "title": "Repository",
@@ -12985,5 +12999,5 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "HackATL platform contracts",
-  "x-schema-version": []
+  "x-schema-version": "0.26.0"
 }

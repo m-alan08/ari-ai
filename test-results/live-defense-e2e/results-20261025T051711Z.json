@@ -1,0 +1,235 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "c44fea5f6077c9e41dc0f33e1e7a0204184d035b",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.26.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-25T05:17:11.138017+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_emergency_stop_is_claimable_when_project_slots_are_full",
+      "outcome": "passed",
+      "duration_s": 0.063,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_complete_rejects_expired_lease_without_waiting_for_reconciler",
+      "outcome": "passed",
+      "duration_s": 0.009,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_dependency_deferral_is_recorded_in_lifecycle_history",
+      "outcome": "passed",
+      "duration_s": 0.011,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_off_marks_waiting_first_responder_jobs_cancelled",
+      "outcome": "passed",
+      "duration_s": 0.248,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_deadline_compatibility_with_database_clock",
+      "outcome": "passed",
+      "duration_s": 0.011,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[timed_out]",
+      "outcome": "passed",
+      "duration_s": 0.114,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[recovery_required]",
+      "outcome": "passed",
+      "duration_s": 0.099,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_crash_during_provider_request_requires_recovery_before_replay",
+      "outcome": "passed",
+      "duration_s": 0.686,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_first_responder_step_has_a_durable_queue_deadline",
+      "outcome": "passed",
+      "duration_s": 0.346,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_off_during_final_submit_cannot_upgrade_cancelled_invocation",
+      "outcome": "passed",
+      "duration_s": 0.449,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_depends_on_waits_for_prerequisite",
+      "outcome": "passed",
+      "duration_s": 0.021,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_per_project_concurrency_is_fair",
+      "outcome": "passed",
+      "duration_s": 0.008,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_execution_deadline_times_out",
+      "outcome": "passed",
+      "duration_s": 0.011,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_uncertain_effect_needs_operator",
+      "outcome": "passed",
+      "duration_s": 0.008,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_deadline_survives_requeue_and_recovery",
+      "outcome": "passed",
+      "duration_s": 0.015,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_crash_after_send_requires_recovery_before_replay",
+      "outcome": "passed",
+      "duration_s": 0.427,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_off_during_final_submit_stays_cancelled",
+      "outcome": "passed",
+      "duration_s": 0.419,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_agent_step_jobs_have_durable_deadline",
+      "outcome": "passed",
+      "duration_s": 0.468,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}

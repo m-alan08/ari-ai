@@ -1,0 +1,724 @@
+{
+  "suite": "live-defense-e2e",
+  "environment": {
+    "git_sha": "c44fea5f6077c9e41dc0f33e1e7a0204184d035b",
+    "git_branch": "integration/2026-11-02-release",
+    "schema_version": "0.26.0",
+    "orchestrator_version": "7c.1.0",
+    "provider_mode": "fake",
+    "python": "3.12.15",
+    "host": "ip-172-16-4-2.us-west-2.compute.internal",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "captured_at": "2026-10-25T05:18:46.487246+00:00"
+  },
+  "scenarios": [
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_depends_on_waits_for_prerequisite",
+      "outcome": "passed",
+      "duration_s": 0.02,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_per_project_concurrency_is_fair",
+      "outcome": "passed",
+      "duration_s": 0.006,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_execution_deadline_times_out",
+      "outcome": "passed",
+      "duration_s": 0.004,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_uncertain_effect_needs_operator",
+      "outcome": "passed",
+      "duration_s": 0.005,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_deadline_survives_requeue_and_recovery",
+      "outcome": "passed",
+      "duration_s": 0.005,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_crash_after_send_requires_recovery_before_replay",
+      "outcome": "passed",
+      "duration_s": 0.299,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_off_during_final_submit_stays_cancelled",
+      "outcome": "passed",
+      "duration_s": 0.234,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_agent_step_jobs_have_durable_deadline",
+      "outcome": "passed",
+      "duration_s": 0.311,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_emergency_stop_is_claimable_when_project_slots_are_full",
+      "outcome": "passed",
+      "duration_s": 0.006,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_complete_rejects_expired_lease_without_waiting_for_reconciler",
+      "outcome": "passed",
+      "duration_s": 0.004,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_dependency_deferral_is_recorded_in_lifecycle_history",
+      "outcome": "passed",
+      "duration_s": 0.005,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_off_marks_waiting_first_responder_jobs_cancelled",
+      "outcome": "passed",
+      "duration_s": 0.075,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_deadline_compatibility_with_database_clock",
+      "outcome": "passed",
+      "duration_s": 0.013,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[timed_out]",
+      "outcome": "passed",
+      "duration_s": 0.079,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_observability_marks_nonrunning_jobs_as_not_in_progress[recovery_required]",
+      "outcome": "passed",
+      "duration_s": 0.058,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "parametrize"
+      ]
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_crash_during_provider_request_requires_recovery_before_replay",
+      "outcome": "passed",
+      "duration_s": 0.299,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_first_responder_step_has_a_durable_queue_deadline",
+      "outcome": "passed",
+      "duration_s": 0.322,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "?",
+      "nodeid": "backend/tests/live_defense_e2e/test_independent_integration.py::test_off_during_final_submit_cannot_upgrade_cancelled_invocation",
+      "outcome": "passed",
+      "duration_s": 0.298,
+      "failure_stage": null,
+      "checks": [],
+      "artifacts": [],
+      "notes": [],
+      "markers": []
+    },
+    {
+      "scenario": "A",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_a_successful_investigation",
+      "outcome": "passed",
+      "duration_s": 0.322,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "ingest accepted",
+          "expected": 202,
+          "observed": 202,
+          "ok": true
+        },
+        {
+          "name": "orchestrator action",
+          "expected": "confirm_with_probe",
+          "observed": "confirm_with_probe",
+          "ok": true
+        },
+        {
+          "name": "scout outcome",
+          "expected": "executed",
+          "observed": "executed",
+          "ok": true
+        },
+        {
+          "name": "handoff confirm refused without executed probe",
+          "expected": 409,
+          "observed": 409,
+          "ok": true
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "art_01M5RQQDPX4H34BCVDWEX2BPVR",
+          "kind": "llm_transcript",
+          "detail": "scout transcript"
+        },
+        {
+          "id": "art_01M5RQQDPYB83T1TMTFNB2DA57",
+          "kind": "tool_output",
+          "detail": "scout hypotheses"
+        }
+      ],
+      "notes": [],
+      "markers": [
+        "live_defense_smoke",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "B",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_b_missing_authorization",
+      "outcome": "passed",
+      "duration_s": 0.507,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "invalid ingest token refused",
+          "expected": "not 202",
+          "observed": 401,
+          "ok": false
+        },
+        {
+          "name": "no mapping -> scout blocked",
+          "expected": "skipped_no_mapping",
+          "observed": "skipped_no_mapping",
+          "ok": true
+        },
+        {
+          "name": "no approved scope -> probe blocked",
+          "expected": "skipped_no_scope",
+          "observed": "skipped_no_scope",
+          "ok": true
+        },
+        {
+          "name": "RBAC on mode API",
+          "expected": "member 403 / outsider 404 / auto_execute 4xx",
+          "observed": "403/404/4xx",
+          "ok": false
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_smoke",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "C",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_c_stale_snapshot",
+      "outcome": "passed",
+      "duration_s": 0.324,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "missing snapshot for mapped sha",
+          "expected": "skipped_no_snapshot",
+          "observed": "skipped_no_snapshot",
+          "ok": true
+        },
+        {
+          "name": "investigated commit == mapped commit",
+          "expected": "fae19feb3c350a3dc763a02447226e4d03903c97",
+          "observed": "fae19feb3c350a3dc763a02447226e4d03903c97",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "D",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_d_provider_failure",
+      "outcome": "passed",
+      "duration_s": 0.269,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "provider failure recorded",
+          "expected": "LLM_UNAVAILABLE",
+          "observed": "LLM_UNAVAILABLE",
+          "ok": true
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "art_01M5RQQF0FZNCS2WE8CJGK583E",
+          "kind": "llm_transcript",
+          "detail": "diagnose partial transcript"
+        }
+      ],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "E",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_e_worker_failure",
+      "outcome": "passed",
+      "duration_s": 0.243,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "partial evidence retained",
+          "expected": "crash recorded",
+          "observed": "{\"code\": \"INTERNAL\", \"trace\": \"Traceback (most recent call last):\\n  File \\\"/Users/devin/repos/ari-ai/backend/backend/wo",
+          "ok": false
+        },
+        {
+          "name": "physical provider calls (scout)",
+          "expected": "not replayed on redelivery (F1)",
+          "observed": "4 -> 4",
+          "ok": false
+        },
+        {
+          "name": "recovery outcome",
+          "expected": "failed",
+          "observed": "failed",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "F",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_f_off_mode_interruption",
+      "outcome": "passed",
+      "duration_s": 0.219,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "calls after OFF",
+          "expected": "<=2",
+          "observed": 2,
+          "ok": true
+        },
+        {
+          "name": "mode effective",
+          "expected": "off",
+          "observed": "off",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "G",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_g_multi_project_isolation",
+      "outcome": "passed",
+      "duration_s": 0.612,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "project isolation of correlated commits",
+          "expected": [
+            "96fec5a911866559ce1e1429eea7a49b7e83153a",
+            "309e30ba35c662bb56827005888459cc356445f3"
+          ],
+          "observed": "distinct",
+          "ok": true
+        },
+        {
+          "name": "cross-tenant read",
+          "expected": 404,
+          "observed": 404,
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "H",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_h_agent_output_manipulation",
+      "outcome": "passed",
+      "duration_s": 0.277,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "adversarial output did not confirm evidence",
+          "expected": "unverified",
+          "observed": "unverified",
+          "ok": true
+        },
+        {
+          "name": "denied tool recorded",
+          "expected": "http__request in transcript",
+          "observed": true,
+          "ok": true
+        },
+        {
+          "name": "schema rejection recorded",
+          "expected": "SCHEMA_INVALID in transcript",
+          "observed": true,
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "I",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_i_concurrent_workers",
+      "outcome": "passed",
+      "duration_s": 0.296,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "concurrent drains: single execution",
+          "expected": [
+            4,
+            3
+          ],
+          "observed": [
+            4,
+            3
+          ],
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "J",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_j_queue_redelivery",
+      "outcome": "passed",
+      "duration_s": 0.348,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "redelivered step idempotent",
+          "expected": "no new calls/artifacts",
+          "observed": [
+            0,
+            0
+          ],
+          "ok": false
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "K",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_k_provider_failure_after_partial_output",
+      "outcome": "passed",
+      "duration_s": 0.222,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "partial output + provider failure",
+          "expected": "LLM_UNAVAILABLE",
+          "observed": "LLM_UNAVAILABLE",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "L",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_l_off_during_active_provider_call",
+      "outcome": "passed",
+      "duration_s": 0.315,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "OFF during active call",
+          "expected": "scout retained / diagnose not executed",
+          "observed": [
+            "executed",
+            "cancelled"
+          ],
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "M",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_m_stale_deployment_mapping",
+      "outcome": "passed",
+      "duration_s": 0.217,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "pre-mapping window not investigated",
+          "expected": "skipped_no_mapping",
+          "observed": "skipped_no_mapping",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "N",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_n_artifact_corruption_and_missing",
+      "outcome": "passed",
+      "duration_s": 0.377,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "corrupt artifact refused",
+          "expected": "integrity error",
+          "observed": "OSError raised",
+          "ok": false
+        },
+        {
+          "name": "missing artifact refused",
+          "expected": "FileNotFoundError",
+          "observed": "FileNotFoundError raised",
+          "ok": false
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "O",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_o_cross_project_artifact_access",
+      "outcome": "passed",
+      "duration_s": 0.347,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "cross-tenant artifact read",
+          "expected": 404,
+          "observed": 404,
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "P",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_p_duplicate_telemetry",
+      "outcome": "passed",
+      "duration_s": 0.337,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "duplicate window deduped",
+          "expected": "1 window/1 decision/1 run",
+          "observed": "deduped",
+          "ok": false
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "Q",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_q_invalid_authorization_scope",
+      "outcome": "passed",
+      "duration_s": 0.363,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "expired scope -> probe refused",
+          "expected": "skipped_no_scope",
+          "observed": "skipped_no_scope",
+          "ok": true
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_e2e"
+      ]
+    },
+    {
+      "scenario": "R",
+      "nodeid": "backend/tests/live_defense_e2e/test_scenarios.py::test_r_off_suppresses_dispatch",
+      "outcome": "passed",
+      "duration_s": 0.354,
+      "failure_stage": null,
+      "checks": [
+        {
+          "name": "post-OFF window suppressed",
+          "expected": "no executed work",
+          "observed": [
+            0,
+            0
+          ],
+          "ok": false
+        }
+      ],
+      "artifacts": [],
+      "notes": [],
+      "markers": [
+        "live_defense_fault",
+        "live_defense_e2e"
+      ]
+    }
+  ],
+  "provider_evidence_note": "All scenarios run through scripted providers (FakeLLM) unless the test is marked live_llm. FakeLLM results do not validate real Anthropic execution."
+}
