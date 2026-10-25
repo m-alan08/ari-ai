@@ -1,0 +1,53 @@
+name: Ari review tooling
+on:
+  pull_request:
+    paths:
+      - scripts/ari_review/**
+      - .github/ari-review/**
+      - .github/workflows/ari-*.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/ari_review/**
+      - .github/ari-review/**
+      - .github/workflows/ari-*.yml
+permissions:
+  contents: read
+jobs:
+  review-controller-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build dependency-only test image (no repository execution)
+        run: |
+          docker build -t ari-controller-unit - <<'DOCKERFILE'
+          FROM python:3.12.12-slim-bookworm
+          RUN pip install --no-cache-dir pytest==8.3.5 PyYAML==6.0.2
+          RUN mkdir -p /app/.venv/bin && ln -s /usr/local/bin/python /app/.venv/bin/python
+          WORKDIR /repo
+          DOCKERFILE
+      - name: Unit and adversarial controller tests (no network/credentials)
+        run: >-
+          docker run --rm --network none --read-only --cap-drop=ALL
+          --security-opt=no-new-privileges --memory=1g --cpus=2 --pids-limit=128
+          --tmpfs /tmp:rw,nosuid,size=256m
+          -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/repo
+          --mount type=bind,src="$PWD",dst=/repo,readonly
+          ari-controller-unit python -m pytest -p no:cacheprovider scripts/ari_review/tests -q
+      - name: Verify real container mounts using synthetic fixtures (no release verdict)
+        run: |
+          docker tag ari-controller-unit ari-review-tests
+          python3 -m scripts.ari_review.smoke_layout
+      - name: Validate workflow syntax and expressions
+        run: >-
+          docker run --rm --network none --read-only --cap-drop=ALL
+          --security-opt=no-new-privileges --memory=256m --cpus=1
+          --tmpfs /tmp:rw,nosuid,size=64m
+          --mount type=bind,src="$PWD",dst=/repo,readonly -w /repo
+          rhysd/actionlint:1.7.7 -color
+          .github/workflows/ari-candidate-review.yml
+          .github/workflows/ari-review-refresh.yml
+          .github/workflows/ari-review-tooling.yml

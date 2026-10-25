@@ -1984,3 +1984,14 @@ selected run is still loading.
 - Merge waves belong to the integration lead; wave 2 includes my #542/#543.
 - Prod queue depth (~88 items) makes 45-case live eval slow — some cases may return `pending`/NOT_STARTED; rerun stragglers or extend deadlines.
 - Second-org real-provider leg needs owner's private repo + second GitHub org (account actions).
+
+### Automated independent release review setup — 2026-10-25
+
+Automation-only installation prepared: immutable candidate/upstream pins, F1–F10/
+N1–N7 strict evidence, protected signed budget ledger, workstream assignments and
+bounded existing-session Devin handoff. Local controller/adversarial suite: 56
+passed; Ruff clean. Fork trusted environments and ledger provisioned, API activation
+OFF. Installation PRs require manual review/merge; Codex repository access and API
+credentials/session budget confirmation are one-time prerequisites. Docker unavailable
+locally; live loop not claimed. No production code, release merge or deployment.
+See `docs/release/AUTOMATED_INDEPENDENT_REVIEW.md`.
