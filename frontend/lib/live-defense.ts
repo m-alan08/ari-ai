@@ -236,7 +236,10 @@ export function eventIncidentIds(eventId: string, incidents: readonly Incident[]
   return incidents.filter(item => item.monitoring_event_ids.includes(eventId)).map(item => item.id);
 }
 
-export function provenanceLabel(event: Pick<MonitoringEvent, 'source' | 'simulated'>): string {
+export function provenanceLabel(event: Pick<MonitoringEvent, 'source' | 'simulated' | 'test_event'>): string {
+  // Authorized onboarding test events travel the real authenticated channel but are
+  // never regular telemetry — say so before any ingest-channel claim.
+  if (event.test_event) return 'Onboarding test event (authorized)';
   if (event.source === 'runtime' && !event.simulated) return 'Authenticated runtime ingest';
   if (event.source === 'runtime' && event.simulated) return 'Runtime ingest (simulated / replay)';
   if (event.source === 'github' && event.simulated) return 'GitHub delivery (replayed / fixture)';

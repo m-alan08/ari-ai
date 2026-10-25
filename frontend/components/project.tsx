@@ -25,6 +25,7 @@ export function useParam(name: string): string {
 }
 
 const PRIMARY = [
+  { href: '/onboarding', label: 'Onboarding' },
   { href: '/commits', label: 'Code review' },
   { href: '', label: '7 agents' },
 ];

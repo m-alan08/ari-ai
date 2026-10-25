@@ -36,6 +36,7 @@ from backend.db import (
     audit_events,
     authorized_scopes,
     defense_recommendations,
+    deploy_commit_mappings,
     finding_records,
     findings,
     monitoring_events,
@@ -432,6 +433,118 @@ def update_repository(repo_id: str, body: RepositoryUpdate, request: Request) ->
             .mappings()
             .one()
         )
+
+
+@router.post("/repositories/{repo_id}/disconnect")
+def disconnect_repository(repo_id: str, request: Request) -> dict[str, Any]:
+    """Owner kill-switch: stop repo-driven work (push automation, and every
+    owner-attested deploy-to-commit mapping that points at this repository).
+
+    Canonical model (security-hardening PR): a `disconnected_at` park flag plus
+    snapshot/assessment/live-read gates; this implements the same semantics minus
+    the flag column so merging either order collapses to theirs + the mapping
+    revocation below. The row stays so the name cannot be squatted, and the
+    recorded installation_id stays: revoking the App grant itself is the
+    customer's GitHub-side action (uninstall or limit the App installation), it
+    is not something this API can or should claim to do.
+    """
+    with transaction() as conn:
+        user = _user(conn, request)
+        repo = _repo_access(conn, user, repo_id, MemberRole.owner)
+        already = (
+            repo["disconnected_at"] is not None
+            if "disconnected_at" in repo
+            else not repo["automatic_assessments"]
+        )
+        if not already:
+            updates: dict[str, Any] = {"automatic_assessments": False}
+            if "disconnected_at" in repo:
+                updates["disconnected_at"] = utcnow()
+            conn.execute(
+                sa.update(repositories).where(repositories.c.id == repo_id).values(**updates)
+            )
+        # Trusted deploy-to-commit links must die with the connection; runtime
+        # events must not resolve to a commit through a repo the owner parked.
+        revoked = conn.execute(
+            sa.update(deploy_commit_mappings)
+            .where(
+                deploy_commit_mappings.c.repo_id == repo_id,
+                deploy_commit_mappings.c.revoked_at.is_(None),
+            )
+            .values(revoked_at=utcnow())
+        ).rowcount
+        if not already or revoked:
+            _audit(
+                conn,
+                project_org(conn, repo["project_id"]),
+                repo["project_id"],
+                user,
+                "repository.disconnected",
+                "repository",
+                repo_id,
+                full_name=repo["full_name"],
+                deploy_mappings_revoked=revoked,
+            )
+        return {"id": repo_id, "disconnected": True}
+
+
+@router.post("/repositories/{repo_id}/reconnect")
+def reconnect_repository(repo_id: str, request: Request) -> dict[str, Any]:
+    """Re-enable a disconnected repository — only after renewed authorization.
+
+    App-connected rows require the owner to still hold access through the
+    recorded installation, verified with GitHub *fresh*: a revoked installation
+    or a GitHub outage denies the request rather than trusting the stale
+    sign-in snapshot. The personal-installation refresh runs in strict mode to
+    refresh the cache and fail fast on GitHub errors; the *target* installation
+    is then always verified directly — a healthy unrelated personal install can
+    never stand in for the recorded grant. Reconnect does NOT restore
+    ``automatic_assessments`` or revoked deploy mappings: the owner opts back
+    in explicitly.
+    """
+    from backend.db import users
+
+    with transaction() as conn:
+        user = _user(conn, request)
+        repo = _repo_access(conn, user, repo_id, MemberRole.owner)
+        if repo["installation_id"] is not None:
+            from backend.api.github_repos import (
+                _refresh_personal_installation_repositories,
+                can_connect,
+                verify_installation_access,
+            )
+
+            gh = conn.execute(
+                sa.select(users.c.github_login, users.c.github_id).where(users.c.id == user.id)
+            ).first()
+            if gh is not None:
+                _refresh_personal_installation_repositories(
+                    user.id, gh.github_login, gh.github_id, strict=True
+                )
+            verify_installation_access(repo["full_name"], repo["installation_id"])
+            if not can_connect(conn, user.id, repo["full_name"], repo["installation_id"]):
+                raise ApiError(
+                    ErrorCode.FORBIDDEN,
+                    "you no longer have access to this repository through its installation",
+                    403,
+                )
+        if "disconnected_at" in repo and repo["disconnected_at"] is not None:
+            conn.execute(
+                sa.update(repositories)
+                .where(repositories.c.id == repo_id)
+                .values(disconnected_at=None)
+            )
+            _audit(
+                conn,
+                project_org(conn, repo["project_id"]),
+                repo["project_id"],
+                user,
+                "repository.reconnected",
+                "repository",
+                repo_id,
+                full_name=repo["full_name"],
+            )
+        return {"id": repo_id, "disconnected": False}
 
 
 @router.post("/repositories/{repo_id}/snapshots", status_code=202, response_model=Snapshot)

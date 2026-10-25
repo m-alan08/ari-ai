@@ -4,11 +4,12 @@ import { ProjectNavigation } from '@/components/project';
 const route = vi.hoisted(() => ({ path: '/projects/p1' }));
 vi.mock('next/navigation', () => ({ usePathname: () => route.path, useParams: () => ({}) }));
 afterEach(cleanup);
-it('leads with two workflows and retains secondary routes behind More', () => {
+it('leads with the workflows and retains secondary routes behind More', () => {
   render(<ProjectNavigation base="/projects/p1" />);
   const nav = screen.getByRole('navigation', { name: 'Project' });
-  expect(within(nav.querySelector('.project-tabs') as HTMLElement).getAllByRole('link').map(a => a.textContent)).toEqual(['Code review', '7 agents']);
+  expect(within(nav.querySelector('.project-tabs') as HTMLElement).getAllByRole('link').map(a => a.textContent)).toEqual(['Onboarding', 'Code review', '7 agents']);
   expect(screen.getByRole('link', { name: '7 agents' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('link', { name: 'Onboarding' }).getAttribute('href')).toBe('/projects/p1/onboarding');
   fireEvent.click(screen.getByText('More'));
   expect(screen.getByRole('link', { name: 'Live Defense' }).getAttribute('href')).toBe('/projects/p1/live-defense');
   expect(screen.getByRole('link', { name: 'Authorized scopes' }).getAttribute('href')).toBe('/projects/p1/scopes');

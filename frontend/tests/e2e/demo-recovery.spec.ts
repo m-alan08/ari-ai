@@ -29,13 +29,14 @@ test('a missing assessment shows the real backend error rather than completed re
 });
 
 
-test('project navigation leads with two workflows and keeps tools reachable', async ({ browser }) => {
+test('project navigation leads with the workflows and keeps tools reachable', async ({ browser }) => {
   test.setTimeout(60_000);
   const page = await newUser(browser, 'e2e-alice');
   const base = `/projects/${env('E2E_PROJECT_ID')}`;
   await page.goto(base);
   const nav = page.getByRole('navigation', { name: 'Project', exact: true });
-  await expect(nav.getByRole('link')).toHaveCount(2);
+  await expect(nav.getByRole('link')).toHaveCount(3);
+  await expect(nav.getByRole('link', { name: 'Onboarding', exact: true })).toHaveAttribute('href', `${base}/onboarding`);
   await expect(nav.getByRole('link', { name: '7 agents', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('pillar-loop')).toBeHidden();
   await expect(page.getByRole('region', { name: 'Runs & replay' })).toBeVisible();

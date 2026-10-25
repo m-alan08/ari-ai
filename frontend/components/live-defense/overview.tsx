@@ -194,7 +194,7 @@ function LiveOverviewRecords({
                         <div className="flex flex-wrap items-center gap-2">
                           <Tag tone="accent">{event.source}</Tag>
                           <Tag>{event.type.replaceAll('_', ' ')}</Tag>
-                          <Tag tone={event.simulated ? 'warn' : 'info'}>{provenanceLabel(event)}</Tag>
+                          <Tag tone={event.simulated || event.test_event ? 'warn' : 'info'}>{provenanceLabel(event)}</Tag>
                           <Badge view={EVENT_STATUS[event.status]} />
                           <span className="text-xs text-muted">received <Time iso={event.received_at} /></span>
                         </div>

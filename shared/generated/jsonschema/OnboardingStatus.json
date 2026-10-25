@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "OnboardingStep": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Detail",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/OnboardingStepId"
+        },
+        "state": {
+          "$ref": "#/$defs/OnboardingStepState"
+        },
+        "subject_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Entity the step is about (repo, snapshot, app, ...)",
+          "title": "Subject Id"
+        }
+      },
+      "required": [
+        "id",
+        "state"
+      ],
+      "title": "OnboardingStep",
+      "type": "object"
+    },
+    "OnboardingStepId": {
+      "description": "Ordered customer journey steps. The frontend renders them in this order.",
+      "enum": [
+        "sign_in",
+        "organization",
+        "repository",
+        "github_access",
+        "snapshot",
+        "scope",
+        "application",
+        "deploy_mapping",
+        "monitoring",
+        "test_event",
+        "evidence"
+      ],
+      "title": "OnboardingStepId",
+      "type": "string"
+    },
+    "OnboardingStepState": {
+      "enum": [
+        "done",
+        "todo",
+        "in_progress",
+        "blocked",
+        "failed"
+      ],
+      "title": "OnboardingStepState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "checked_at": {
+      "format": "date-time",
+      "title": "Checked At",
+      "type": "string"
+    },
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "org_id": {
+      "pattern": "^org_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Org Id",
+      "type": "string"
+    },
+    "project_id": {
+      "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "project_name": {
+      "maxLength": 500,
+      "title": "Project Name",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/OnboardingStep"
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "project_id",
+    "org_id",
+    "project_name",
+    "steps",
+    "complete",
+    "checked_at"
+  ],
+  "title": "OnboardingStatus",
+  "type": "object"
+}
