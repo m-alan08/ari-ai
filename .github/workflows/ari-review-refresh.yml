@@ -1,0 +1,72 @@
+name: Ari review status refresh
+
+# No model calls, no Devin resumes, no candidate checkout/execution. This only
+# re-evaluates stored exact-SHA evidence against current CI and upstream main.
+on:
+  workflow_run:
+    workflows: [backend, security-agents, code-intelligence, code-review, frontend, secrets]
+    types: [completed]
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ari-review-summary-refresh
+  cancel-in-progress: false
+jobs:
+  refresh:
+    environment: ari-review-control
+    if: github.repository == 'm-alan08/ari-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          ARI_REVIEW_STATE_KEY: ${{ secrets.ARI_REVIEW_STATE_KEY }}
+        run: python3 -m scripts.ari_review.cycle refresh
+
+  workstream-fix-handoff:
+    environment: ari-devin-handoff
+    if: github.repository == 'm-alan08/ari-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Notify existing integration owner only after all assigned fix heads pass CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARI_REVIEW_STATE_KEY: ${{ secrets.ARI_REVIEW_STATE_KEY }}
+          ARI_REVIEW_LEDGER_GENESIS: ${{ secrets.ARI_REVIEW_LEDGER_GENESIS }}
+          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+          ARI_DEVIN_ENABLED: ${{ vars.ARI_DEVIN_ENABLED }}
+          ARI_DEVIN_BUDGET_ATTESTATION: ${{ vars.ARI_DEVIN_BUDGET_ATTESTATION }}
+        run: python3 -m scripts.ari_review.devin --ready
+      - name: Surface bounded handoff status
+        if: always()
+        run: |
+          if [ -f review-evidence/devin-handoff.json ]; then
+            cat review-evidence/devin-handoff.json >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ari-handoff-${{ github.run_id }}
+          path: review-evidence/
+          retention-days: 14

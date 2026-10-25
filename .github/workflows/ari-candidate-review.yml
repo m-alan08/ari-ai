@@ -1,0 +1,180 @@
+name: Ari candidate review
+
+# Trusted controller only. NEVER change this to run candidate code in a job
+# with OpenAI/Devin credentials or issues:write. Install on PR #8's BASE branch.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ari-candidate-cycle
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    if: github.repository == 'm-alan08/ari-ai'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+      issues: write
+    environment: ari-review-control
+    outputs:
+      candidate_sha: ${{ steps.pin.outputs.candidate_sha }}
+      policy_sha: ${{ steps.pin.outputs.policy_sha }}
+      ci_allowed: ${{ steps.pin.outputs.ci_allowed }}
+      audit_allowed: ${{ steps.pin.outputs.audit_allowed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: pin
+        name: Pin and reserve bounded candidate cycle (metadata only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARI_REVIEW_API_ENABLED: ${{ vars.ARI_REVIEW_API_ENABLED }}
+          ARI_REVIEW_STATE_KEY: ${{ secrets.ARI_REVIEW_STATE_KEY }}
+          ARI_REVIEW_LEDGER_GENESIS: ${{ secrets.ARI_REVIEW_LEDGER_GENESIS }}
+        run: python3 -m scripts.ari_review.cycle prepare
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ari-pin-${{ github.run_id }}
+          path: review-evidence/
+          retention-days: 14
+
+  strict-regressions:
+    needs: pin
+    if: needs.pin.outputs.ci_allowed == 'true' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.pin.outputs.policy_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ari-pin-${{ github.run_id }}
+          path: review-evidence/
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: m-alan08/ari-ai
+          ref: ${{ needs.pin.outputs.candidate_sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Isolated strict security, migration and latest-main regressions
+        run: python3 -m scripts.ari_review.ci
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ari-ci-${{ github.run_id }}
+          path: review-evidence/
+          retention-days: 14
+
+  independent-codex:
+    needs: [pin, strict-regressions]
+    if: always() && needs.pin.outputs.audit_allowed == 'true' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    environment: ari-independent-review
+    outputs:
+      review_json: ${{ steps.codex.outputs.final-message }}
+      context_complete: ${{ steps.context.outputs.complete }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.pin.outputs.policy_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: ari-*-${{ github.run_id }}
+          path: review-evidence/
+          merge-multiple: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: m-alan08/ari-ai
+          ref: ${{ needs.pin.outputs.candidate_sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch pinned comparison objects (no candidate execution)
+        run: python3 -m scripts.ari_review.setup_context
+      - id: context
+        name: Build bounded source/evidence prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m scripts.ari_review.cycle context
+          python3 -c 'import json,os; x=json.load(open("review-evidence/context.json")); open(os.environ["GITHUB_OUTPUT"],"a").write("complete="+str(x["complete"]).lower()+"\n")'
+      - id: budget
+        name: Start root-owned, fixed-price-model cost gate
+        env:
+          REAL_OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python3 -m scripts.ari_review.start_budget
+      # Last step: no privileged cleanup or candidate code after the model run.
+      # Pin the commit behind openai/codex-action@v1, not the mutable tag.
+      - id: codex
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1
+        with:
+          openai-api-key: ${{ steps.budget.outputs.capability }}
+          responses-api-endpoint: http://127.0.0.1:8877/responses
+          codex-version: 0.138.0
+          model: gpt-5.4-mini-2026-03-17
+          effort: high
+          safety-strategy: drop-sudo
+          permission-profile: ':read-only'
+          codex-home: ${{ runner.temp }}/ari-codex-home
+          working-directory: ${{ runner.temp }}/ari-read-only-review
+          prompt-file: review-evidence/prompt.md
+          output-schema-file: .github/ari-review/review.schema.json
+          allow-bot-users: devin-ai-integration[bot]
+          codex-args: '["--ephemeral", "--disable", "shell_tool", "-c", "web_search=\"disabled\"", "-c", "features.multi_agent=false", "-c", "features.js_repl=false"]'
+
+  publish:
+    environment: ari-review-control
+    needs: [pin, strict-regressions, independent-codex]
+    if: always() && needs.pin.outputs.candidate_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      issues: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.pin.outputs.policy_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: ari-*-${{ github.run_id }}
+          path: review-evidence/
+          merge-multiple: true
+      - name: Validate output, publish one summary, assign existing workstreams
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARI_REVIEW_STATE_KEY: ${{ secrets.ARI_REVIEW_STATE_KEY }}
+          CODEX_REVIEW_JSON: ${{ needs.independent-codex.outputs.review_json }}
+          ARI_CONTEXT_COMPLETE: ${{ needs.independent-codex.outputs.context_complete }}
+        run: python3 -m scripts.ari_review.cycle report
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ari-final-${{ github.run_id }}
+          path: review-evidence/
+          retention-days: 30

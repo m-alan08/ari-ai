@@ -6,6 +6,10 @@ All notable changes are documented here. Format follows
 
 ## [Unreleased]
 
+- Added opt-in bounded exact-SHA release review automation with isolated strict
+  regressions, signed evidence, existing-owner routing and a protected cost ledger.
+  No automatic merge, deployment or customer enforcement.
+
 - Replace game-like language with evaluation terminology, and use synthetic/illustrative labels while preserving test-environment provenance.
 
 - Center sign-in forms, remove the promotional side panel, and add subtle background orbits that respect reduced motion.
