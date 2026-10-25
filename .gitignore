@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.staging.example
 *.pem
 *.key
 *.p12
@@ -91,3 +92,6 @@ rl-defense/results/*/*/seed*/holdout_trajectories.jsonl
 
 # Database backup dumps (local restore drills)
 backups/
+
+# Generated release-readiness reports (deploy/release_readiness.py)
+deploy/reports/

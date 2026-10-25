@@ -23,6 +23,7 @@ deploy/scripts/smoke_staging.sh <staging-url>
 | 9 | Read-only pilot scope | `APP_ENV` staging/production, dev login off, no extra feature flags |
 | 10 | Backup exists and is readable | newest `*.dump` within `--max-backup-age-h`, `pg_restore --list` |
 | 11 | Rollback readiness | restore script + runbook present; deployed-from SHA recorded |
+| 12 | Full-stack readiness rehearsal | `deploy/release_readiness.py` GO report (executed proof of boot, queue, crash recovery, backup/restore, authz, emergency stop, alerting, redaction, artifacts) |
 
 ## Sign-off
 

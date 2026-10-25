@@ -146,7 +146,40 @@ reports conflicts without resolving them, then runs `make check` and the backend
 suite. `--push` publishes the branch so CI runs on the combination. Nothing is
 merged to `main`; delete the branch after the PRs land.
 
-## 13. What still needs a human
+## 13. Automated release-readiness rehearsal
+
+`deploy/release_readiness.py` runs the whole pilot stack end-to-end on one machine
+(embedded Postgres, real API + worker + migrations + alert webhook sink) under the
+staging profile and writes a GO/NO-GO report to `deploy/reports/` (gitignored):
+
+```sh
+# local rehearsal — scratch DB created and dropped automatically
+uv run python deploy/release_readiness.py
+
+# remote mode — only HTTP checks against a live deployment
+uv run python deploy/release_readiness.py --remote \
+    --base-url https://staging-api.example.com --ops-token $OPS_TOKEN \
+    --database-url $DATABASE_URL
+```
+
+Every check is an executed proof, not a config review: negative preflight (boot
+refused without secrets), full-config preflight, migrations to head, API+worker
+boot, SIGTERM drain, the 15-check staging smoke, a probe job succeeding, the
+alert webhook receiving a redacted `job_failed_permanent`, JSON logging,
+SIGKILL worker crash → lease expiry → another worker finishing the job
+(`worker.recovery`), a real `pg_dump`/`pg_restore` into a sibling database, CSRF +
+non-member 404 + owner-only emergency-stop authorization, the emergency-stop job
+reaching a terminal state, off-mode default reporting in `ops/status`, artifact
+round-trip, and `release_check.py` itself.
+
+`deploy/readiness_worker.py` is its probe worker: registers three test-only job
+kinds (`release_probe_success`, `release_probe_fail`, `release_probe_sleep`) then
+runs the real `backend.cli.worker` path — same preflight gates, same loop.
+
+Re-run it after every integration change; the report is the release-readiness
+evidence. A FAIL or WARN blocks GO until explained.
+
+## 14. What still needs a human
 
 - Real `OPS_TOKEN`, `ALERT_WEBHOOK_URL`, `SESSION_SECRET` values in Railway/Vercel
 - A backup schedule (cron/GitHub Action) — scripts exist, nothing schedules them
