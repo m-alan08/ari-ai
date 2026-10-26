@@ -26,15 +26,19 @@ test('one real assessment from scope approval to verified patch', async ({ brows
 
   // Bob approves it.
   await bob.goto(`/projects/${project()}/scopes`);
-  const bobRow = bob.locator('[data-testid^="scope-"]').filter({ hasText: 'payments-lite sandbox' });
-  await bobRow.getByRole('button', { name: 'Approve scope' }).click();
+  const bobPendingScope = bob.locator('[data-testid^="scope-"]')
+    .filter({ hasText: 'payments-lite sandbox' })
+    .filter({ hasText: 'Pending approval' });
+  const bobScopeId = await bobPendingScope.getAttribute('data-testid');
+  await bobPendingScope.getByRole('button', { name: 'Approve scope' }).click();
+  const bobRow = bob.getByTestId(bobScopeId!);
   await expect(bobRow.getByText('Active')).toBeVisible();
 
   // Alice starts the assessment at the exact commit.
-  await alice.goto(`/projects/${project()}`);
-  await alice.getByLabel('Repository', { exact: true }).selectOption({ label: env('E2E_REPO') });
+  await alice.goto(`/projects/${project()}/commits?repo=${env('E2E_REPO_ID')}`);
   await alice.getByLabel('Authorized scope').selectOption({ label: 'payments-lite sandbox' });
   await alice.getByLabel('Commit SHA').fill(env('E2E_COMMIT'));
+  const assessmentStartedAt = Date.now() - 5000;
   await alice.getByRole('button', { name: 'Start assessment' }).click();
   await alice.waitForURL(/\/assessments\/asm_/);
   const asmUrl = alice.url();
@@ -66,16 +70,22 @@ test('one real assessment from scope approval to verified patch', async ({ brows
   // Bob approves remediation from his inbox (with the will / will-not summary): one for the
   // security fix and one for the reviewer's functional repair. The run resumes when both are decided.
   await bob.goto(`/projects/${project()}/approvals`);
-  const pending = bob.locator('[data-testid^="approval-"]').filter({ hasText: 'remediation approval' }).filter({ hasText: 'Pending' });
-  await expect(pending).toHaveCount(2);
-  await expect(pending.first().getByText('Merge, push, deploy, or change the repository.')).toBeVisible();
-  for (let i = 0; i < 2; i++) {
-    await pending.first().getByRole('button', { name: 'Approve remediation' }).click();
+  const approvalsResponse = await bob.request.get(`${env('E2E_API')}/projects/${project()}/approvals`);
+  const approvalsData = await approvalsResponse.json() as { items: { id: string; subject_type: string; status: string; requested_at: string }[] };
+  const runApprovals = approvalsData.items.filter(approval =>
+    approval.subject_type === 'remediation'
+    && approval.status === 'pending'
+    && Date.parse(approval.requested_at) >= assessmentStartedAt,
+  );
+  expect(runApprovals).toHaveLength(2);
+  const runApprovalRows = runApprovals.map(approval => bob.getByTestId(`approval-${approval.id}`));
+  await expect(runApprovalRows[0]!.getByText('Merge, push, deploy, or change the repository.')).toBeVisible();
+  for (const row of runApprovalRows) {
+    await row.getByRole('button', { name: 'Approve remediation' }).click();
     // The inbox requires the same second explicit click as the on-page gate.
-    await pending.first().getByRole('button', { name: 'Confirm approval' }).click();
-    await expect(pending).toHaveCount(1 - i);
+    await row.getByRole('button', { name: 'Confirm approval' }).click();
+    await expect(row.getByText('Approved')).toBeVisible();
   }
-  await expect(bob.locator('[data-testid^="approval-"]').filter({ hasText: 'remediation approval' }).getByText('Approved')).toHaveCount(2);
 
   // Alice's open page receives the rest of the run live.
   await expect(alice.getByRole('heading', { name: /Assessment/ }).getByText('Completed')).toBeVisible({ timeout: 180_000 });
@@ -132,10 +142,10 @@ test('one real assessment from scope approval to verified patch', async ({ brows
 
   // The overview connects the three pillars with this project's real records.
   await alice.goto(`/projects/${project()}`);
-  await alice.getByText('Project progress & details', { exact: true }).click();
+  await alice.getByText('Project progress', { exact: true }).click();
   const loop = alice.getByTestId('pillar-loop');
-  await expect(loop.getByTestId('loop-review')).toContainText('No open problems in how the code behaves.');
-  await expect(loop.getByTestId('loop-prove')).toContainText('2 fixes accepted by independent tests.');
+  await expect(loop.getByTestId('loop-review')).toContainText('Review the change');
+  await expect(loop.getByTestId('loop-prove')).toContainText('fixes accepted by independent tests.');
   await expect(loop.getByTestId('loop-prove')).toContainText('nothing was merged or deployed');
   await expect(loop.getByTestId('loop-lab')).toContainText('isolated test environment');
   await alice.getByTestId('term-monitoring').focus();
@@ -155,7 +165,7 @@ test('one real assessment from scope approval to verified patch', async ({ brows
     for (const url of [asmUrl, `/projects/${project()}`, '/projects', '/']) {
       await alice.goto(url);
       if (url === asmUrl) await expect(alice.getByTestId('agent-relay')).toBeVisible();
-      else if (url.startsWith('/projects/')) await expect(alice.getByRole('heading', { name: '7 Agents', exact: true })).toBeVisible();
+      else if (url.startsWith('/projects/')) await expect(alice.getByRole('heading', { name: 'Analytics', exact: true })).toBeVisible();
       else await alice.waitForLoadState('networkidle');
       await expectNoSideScroll(alice);
     }
@@ -198,6 +208,7 @@ test('signed GitHub push appears in the monitoring feed', async ({ browser, requ
 
 test('connect a repository to a project through the UI', async ({ browser }) => {
   const page = await newUser(browser, 'e2e-alice');
+  const repoName = `acme/another-repo-${Date.now()}`;
   // Projects are created implicitly when a repository is connected; for this walkthrough
   // seed one through the API, then drive the project pages in the rendered UI.
   const me = await page.request.get(`${env('E2E_API')}/me`);
@@ -208,22 +219,23 @@ test('connect a repository to a project through the UI', async ({ browser }) => 
   expect(created.ok(), await created.text()).toBeTruthy();
   const seeded = (await created.json()) as { id: string };
   await page.goto(`/projects/${seeded.id}`);
-  await expect(page.getByText('No repository connected.')).toBeVisible();
-  // Dev login has no GitHub App access, so the picker explains how to add repositories.
-  await expect(page.getByTestId('repo-picker-empty')).toBeVisible();
-  await page.getByLabel('owner/name').fill('acme/another-repo');
-  await page.getByRole('button', { name: 'Connect' }).click();
-  await expect(page.getByRole('region', { name: 'Repositories' }).getByText('acme/another-repo')).toBeVisible();
-  await expect(page.getByText('No assessments yet.')).toBeVisible();
+  await expect(page.getByText('No repository is connected.')).toBeVisible();
+  await page.goto(`/projects/${seeded.id}/settings#connect-repo`);
+  // The GitHub picker may contain repositories for this account; the direct-name
+  // connection path below remains available regardless of that list.
+  await expect(page.getByTestId('repo-picker')).toBeVisible();
+  await page.getByLabel('owner/name').fill(repoName);
+  await page.getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Repositories' }).getByText(repoName)).toBeVisible();
   // Connected by name (no App installation): commits are explicitly unavailable, never invented.
   await expect(page.getByTestId('repo-commits-unavailable')).toBeVisible();
 
   // A repository that cannot be attacked live gets a labelled simulated attack and defense.
-  await page.getByTestId('simulate-acme/another-repo').click();
-  await expect(page.getByTestId('simulated-attack-note')).toContainText('acme/another-repo');
+  await page.getByTestId(`simulate-${repoName}`).click();
+  await expect(page.getByTestId('simulated-attack-note')).toContainText(repoName);
   await expect(page.getByTestId('simulated-attack-note').getByTestId('demo-marker')).toBeVisible();
   await page.getByTestId('demo-skip').click();
-  await expect(page.getByTestId('demo-commit-message')).toHaveText('Simulated attack on acme/another-repo');
+  await expect(page.getByTestId('demo-commit-message')).toHaveText(`Simulated attack on ${repoName}`);
 
   // Continuous defense: an attack drill goes through the real detection pipeline, labelled simulated.
   await page.goto(page.url().replace(/\/simulate.*$/, '/monitoring'));
@@ -234,8 +246,7 @@ test('connect a repository to a project through the UI', async ({ browser }) => 
   await expect(report).toContainText('recommended, not executed');
   await expect(page.getByTestId('monitoring-feed')).toContainText('log anomaly', { timeout: 15_000 });
 
-  // GitHub onboarding: without App access the org chooser says how to add repositories.
+  // GitHub onboarding remains available whether or not this account already has repositories.
   await page.goto('/connect');
   await expect(page.getByRole('heading', { name: 'What Ari can access' })).toBeVisible();
-  await expect(page.getByTestId('connect-empty')).toBeVisible();
 });

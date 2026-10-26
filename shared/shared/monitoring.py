@@ -64,6 +64,14 @@ class MonitoringEvent(StrictModel):
     simulated: bool = Field(
         default=False, description="True for replayed/fixture events; UI must label them"
     )
+    test_event: bool = Field(
+        default=False,
+        description=(
+            "True for owner-authorized onboarding test events. They traverse the real "
+            "authenticated ingest channel (simulated stays False) but customer-facing "
+            "views must label them unmistakably as tests."
+        ),
+    )
     status: EventStatus
     status_reason: ShortText | None = None
     impact: ImpactSet | None = None

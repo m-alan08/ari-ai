@@ -18,6 +18,7 @@ from backend.api.deps import (
     SESSION_COOKIE,
     ApiError,
     create_session,
+    limiter,
     require_user,
     session_user,
 )
@@ -37,14 +38,80 @@ router = APIRouter(tags=["auth"])
 STATE_COOKIE = "hackatl_oauth_state"
 
 
+def _release_login(conn: Connection, user_id: str, login: str, org_id: str | None) -> None:
+    """Detach a stale github_login from an account.
+
+    GitHub logins are mutable: when the owner of ``login`` renames away, a different
+    account (different immutable github_id) can later register the same name. The
+    stored row still belongs to the original github_id, so identity must follow the
+    id, not the name — the new holder of the login must never inherit this row.
+    """
+    conn.execute(
+        sa.update(users).where(users.c.id == user_id).values(github_login=f"released:{user_id}")
+    )
+    if org_id:
+        audit.record(
+            conn,
+            org_id=org_id,
+            actor_type=ActorType.system,
+            actor_id="auth",
+            action="user.login_released",
+            subject_type="user",
+            subject_id=user_id,
+            details={"released_login": login},
+        )
+
+
 def upsert_user(
     conn: Connection, login: str, display_name: str | None, github_id: int | None
 ) -> str:
-    row = conn.execute(sa.select(users.c.id).where(users.c.github_login == login)).scalar()
-    if row:
-        if github_id:
-            conn.execute(sa.update(users).where(users.c.id == row).values(github_id=github_id))
-        return row
+    if github_id is not None:
+        # Identity is anchored on the immutable github_id; the login is only a label.
+        row = (
+            conn.execute(
+                sa.select(users.c.id, users.c.github_login, users.c.personal_org_id).where(
+                    users.c.github_id == github_id
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if row is not None:
+            if row["github_login"] != login:
+                holder = (
+                    conn.execute(
+                        sa.select(users.c.id, users.c.personal_org_id).where(
+                            users.c.github_login == login
+                        )
+                    )
+                    .mappings()
+                    .first()
+                )
+                if holder is not None and holder["id"] != row["id"]:
+                    _release_login(conn, holder["id"], login, holder["personal_org_id"])
+                conn.execute(
+                    sa.update(users).where(users.c.id == row["id"]).values(github_login=login)
+                )
+            return row["id"]
+    row = (
+        conn.execute(
+            sa.select(users.c.id, users.c.github_id, users.c.personal_org_id).where(
+                users.c.github_login == login
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is not None:
+        if github_id is not None and row["github_id"] is not None and row["github_id"] != github_id:
+            # A different GitHub account now owns this login: never link it here.
+            _release_login(conn, row["id"], login, row["personal_org_id"])
+        else:
+            if github_id is not None and row["github_id"] is None:
+                conn.execute(
+                    sa.update(users).where(users.c.id == row["id"]).values(github_id=github_id)
+                )
+            return row["id"]
     user_id, org_id = new_id(IdPrefix.usr), new_id(IdPrefix.org)
     conn.execute(sa.insert(organizations).values(id=org_id, name=f"{login} (personal)"))
     conn.execute(
@@ -72,6 +139,26 @@ def upsert_user(
     return user_id
 
 
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _audit_login(conn: Connection, user_id: str, method: str) -> None:
+    org_id = conn.execute(sa.select(users.c.personal_org_id).where(users.c.id == user_id)).scalar()
+    if not org_id:
+        return
+    audit.record(
+        conn,
+        org_id=org_id,
+        actor_type=ActorType.user,
+        actor_id=user_id,
+        action="auth.login",
+        subject_type="user",
+        subject_id=user_id,
+        details={"method": method},
+    )
+
+
 def _set_session_cookie(response: Response, token: str) -> None:
     s = get_settings()
     response.set_cookie(
@@ -86,13 +173,15 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 @router.post("/auth/dev/login", response_model=MeResponse)
-def dev_login(body: DevLoginRequest, response: Response) -> MeResponse:
+def dev_login(body: DevLoginRequest, request: Request, response: Response) -> MeResponse:
     s = get_settings()
     if not (s.is_dev and s.auth_dev_login_enabled):
         raise ApiError(ErrorCode.FORBIDDEN, "dev login is disabled", 403)
+    limiter.check(f"login:{_client_ip(request)}", s.auth_dev_login_burst, 300)
     with transaction() as conn:
         user_id = upsert_user(conn, body.github_login, body.display_name, None)
         token, csrf = create_session(conn, user_id)
+        _audit_login(conn, user_id, "dev")
         _set_session_cookie(response, token)
         return _me(conn, user_id, csrf)
 
@@ -127,6 +216,7 @@ def github_callback(
         # Returning from installing the App: GitHub sends a code without our state. Never
         # trust it; start a normal sign-in instead, which refreshes the repository list.
         return RedirectResponse(f"{s.api_base_url}/api/v1/auth/github/login", status_code=302)
+    limiter.check(f"oauth:{_client_ip(request)}", 30, 300)
     expected = request.cookies.get(STATE_COOKIE, "")
     public_host = urlsplit(s.api_base_url).netloc
     arrived_on = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
@@ -173,6 +263,7 @@ def github_callback(
         if repos is not None:
             store_repo_access(conn, user_id, repos)
         token, _ = create_session(conn, user_id)
+        _audit_login(conn, user_id, "github")
     # Straight to choosing an organization and repository.
     resp = RedirectResponse(f"{s.frontend_origin}/connect", status_code=302)
     _set_session_cookie(resp, token)

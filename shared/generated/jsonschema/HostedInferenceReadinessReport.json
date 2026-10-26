@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "HostedInferenceReadinessConfig": {
+      "additionalProperties": false,
+      "description": "Declarative requirements for a future approved checkpoint. Does not serve one.",
+      "properties": {
+        "abstention_on_assumption_failure": {
+          "const": true,
+          "default": true,
+          "title": "Abstention On Assumption Failure",
+          "type": "boolean"
+        },
+        "approved_checkpoint_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Checkpoint Sha256"
+        },
+        "auto_serve_newer_research_checkpoints": {
+          "const": false,
+          "default": false,
+          "title": "Auto Serve Newer Research Checkpoints",
+          "type": "boolean"
+        },
+        "auto_serve_unapproved": {
+          "const": false,
+          "default": false,
+          "title": "Auto Serve Unapproved",
+          "type": "boolean"
+        },
+        "compatibility_fixture_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frozen v6 hash used only in compatibility tests, not as an approved policy.",
+          "title": "Compatibility Fixture Sha256"
+        },
+        "fallback_producer": {
+          "default": "abstention",
+          "enum": [
+            "rules",
+            "abstention"
+          ],
+          "title": "Fallback Producer",
+          "type": "string"
+        },
+        "inference_timeout_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unset until the RL owner approves a timeout.",
+          "title": "Inference Timeout Ms"
+        },
+        "isolation": {
+          "default": "Worker process only; untrusted target code stays in the sandbox; no outbound network by default.",
+          "maxLength": 500,
+          "title": "Isolation",
+          "type": "string"
+        },
+        "refuse_on_hash_mismatch": {
+          "const": true,
+          "default": true,
+          "title": "Refuse On Hash Mismatch",
+          "type": "boolean"
+        },
+        "refuse_on_tamper": {
+          "const": true,
+          "default": true,
+          "title": "Refuse On Tamper",
+          "type": "boolean"
+        },
+        "restart_on_timeout": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restart On Timeout"
+        },
+        "v6_claimed_to_pass_new_criteria": {
+          "const": false,
+          "default": false,
+          "title": "V6 Claimed To Pass New Criteria",
+          "type": "boolean"
+        }
+      },
+      "title": "HostedInferenceReadinessConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approved_checkpoint_present": {
+      "title": "Approved Checkpoint Present",
+      "type": "boolean"
+    },
+    "config": {
+      "$ref": "#/$defs/HostedInferenceReadinessConfig"
+    },
+    "notes": {
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "v6_passed_new_criteria": {
+      "const": false,
+      "default": false,
+      "title": "V6 Passed New Criteria",
+      "type": "boolean"
+    },
+    "v6_used_only_as_compatibility_fixture": {
+      "title": "V6 Used Only As Compatibility Fixture",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "config",
+    "approved_checkpoint_present",
+    "v6_used_only_as_compatibility_fixture"
+  ],
+  "title": "HostedInferenceReadinessReport",
+  "type": "object"
+}

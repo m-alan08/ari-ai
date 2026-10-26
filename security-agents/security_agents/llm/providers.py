@@ -106,6 +106,7 @@ class AnthropicProvider:
             input_tokens=int(getattr(msg.usage, "input_tokens", 0) or 0),
             output_tokens=int(getattr(msg.usage, "output_tokens", 0) or 0),
             cache_read_input_tokens=int(getattr(msg.usage, "cache_read_input_tokens", 0) or 0),
+            cache_creation_input_tokens=int(getattr(msg.usage, "cache_creation_input_tokens", 0) or 0),
         )
         stop_details = getattr(msg, "stop_details", None)
         return LLMResponse(

@@ -128,12 +128,15 @@ def main(argv: list[str]) -> int:
             .render_as_string(hide_password=False),
             ARTIFACT_STORE_URI=(tmp / "artifacts").as_uri(),
             AUTH_DEV_LOGIN_ENABLED="true",
+            AUTH_DEV_LOGIN_BURST="500",
             ANTHROPIC_API_KEY="",
             GITHUB_WEBHOOK_SECRET=WEBHOOK_SECRET,
             RATE_LIMIT_PER_MINUTE="100000",
             REPOSITORY_BINDINGS_FILE=str(bindings),
             SECURITY_SANDBOX="local-dev",
+            SECURITY_WORKDIR=str(tmp / "work"),
             SECURITY_AGENTS_WORKDIR=str(tmp / "work"),
+            SECURITY_AGENTS_LABELS=str(PAYMENTS / "labels.yaml"),
             ORCHESTRATOR_FACTORY="security_agents.api:build_orchestrator",
             CODE_INTELLIGENCE_FACTORY="code_intelligence.api:build_service",
         )
@@ -240,7 +243,10 @@ def main(argv: list[str]) -> int:
             )
         alice.headers["X-CSRF-Token"] = me["csrf_token"]
         pid = (
-            alice.post("/projects", json={"name": "payments-lite (e2e)", "settings": {"delivery_mode": "manual"}})
+            alice.post(
+                "/projects",
+                json={"name": "payments-lite (e2e)", "settings": {"delivery_mode": "manual"}},
+            )
             .raise_for_status()
             .json()["id"]
         )
@@ -252,7 +258,10 @@ def main(argv: list[str]) -> int:
         # The commit-workspace journey completes its own runs. Keep its findings/approvals
         # separate from the original journey's exact-count assertions.
         workspace_pid = (
-            alice.post("/projects", json={"name": "commit-workspace (e2e)", "settings": {"delivery_mode": "manual"}})
+            alice.post(
+                "/projects",
+                json={"name": "commit-workspace (e2e)", "settings": {"delivery_mode": "manual"}},
+            )
             .raise_for_status()
             .json()["id"]
         )
@@ -264,14 +273,63 @@ def main(argv: list[str]) -> int:
             .raise_for_status()
             .json()["id"]
         )
+        # A dedicated project for the Workstream-2 live-defense lifecycle spec:
+        # it runs Scout, and the first-responder page renders one
+        # live-defense-fr-invocation-* row per invocation across the whole
+        # project, so sharing E2E_PROJECT_ID would collide with the Phase 7C
+        # spec's single-element assertions.
+        ld_pid = (
+            alice.post(
+                "/projects",
+                json={"name": "live-defense-e2e (e2e)", "settings": {"delivery_mode": "manual"}},
+            )
+            .raise_for_status()
+            .json()["id"]
+        )
+        ld_name = "acme/live-defense-e2e"
+        ld_rid = (
+            alice.post(f"/projects/{ld_pid}/repositories", json={"full_name": ld_name})
+            .raise_for_status()
+            .json()["id"]
+        )
         bindings.write_text(
             json.dumps(
                 [
                     {"repo_id": rid, "local_path": str(repo), "subdir": "."},
                     {"repo_id": workspace_rid, "local_path": str(repo), "subdir": "."},
+                    {"repo_id": ld_rid, "local_path": str(repo), "subdir": "."},
                 ]
             )
         )
+        from backend.db import snapshots
+        from shared.base import utcnow
+        from shared.ids import IdPrefix, new_id
+        from shared.intelligence import Snapshot, SnapshotStatus
+
+        # Valid Snapshot JSONB so GET /repositories/{id}/snapshots can
+        # model_validate. Status stays indexing (not ready) so pages.spec still
+        # sees "No indexed snapshot"; first-responder only needs the row.
+        snap = Snapshot(
+            id=new_id(IdPrefix.snp),
+            repo_id=rid,
+            commit_sha=sha,
+            status=SnapshotStatus.indexing,
+            index_version="e2e-phase7c",
+            created_at=utcnow(),
+        )
+        snap_ld = snap.model_copy(update={"id": new_id(IdPrefix.snp), "repo_id": ld_rid})
+        with transaction() as conn:
+            for s in (snap, snap_ld):
+                conn.execute(
+                    sa.insert(snapshots).values(
+                        id=s.id,
+                        repo_id=s.repo_id,
+                        commit_sha=s.commit_sha,
+                        index_version=s.index_version,
+                        status=s.status.value,
+                        doc=s.model_dump(mode="json"),
+                    )
+                )
         alice.close()
 
         # Stored simulation-derived recommendation for Live Defense e2e (no live RL
@@ -385,6 +443,9 @@ def main(argv: list[str]) -> int:
                 "E2E_PROJECT_ID": pid,
                 "E2E_REPO_ID": rid,
                 "E2E_REPO": REPO_NAME,
+                "E2E_LD_PROJECT_ID": ld_pid,
+                "E2E_LD_REPO_ID": ld_rid,
+                "E2E_LD_REPO": ld_name,
                 "E2E_WORKSPACE_PROJECT_ID": workspace_pid,
                 "E2E_WORKSPACE_REPO_ID": workspace_rid,
                 "E2E_WORKSPACE_REPO": workspace_name,

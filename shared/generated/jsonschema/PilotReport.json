@@ -79,6 +79,12 @@
           "title": "Project Id",
           "type": "string"
         },
+        "rl_gated_pilot": {
+          "default": false,
+          "description": "When true, the server enforces recommendation-only shadow mode: no grant, channel, authorize, or execute.",
+          "title": "Rl Gated Pilot",
+          "type": "boolean"
+        },
         "shadow_mode": {
           "const": true,
           "default": true,

@@ -5,7 +5,7 @@ import { AntColony } from '@/components/ant-colony';
 
 /**
  * Full-screen interactive hero band. Pointer position and scroll progress are written as CSS
- * variables (--mx/--my on the band, --tx/--ty on each [data-spotlight] line, --scroll) once per
+ * variables (--mx/--my on the band and --scroll) once per
  * frame; all visuals live in globals.css (`.hero-stage`). While mounted it also drives the
  * fixed home header through <html data-home-hero>. Scroll attributes remain available
  * to page styling; navigation itself stays visible with independent contrast surfaces.
@@ -27,7 +27,6 @@ export function HeroStage({ children, className = '', labelledBy, play = true, c
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let frame = 0;
     let pointer: { x: number; y: number } | null = null;
-    let moved = false; // the spotlight only needs repainting when the pointer moves
     let lastScroll = '';
     const paint = () => {
       frame = 0;
@@ -39,21 +38,15 @@ export function HeroStage({ children, className = '', labelledBy, play = true, c
       // Once the page has fully covered the pinned hero, stop painting it (orbs, glow, text).
       toggle(el.dataset, 'covered', y > height * 1.05);
       if (reduced) return;
-      if (pointer && moved && y < height) {
-        moved = false;
+      if (pointer && y < height) {
         el.style.setProperty('--mx', `${pointer.x - box.left}px`);
         el.style.setProperty('--my', `${pointer.y - box.top}px`);
-        el.querySelectorAll<HTMLElement>('[data-spotlight]').forEach(line => {
-          const r = line.getBoundingClientRect();
-          line.style.setProperty('--tx', `${pointer!.x - r.left}px`);
-          line.style.setProperty('--ty', `${pointer!.y - r.top}px`);
-        });
       }
       const scroll = Math.min(1, Math.max(0, y / height)).toFixed(3);
       if (scroll !== lastScroll) { lastScroll = scroll; el.style.setProperty('--scroll', scroll); }
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
-    const onMove = (e: PointerEvent) => { pointer = { x: e.clientX, y: e.clientY }; moved = true; el.dataset.pointer = 'on'; schedule(); };
+    const onMove = (e: PointerEvent) => { pointer = { x: e.clientX, y: e.clientY }; el.dataset.pointer = 'on'; schedule(); };
     const onLeave = () => { el.dataset.pointer = 'off'; };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerleave', onLeave);
@@ -83,6 +76,8 @@ export function HeroStage({ children, className = '', labelledBy, play = true, c
         <span className="hero-orb hero-orb-a" />
         <span className="hero-orb hero-orb-b" />
         <span className="hero-orb hero-orb-c" />
+        <span className="hero-orb hero-orb-d" />
+        <span className="hero-orb hero-orb-e" />
         <span className="hero-glow" />
       </div>
       {colony && <AntColony play={play} />}

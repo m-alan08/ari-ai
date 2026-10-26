@@ -1,0 +1,109 @@
+{
+  "_comment": "Maps a Codex finding's `component` (or, as fallback, its touched path prefixes) to the workstream owner that fixes it. `devin_session` is the owner's existing Devin session (woken via the per-owner Devin webhook automation). `owner_pr` is the fork PR the routed comment is posted on. `github_login` documents the human owner.",
+  "owners": {
+    "execution-reliability": {
+      "github_login": "m-alan08",
+      "owner_pr": 1,
+      "devin_session": "devin-1dc1161e34044bc882cba44931c122b3",
+      "webhook_key": "execution-reliability",
+      "paths": [
+        "backend/backend/jobs.py",
+        "backend/backend/worker.py",
+        "backend/backend/execution.py",
+        "backend/backend/redaction.py",
+        "backend/backend/artifacts.py",
+        "backend/backend/api/jobs.py",
+        "backend/tests/test_execution_reliability.py"
+      ]
+    },
+    "e2e-tests": {
+      "github_login": "m-alan08",
+      "owner_pr": 2,
+      "devin_session": "devin-eb2b059de9b9446686c7f15e02d6448d",
+      "webhook_key": "e2e-tests",
+      "paths": ["frontend/tests/e2e/", "frontend/tests/unit/"]
+    },
+    "investigation-observability": {
+      "github_login": "m-alan08",
+      "owner_pr": 3,
+      "devin_session": "devin-258be3829ece4d7dacc2a69f0b357476",
+      "webhook_key": "investigation-observability",
+      "paths": [
+        "backend/backend/api/live_defense_investigations.py",
+        "frontend/components/live-defense/",
+        "frontend/lib/live-defense.ts"
+      ]
+    },
+    "security-hardening": {
+      "github_login": "m-alan08",
+      "owner_pr": 4,
+      "devin_session": "devin-b679eb04ed8542e5ade63c05ccf6dd85",
+      "webhook_key": "security-hardening",
+      "paths": [
+        "backend/backend/api/",
+        "backend/backend/services.py",
+        "backend/backend/live_defense/controls.py"
+      ]
+    },
+    "deployment-ops": {
+      "github_login": "m-alan08",
+      "owner_pr": 5,
+      "devin_session": "devin-22f6979fa4dd42cea6b1b7286ce285f0",
+      "webhook_key": "deployment-ops",
+      "paths": ["deploy/", "backend/backend/preflight.py", "backend/backend/api/ops.py"]
+    },
+    "customer-onboarding": {
+      "github_login": "m-alan08",
+      "owner_pr": 6,
+      "devin_session": "devin-0a9affb3a97b49eda5d0bae897c2e561",
+      "webhook_key": "customer-onboarding",
+      "paths": [
+        "backend/backend/api/onboarding.py",
+        "frontend/app/onboarding",
+        "frontend/components/onboarding"
+      ]
+    },
+    "release-validation": {
+      "github_login": "m-alan08",
+      "owner_pr": 7,
+      "devin_session": "devin-58398387bc7c4fbe974e88a1172eb397",
+      "webhook_key": "release-validation",
+      "paths": ["deploy/scripts/", "deploy/release_readiness.py", "deploy/release_check.py"]
+    },
+    "upstream-412": {
+      "github_login": "adamissac",
+      "owner_pr": null,
+      "devin_session": null,
+      "webhook_key": null,
+      "note": "Upstream PR #412 owner (Adam). Routed findings need manual relay to upstream.",
+      "paths": []
+    },
+    "upstream-458": {
+      "github_login": "m-alan08",
+      "owner_pr": null,
+      "devin_session": null,
+      "webhook_key": null,
+      "note": "Upstream PR #458 (Phase 7C, provider ledger / first_responder). Findings are relayed to its owner via coordination, not auto-dispatched.",
+      "paths": [
+        "backend/backend/live_defense/first_responder.py",
+        "backend/backend/provider_ledger.py"
+      ]
+    },
+    "integration": {
+      "github_login": "m-alan08",
+      "owner_pr": 8,
+      "devin_session": "devin-c16c0b5620d5423d9b5337b6d8d6b25a",
+      "webhook_key": "integration",
+      "note": "Composition, migration ordering, shared-contract versioning, merge equivalence.",
+      "paths": [
+        "shared/",
+        "backend/backend/db.py",
+        "backend/backend/main.py",
+        "backend/backend/settings.py",
+        "coordination/",
+        ".github/"
+      ]
+    }
+  },
+  "default_component": "integration"
+}

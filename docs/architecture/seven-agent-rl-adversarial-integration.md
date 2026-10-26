@@ -132,33 +132,34 @@ Deliberately captures every field Stage 1 enumerates:
 # PROPOSED shared.rl_adversarial (not implemented)
 class OffensiveScenario(StrictModel):
     id: ScenarioId
-    source_assessment_id: str          # provenance back to the AgentRun chain
+    source_assessment_id: str  # provenance back to the AgentRun chain
     schema_version: str
 
     # -- what the offensive pipeline actually proved --
-    attack_category: str               # CWE/CAPEC from Hypothesis/Trace (classification, not proof)
-    validated_finding_ids: list[str]   # ValidationResult ids with outcome == CONFIRMED
-    attack_path_id: str | None         # Trace AttackPath id (verified steps only)
-    instrumented: bool                 # True ONLY if backed by sandbox_run_id observations
+    attack_category: str  # CWE/CAPEC from Hypothesis/Trace (classification, not proof)
+    validated_finding_ids: list[str]  # ValidationResult ids with outcome == CONFIRMED
+    attack_path_id: str | None  # Trace AttackPath id (verified steps only)
+    instrumented: bool  # True ONLY if backed by sandbox_run_id observations
 
     # -- Stage 1 required fields --
-    application_conditions: dict[str, object]   # relevant app state/config at reproduction
-    preconditions: list[str]                    # from AttackPath.preconditions
-    affected_assets: list[str]                  # mapped toward NODE_NAMES (see §4)
-    observable_telemetry: dict[str, object]     # measured signals, from Probe observations
-    success_criteria: SuccessCriteria           # measurable, instrument-derived (see below)
-    available_defensive_actions: list[str]      # subset of DefenseSimEnv actions
-    measurable_outcomes: list[str]              # what instrumentation reports as mitigation
+    application_conditions: dict[str, object]  # relevant app state/config at reproduction
+    preconditions: list[str]  # from AttackPath.preconditions
+    affected_assets: list[str]  # mapped toward NODE_NAMES (see §4)
+    observable_telemetry: dict[str, object]  # measured signals, from Probe observations
+    success_criteria: SuccessCriteria  # measurable, instrument-derived (see below)
+    available_defensive_actions: list[str]  # subset of DefenseSimEnv actions
+    measurable_outcomes: list[str]  # what instrumentation reports as mitigation
 
     # -- safety --
-    authorized_scope_id: str           # the AuthorizedScope this was produced under
+    authorized_scope_id: str  # the AuthorizedScope this was produced under
     authorization_expires_at: datetime
     reproducible_in_disposable_env: bool
+
 
 class SuccessCriteria(StrictModel):
     source: Literal["sandbox_instrumentation", "verified_attack_path"]  # never "agent_text"
     sandbox_run_id: str | None
-    observed_signal: str               # the concrete instrument reading that defines success
+    observed_signal: str  # the concrete instrument reading that defines success
     threshold: float | str
 ```
 
@@ -175,13 +176,13 @@ The RL side owns the lossy projection onto `DefenseSimEnv`. It is explicit and a
 class EpisodeSpec(StrictModel):
     id: EpisodeId
     offensive_scenario_id: ScenarioId
-    env_id: Literal["DefenseSimEnv-v0"]        # pinned; bump on env change
-    scenario_config: ScenarioConfig            # the projected simulator parameters
-    scenario_config_hash: str                  # ScenarioConfig.config_hash()
-    seed_facts: PlatformFacts                  # initial observable state
+    env_id: Literal["DefenseSimEnv-v0"]  # pinned; bump on env change
+    scenario_config: ScenarioConfig  # the projected simulator parameters
+    scenario_config_hash: str  # ScenarioConfig.config_hash()
+    seed_facts: PlatformFacts  # initial observable state
     split: Literal["train", "val", "holdout"]  # assigned ONCE, by scenario id hash
-    projection_notes: str                      # documents what the 5-node mapping dropped
-    difficulty_tier: int                       # curriculum rung (§5)
+    projection_notes: str  # documents what the 5-node mapping dropped
+    difficulty_tier: int  # curriculum rung (§5)
 ```
 
 `split` is assigned deterministically from `offensive_scenario_id` so the **same scenario can
@@ -196,29 +197,31 @@ discrete action, reward, mask):
 ```python
 # PROPOSED shared.rl_adversarial (not implemented)
 class Transition(StrictModel):
-    obs: list[float]            # OBS_DIM
-    action: int                 # 0..N_ACTIONS-1, DefenseSimEnv layout
-    reward: float               # from REWARD_COMPONENTS, measured in-sim
+    obs: list[float]  # OBS_DIM
+    action: int  # 0..N_ACTIONS-1, DefenseSimEnv layout
+    reward: float  # from REWARD_COMPONENTS, measured in-sim
     next_obs: list[float]
     done: bool
-    action_mask: list[bool]     # mask_from_facts at this step
-    reward_breakdown: dict[str, float]   # per-component, for reward-hacking audits
+    action_mask: list[bool]  # mask_from_facts at this step
+    reward_breakdown: dict[str, float]  # per-component, for reward-hacking audits
+
 
 class EpisodeRecord(StrictModel):
     episode_spec_id: EpisodeId
     env_id: Literal["DefenseSimEnv-v0"]
-    policy_ref: str             # which policy generated it (for off-policy bookkeeping)
+    policy_ref: str  # which policy generated it (for off-policy bookkeeping)
     seed: int
     transitions: list[Transition]
+
 
 class ExperienceDataset(StrictModel):
     id: DatasetId
     schema_version: str
     env_id: Literal["DefenseSimEnv-v0"]
-    episode_specs: list[EpisodeId]       # provenance; split membership
+    episode_specs: list[EpisodeId]  # provenance; split membership
     episodes: list[EpisodeRecord]
     created_at: datetime
-    source_scope_ids: list[str]          # all authorizations that contributed
+    source_scope_ids: list[str]  # all authorizations that contributed
 ```
 
 ### 3.4 `PromotionReport` — the Stage 4 gate
@@ -227,7 +230,7 @@ class ExperienceDataset(StrictModel):
 # PROPOSED shared.rl_adversarial (not implemented)
 class PromotionReport(StrictModel):
     candidate_checkpoint: RLCheckpointRef
-    baseline_checkpoint: RLCheckpointRef         # currently deployed
+    baseline_checkpoint: RLCheckpointRef  # currently deployed
     holdout_dataset_id: DatasetId
     mitigation_effectiveness: MetricCI
     false_positive_rate: MetricCI
@@ -236,8 +239,8 @@ class PromotionReport(StrictModel):
     regression_check: Literal["pass", "fail"]
     reward_hacking_check: Literal["pass", "fail"]
     meets_acceptance_criteria: bool
-    decided_by: str | None                       # human user id; never an agent
-    simulation_caveat: str                       # SIMULATION_CAVEAT_DEFAULT
+    decided_by: str | None  # human user id; never an agent
+    simulation_caveat: str  # SIMULATION_CAVEAT_DEFAULT
 ```
 
 All metrics reuse the RL side's existing `MetricCI` style ([`lab_export.py`](../../rl-defense/rl_defense/lab_export.py)).

@@ -62,8 +62,11 @@ def test_repository_has_a_single_migration_head():
     The pinned revision must equal the newest migration on this branch —
     update it when adding a migration. Three open branches defined 0016
     (see coordination/messages/*pilot-ops-migration-0016*): #535 merged
-    first and kept it; this branch renumbered to 0017.
+    first and kept it; this branch renumbered to 0017. Integration now
+    chains upstream's 0016 tenant_rls + 0017 worker_heartbeats, then the
+    release workstreams' 0018 execution_reliability + 0019
+    repository_disconnect.
     """
     cfg = Config()
     cfg.set_main_option("script_location", str(MIGRATIONS))
-    assert ScriptDirectory.from_config(cfg).get_heads() == ["0017"]
+    assert ScriptDirectory.from_config(cfg).get_heads() == ["0019"]

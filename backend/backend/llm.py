@@ -113,13 +113,23 @@ class AnthropicTransport:
 
     def create(self, request: dict[str, Any]) -> ProviderResponse:
         a = self._anthropic
+        payload = {k: v for k, v in request.items() if k not in {"_timeout_s", "_idempotency_key"}}
+        timeout = request.get("_timeout_s")
+        extra_headers = None
+        key = request.get("_idempotency_key")
+        if isinstance(key, str) and key:
+            extra_headers = {"Idempotency-Key": key}
+        client = self._client.with_options(timeout=timeout) if timeout is not None else self._client
         try:
-            if self._fallbacks and supports_server_fallback(str(request.get("model", ""))):
-                resp = self._client.beta.messages.create(
-                    **request, betas=[FALLBACK_BETA], extra_body={"fallbacks": "default"}
+            if self._fallbacks and supports_server_fallback(str(payload.get("model", ""))):
+                resp = client.beta.messages.create(
+                    **payload,
+                    betas=[FALLBACK_BETA],
+                    extra_body={"fallbacks": "default"},
+                    extra_headers=extra_headers,
                 )
             else:
-                resp = self._client.messages.create(**request)
+                resp = client.messages.create(**payload, extra_headers=extra_headers)
         except a.RateLimitError as e:
             raise LLMError(
                 ErrorCode.LLM_UNAVAILABLE, f"rate limited: {e.message}", retryable=True
@@ -130,7 +140,7 @@ class AnthropicTransport:
             ) from e
         except a.NotFoundError as e:
             raise LLMError(
-                ErrorCode.LLM_UNAVAILABLE, f"model or endpoint not found: {request.get('model')}"
+                ErrorCode.LLM_UNAVAILABLE, f"model or endpoint not found: {payload.get('model')}"
             ) from e
         except a.BadRequestError as e:
             raise LLMError(
@@ -245,6 +255,9 @@ class LLMGateway:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         max_tokens: int = 16_000,
+        timeout_s: float | None = None,
+        deadline_monotonic: float | None = None,
+        idempotency_key: str | None = None,
     ) -> ProviderResponse:
         if self.check_cancelled:
             self.check_cancelled()
@@ -266,23 +279,63 @@ class LLMGateway:
         if tools:
             request["tools"] = tools
             request["tool_choice"] = {"type": "auto"}  # forced tool_choice is rejected on Opus 5.5
+        if idempotency_key:
+            request["_idempotency_key"] = idempotency_key
+        if deadline_monotonic is None and timeout_s is not None:
+            deadline_monotonic = time.monotonic() + float(timeout_s)
+        min_start_s = 1.0
         attempt = 0
         while True:
+            if self.check_cancelled:
+                self.check_cancelled()
             attempt += 1
+            remaining = (
+                deadline_monotonic - time.monotonic() if deadline_monotonic is not None else None
+            )
+            if remaining is not None:
+                if remaining < min_start_s:
+                    raise LLMError(
+                        ErrorCode.BUDGET_EXHAUSTED,
+                        "DEADLINE_EXCEEDED: not enough time to start a provider request",
+                    )
+                request["_timeout_s"] = remaining
             try:
                 resp = self.transport.create(request)
                 break
             except LLMError as e:
+                remaining = (
+                    deadline_monotonic - time.monotonic()
+                    if deadline_monotonic is not None
+                    else None
+                )
                 if not e.retryable or attempt > self.settings.llm_max_retries:
                     raise LLMError(e.code, f"{e} (after {attempt} attempt(s))") from e
-                self.sleep(min(30.0, (2**attempt) + random.random()))
+                sleep_s = min(30.0, (2**attempt) + random.random())
+                if remaining is not None and remaining - sleep_s < min_start_s:
+                    raise LLMError(
+                        ErrorCode.BUDGET_EXHAUSTED,
+                        "DEADLINE_EXCEEDED: retry would exceed the execution deadline",
+                    ) from e
+                self.sleep(sleep_s)
         self.calls += 1
-        u = resp.usage
+        u = resp.usage or {}
+        try:
+            billed = {
+                "input_tokens": int(u.get("input_tokens") or 0),
+                "output_tokens": int(u.get("output_tokens") or 0),
+                "cache_read_input_tokens": int(u.get("cache_read_input_tokens") or 0),
+                "cache_creation_input_tokens": int(u.get("cache_creation_input_tokens") or 0),
+            }
+        except (TypeError, ValueError) as exc:
+            raise LLMError(
+                ErrorCode.BUDGET_EXHAUSTED,
+                "malformed provider usage; refusing silent $0",
+            ) from exc
         usage = Usage(
-            input_tokens=u.get("input_tokens") or 0,
-            output_tokens=u.get("output_tokens") or 0,
-            cache_read_input_tokens=u.get("cache_read_input_tokens") or 0,
-            usd=round(cost_usd(resp.model, u), 6),
+            input_tokens=billed["input_tokens"],
+            output_tokens=billed["output_tokens"],
+            cache_read_input_tokens=billed["cache_read_input_tokens"],
+            usd=round(cost_usd(resp.model, billed), 6),
             llm_calls=1,
         )
         if self.charge:

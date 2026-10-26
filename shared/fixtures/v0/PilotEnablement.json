@@ -1,0 +1,28 @@
+{
+  "application": {
+    "control_channel_configured": false,
+    "created_at": "2026-10-17T01:00:00Z",
+    "created_by": "usr_01JFIXTURE0000000000000USR",
+    "disconnected_at": null,
+    "environment": "owned_test",
+    "id": "app_01JFIXTURE0000000000000APP",
+    "ingest_configured": false,
+    "last_ingest_at": null,
+    "name": "payments-lite staging",
+    "project_id": "prj_01JFIXTURE0000000000000PRJ",
+    "rl_gated_pilot": false,
+    "shadow_mode": true,
+    "verification": "unverified"
+  },
+  "enabled": false,
+  "fail_closed": true,
+  "jobs_reconciled": 0,
+  "leftover": {
+    "active_channels": 0,
+    "active_grants": 1,
+    "details": [],
+    "leftover_controls": 0,
+    "pending_execute_jobs": 0
+  },
+  "reason": "Existing controls must be removed and verified before enabling."
+}

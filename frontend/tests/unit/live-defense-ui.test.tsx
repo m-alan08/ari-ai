@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ControlsDashboard } from '@/components/live-defense/controls';
+import { ReadinessDashboard } from '@/components/live-defense/readiness';
 import { Explainability } from '@/components/live-defense/explain';
 import { InvestigationList } from '@/components/live-defense/investigation';
 import { LiveOverview } from '@/components/live-defense/overview';
@@ -38,6 +39,7 @@ it('labels sample layout, lists missing APIs, and has no enforcement buttons', (
   expect(screen.getByTestId('live-defense-api-coverage').textContent).toContain('/projects/{id}/live-policy-decisions');
   expect(screen.getByTestId('live-defense-api-coverage').textContent).toContain('/control-authorizations');
   expect(screen.getByRole('link', { name: 'Controls' }).getAttribute('href')).toContain('/live-defense/controls');
+  expect(screen.getByRole('link', { name: 'Readiness' }).getAttribute('href')).toContain('/live-defense/readiness');
   expect(screen.getByTestId('defense-map').textContent).toMatch(/SAMPLE LAYOUT/);
   expect(screen.queryByRole('button', { name: /^(apply|isolate|rate-limit|block source)$/i })).toBeNull();
 });
@@ -200,6 +202,7 @@ it('labels verified owned-test controls and does not offer isolate', () => {
             verification: 'unverified',
             shadow_mode: true,
             control_channel_configured: true,
+            rl_gated_pilot: false,
             disconnected_at: null,
             created_by: 'usr_12345678',
             created_at: '2026-10-23T00:00:00Z',
@@ -223,6 +226,106 @@ it('labels verified owned-test controls and does not offer isolate', () => {
   expect(screen.getByTestId('live-defense-authorize').textContent).toMatch(/control-authorizations/);
   expect(screen.queryByRole('button', { name: /^(apply|isolate|rate-limit|block)$/i })).toBeNull();
   expect(screen.getByRole('button', { name: 'Authorize owned-test control' })).toBeTruthy();
+});
+
+it('renders backend RL readiness as BLOCKED and not a frontend flag', () => {
+  render(
+    <ReadinessDashboard
+      mode="live"
+      projectId="prj_1"
+      readiness={{
+        status: 'ready',
+        data: {
+          generated_at: '2026-10-23T16:00:00Z',
+          schema_version: '0.20.0',
+          origin_main_sha: '74a0a3c202fec943e78c8ca03b0c0ba445639c7a',
+          phase6_verdict: 'CONDITIONAL GO (rules-based shadow). Distinct from the RL-gated pilot.',
+          categories: [{
+            category: 'A_frozen_scenarios',
+            letter: 'A',
+            title: 'Frozen evaluation scenarios',
+            status: 'BLOCKED',
+            mandatory: true,
+            summary: 'No RL-owner-approved frozen scenario set for this gate.',
+            evidence_notes: [],
+            open_pr_is_not_readiness: true,
+            unit_tests_are_not_readiness: true,
+            research_docs_are_not_readiness: true,
+          }],
+          evaluation_plan: {
+            frozen_scenarios_required: true,
+            holdout_required: true,
+            independent_seeds_required: true,
+            baselines: ['rules', 'fixed_block', 'v6'],
+            metrics: [{ name: 'compromise', description: 'Unauthorized access remaining.', threshold: null, threshold_status: 'pending_rl_owner_approval' }],
+            per_scenario_required: true,
+            pass_by_total_reward: false,
+            abstention_required: true,
+            uncertainty_required: true,
+            provenance_required: true,
+            thresholds_invented: false,
+            threshold_owner: 'rl_owner',
+          },
+          serving_contract: {
+            policy_version: null,
+            checkpoint_sha256: null,
+            action: null,
+            node: null,
+            top_actions: null,
+            q_margin: null,
+            observation: null,
+            observation_dim: null,
+            inference_status: null,
+            abstention_reason: null,
+            feature_schema_ok: null,
+            action_mask_valid: null,
+            freshness_ok: null,
+            observation_complete: null,
+            principal_targets: null,
+            feature_mapping_note: null,
+            trained_commit_sha: null,
+            eval_bundle_sha256: null,
+            uncertainty: null,
+            q_values_are_not_probabilities: true,
+            auto_served_unapproved_checkpoint: false,
+          },
+          hosted_inference: {
+            config: {
+              refuse_on_hash_mismatch: true,
+              refuse_on_tamper: true,
+              inference_timeout_ms: null,
+              restart_on_timeout: null,
+              isolation: 'Worker process only',
+              abstention_on_assumption_failure: true,
+              fallback_producer: 'abstention',
+              auto_serve_unapproved: false,
+              auto_serve_newer_research_checkpoints: false,
+              approved_checkpoint_sha256: null,
+              compatibility_fixture_sha256: null,
+              v6_claimed_to_pass_new_criteria: false,
+            },
+            approved_checkpoint_present: false,
+            v6_used_only_as_compatibility_fixture: true,
+            v6_passed_new_criteria: false,
+            notes: [],
+          },
+          ready: false,
+          verdict: 'INFRASTRUCTURE READY — RL BLOCKED',
+          infrastructure_complete: true,
+          customer_infra_provisioned: false,
+          owner_pilot_authorization: false,
+          phase7_started: false,
+          gated_application_count: 0,
+          caveat: 'Phase 6 CONDITIONAL GO is rules-based shadow only.',
+        },
+        error: undefined,
+        reload: () => {},
+      }}
+    />,
+  );
+  expect(screen.getByTestId('live-defense-readiness-verdict').textContent).toContain('INFRASTRUCTURE READY — RL BLOCKED');
+  expect(screen.getByTestId('live-defense-readiness-categories').textContent).toContain('BLOCKED');
+  expect(screen.getByTestId('live-defense-readiness').textContent).not.toMatch(/\bready=true\b/);
 });
 
 it('explains a live shadow decision without synthesizing Q-values', () => {

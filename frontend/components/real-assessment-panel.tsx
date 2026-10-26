@@ -174,24 +174,24 @@ export function RealAssessmentPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {!connectedRepoId && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50" disabled={busy} onClick={() => void connect()}>Connect</button>}
+          {!connectedRepoId && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-night disabled:opacity-50" disabled={busy} onClick={() => void connect()}>Connect</button>}
           {data.status === 'ready' && latest && (
             <>
               {!onRunSelected && <Link className="text-sm text-white/80 underline-offset-2 hover:underline" href={`/projects/${data.projectId}/assessments/${latest.id}`}>Open run →</Link>}
-              {!data.automatic && scopeState?.kind === 'active' && TERMINAL_STATES.has(latest.state) && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50" disabled={busy} onClick={() => void startAssessment(data.projectId, scopeState.scope.id)}>Run again</button>}
+              {!data.automatic && scopeState?.kind === 'active' && TERMINAL_STATES.has(latest.state) && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-night disabled:opacity-50" disabled={busy} onClick={() => void startAssessment(data.projectId, scopeState.scope.id)}>Run again</button>}
             </>
           )}
-          {data.status === 'ready' && !latest && scopeState?.kind === 'none' && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50" disabled={busy} onClick={() => void requestAuthorization(data.projectId)}>Request authorization</button>}
+          {data.status === 'ready' && !latest && scopeState?.kind === 'none' && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-night disabled:opacity-50" disabled={busy} onClick={() => void requestAuthorization(data.projectId)}>Request authorization</button>}
           {data.status === 'ready' && scopeState?.kind === 'pending' && (
             <>
-              {isSandboxOnlyScope(scopeState.scope) && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50" disabled={busy || resource.refreshError !== undefined} onClick={() => void approveAuthorization(scopeState.scope.id)}>Approve sandbox authorization</button>}
+              {isSandboxOnlyScope(scopeState.scope) && <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-night disabled:opacity-50" disabled={busy || resource.refreshError !== undefined} onClick={() => void approveAuthorization(scopeState.scope.id)}>Approve sandbox authorization</button>}
               <Link className="text-sm text-white/80 underline-offset-2 hover:underline" href={`/projects/${data.projectId}/scopes`}>Review authorization</Link>
               <button type="button" className="text-sm text-white/80 underline-offset-2 hover:underline" onClick={reload}>Refresh status</button>
             </>
           )}
           {data.status === 'ready' && !data.automatic && !latest && scopeState?.kind === 'active' && (
             <>
-              <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-ink disabled:opacity-50" disabled={busy} onClick={() => void startAssessment(data.projectId, scopeState.scope.id)}>Run the 7 agents</button>
+              <button type="button" className="rounded-full bg-white px-4 py-2 text-sm font-medium text-night disabled:opacity-50" disabled={busy} onClick={() => void startAssessment(data.projectId, scopeState.scope.id)}>Run the 7 agents</button>
               <span className="text-xs text-white/50">Uses real Claude spend.</span>
             </>
           )}

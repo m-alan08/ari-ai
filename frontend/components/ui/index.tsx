@@ -9,18 +9,18 @@ import { formatTime, relativeTime } from '@/lib/format';
 import { useRevealOnScroll } from '@/components/reveal';
 
 const TONE: Record<Tone, string> = {
-  ok: 'border-ok/50 text-ok',
-  warn: 'border-warn/50 text-warn',
-  bad: 'border-bad/50 text-bad',
-  info: 'border-info/50 text-info',
-  accent: 'border-accent/50 text-accent',
-  neutral: 'border-line-2 text-muted',
+  ok: 'border-ok/40 bg-ok/10 text-ok',
+  warn: 'border-warn/40 bg-warn/10 text-warn',
+  bad: 'border-bad/40 bg-bad/10 text-bad',
+  info: 'border-info/40 bg-info/10 text-info',
+  accent: 'border-accent/40 bg-accent/10 text-accent',
+  neutral: 'border-line bg-panel-2 text-muted',
 };
 
 export function Badge({ view, title }: { view: StatusView; title?: string }) {
   const mark = view.glyph === '⏸' ? 'paused' : view.tone === 'bad' ? 'failed' : view.tone === 'ok' ? 'done' : 'pending';
   return (
-    <span title={title} className={`status-badge inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-1)] border bg-transparent px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.06em] ${TONE[view.tone]}`}>
+    <span title={title} className={`status-badge inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${TONE[view.tone]}`}>
       <span aria-hidden="true" className={`status-mark status-mark-${mark}`}>{mark === 'failed' ? '×' : null}</span>
       {view.label}
     </span>
@@ -28,37 +28,37 @@ export function Badge({ view, title }: { view: StatusView; title?: string }) {
 }
 
 export function Tag({ children, tone = 'neutral' }: { children: ReactNode; tone?: Tone }) {
-  return <span className={`inline-flex items-center rounded-[var(--radius-1)] border bg-transparent px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] ${TONE[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${TONE[tone]}`}>{children}</span>;
 }
 
 export function Panel({ title, actions, children, className = '', id }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   const ref = useRevealOnScroll<HTMLElement>();
   return (
-    <section ref={ref} id={id} className={`panel rounded-[var(--radius-3)] border border-line bg-panel ${className}`} aria-label={typeof title === 'string' ? title : undefined}>
+    <section ref={ref} id={id} className={`panel min-w-0 rounded-lg border border-line bg-panel ${className}`} aria-label={typeof title === 'string' ? title : undefined}>
       {(title || actions) && (
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-panel-2/60 px-4 py-2.5">
           {title && <h2 className="label-mono flex items-center gap-2 text-ink"><span aria-hidden="true" className="h-3 w-0.5 rounded-full bg-brand" />{title}</h2>}
           {actions && <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className="p-5">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
   );
 }
 
 export function Button({ variant = 'secondary', className = '', children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost' }) {
   const styles = {
-    primary: 'border border-transparent bg-brand text-on-brand hover:bg-brand-deep',
-    secondary: 'border border-line-2 bg-transparent text-ink hover:bg-panel-2',
-    danger: 'border border-bad/50 bg-transparent text-bad hover:bg-bad/10',
-    ghost: 'border border-transparent bg-transparent text-muted hover:bg-panel-2 hover:text-ink',
+    primary: 'bg-brand text-on-brand hover:bg-brand-deep shadow-[0_6px_16px_-8px_rgba(194,69,45,0.6)] hover:shadow-[0_8px_20px_-8px_rgba(194,69,45,0.5)]',
+    secondary: 'bg-brand/[0.07] text-ink hover:bg-brand/[0.14] shadow-sm hover:shadow-md',
+    danger: 'border border-bad/50 bg-bad/10 text-bad hover:bg-bad/20 shadow-sm hover:shadow-md',
+    ghost: 'text-muted hover:bg-brand/[0.07] hover:text-ink hover:shadow-sm',
   }[variant];
   return (
     <button
       type="button"
       data-variant={variant}
       {...props}
-      className={`btn inline-flex h-8 items-center justify-center gap-1.5 rounded-[var(--radius-2)] px-3 font-sans text-xs font-medium transition-colors duration-[120ms] ease-[var(--ease-out)] disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
+      className={`btn group label-mono inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 transition-[background-color,color,box-shadow,transform] duration-[250ms] ease-[var(--ease-smooth)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:active:scale-100 disabled:shadow-none ${styles} ${className}`}
     >
       {typeof children === 'string' ? <RollText>{children}</RollText> : children}
     </button>
@@ -78,7 +78,7 @@ export function RollText({ children }: { children: string }) {
 export function ErrorState({ error, onRetry, context }: { error: unknown; onRetry?: () => void; context?: string }) {
   const e = describeError(error);
   return (
-    <div role="alert" data-testid="error-state" className="rounded-[var(--radius-3)] border border-bad/40 bg-transparent p-3 text-sm">
+    <div role="alert" data-testid="error-state" className="rounded-md border border-bad/40 bg-bad/5 p-3 text-sm shadow-sm hover:shadow-md transition-shadow duration-300">
       <p className="font-semibold text-bad"><span aria-hidden="true">× </span>{context ? `${context}: ` : ''}{e.title}</p>
       <p className="mt-1 text-muted">{e.detail}</p>
       {(e.code || e.requestId) && (
@@ -92,7 +92,7 @@ export function ErrorState({ error, onRetry, context }: { error: unknown; onRetr
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="empty-state rounded-[var(--radius-3)] border border-line bg-panel px-4 py-3 text-center text-sm text-muted">{children}</p>;
+  return <p className="empty-state rounded-lg border border-dashed border-control/60 bg-panel-2/40 px-4 py-8 text-center text-sm text-muted">{children}</p>;
 }
 
 export function Loading({ label = 'Loading' }: { label?: string }) {
@@ -129,11 +129,11 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export const inputClass = 'max-w-full rounded-[var(--radius-2)] border border-line-2 bg-bg px-2.5 py-1.5 text-sm text-ink placeholder:text-faint transition-colors duration-[120ms] focus:border-brand focus:outline-none';
+export const inputClass = 'max-w-full rounded-md border border-control bg-bg px-2.5 py-1.5 text-sm text-ink placeholder:text-faint transition-[border-color,box-shadow] duration-200 focus:border-brand focus:shadow-[0_0_0_3px_rgba(194,69,45,0.15)] focus:outline-none';
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="rounded-[var(--radius-3)] border border-line bg-panel px-4 py-3.5">
+    <div className="rounded-lg border border-line border-t-2 border-t-brand/70 bg-panel px-4 py-3.5">
       <p className="label-mono text-faint">{label}</p>
       <p className="mt-2 font-display text-2xl font-semibold tabular-nums tracking-tight text-ink">{value}</p>
       {hint && <p className="text-xs text-muted">{hint}</p>}

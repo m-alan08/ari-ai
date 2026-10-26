@@ -15,8 +15,18 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "staging", "production"] = "development"
     log_level: str = "info"
+    # auto: json outside development/test, text in dev. json = one object per line, redacted.
+    log_format: Literal["auto", "text", "json"] = "auto"
     api_base_url: str = "http://localhost:8000"
     frontend_origin: str = "http://localhost:3000"
+
+    # Operations surface
+    # Bearer token for GET /api/v1/ops/status. Unset disables the endpoint outside dev/test.
+    ops_token: SecretStr | None = None
+    # Generic HTTPS webhook for critical-failure alerts (Slack-compatible {"text": ...}).
+    alert_webhook_url: SecretStr | None = None
+    # Controlled feature flags: comma-separated names, off unless listed. See flags().
+    feature_flags: str = ""
 
     database_url: str = "postgresql+psycopg://app:app@localhost:5432/hackatl"
     migration_database_url: str | None = None
@@ -69,6 +79,17 @@ class Settings(BaseSettings):
     # Workers
     worker_lease_s: int = 60
     worker_poll_interval_s: float = 1.0
+    # Execution reliability (docs/architecture/execution-reliability.md). 0 disables a limit.
+    job_max_running_per_project: int = 4
+    job_max_running_global: int = 0
+    job_max_pending_per_project: int = 1000
+    # Reserved running slots for emergency-class jobs (estop/rollback/expiry) so
+    # ordinary work cannot starve them (F2).
+    job_max_running_emergency: int = 2
+    worker_reconcile_interval_s: float = 30.0
+    worker_stale_s: int = 120
+    job_stuck_pending_s: int = 900
+    worker_finalize_retries: int = 3
     # Worker liveness for /readyz: each worker upserts a heartbeat row; a heartbeat older
     # than this is stale. None → require a live worker only in production/staging.
     worker_heartbeat_interval_s: float = 5.0
@@ -98,6 +119,9 @@ class Settings(BaseSettings):
     # Rate limits (in-process, docs/13)
     rate_limit_per_minute: int = 60
     rate_limit_read_per_minute: int = 600
+    # Dev-login burst allowance per IP per 5-minute window. E2E stacks sign in
+    # many distinct synthetic users from one address.
+    auth_dev_login_burst: int = 120
 
     # Ops surface + storage maintenance (docs/deploy/POSTGRES_STORAGE.md)
     # Bearer token for /api/v1/ops/*; unset disables those endpoints entirely.
@@ -163,6 +187,8 @@ class Settings(BaseSettings):
         "rl_checkpoint_sha256",
         "repository_bindings_file",
         "security_workdir",
+        "ops_token",
+        "alert_webhook_url",
         "ops_api_token",
         "ops_destructive_token",
         "ops_alert_webhook_url",
@@ -182,6 +208,19 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.app_env in ("development", "test")
+
+    @property
+    def resolved_log_format(self) -> str:
+        if self.log_format != "auto":
+            return self.log_format
+        return "text" if self.is_dev else "json"
+
+    def flags(self) -> frozenset[str]:
+        """Enabled feature flags (FEATURE_FLAGS=flag-a,flag-b). Unknown names are inert."""
+        return frozenset(f.strip() for f in self.feature_flags.split(",") if f.strip())
+
+    def feature_enabled(self, name: str) -> bool:
+        return name in self.flags()
 
     def model_for(self, agent: str) -> str:
         if self.app_env in ("production", "staging"):

@@ -301,6 +301,9 @@ def run_agent(
                 }
             )
 
+        remaining = min(float(spec.step_timeout_s), budget.max_wall_clock_s) - tracker.elapsed()
+        if remaining <= 0:
+            return finish("failed", ErrorCode.BUDGET_EXHAUSTED, "wall clock deadline exceeded")
         request = LLMRequest(
             agent=spec.name,
             model=model,
@@ -309,13 +312,19 @@ def run_agent(
             tools=tools,
             max_tokens=spec.max_output_tokens,
             effort=spec.effort,
-            timeout_s=min(float(spec.step_timeout_s), budget.max_wall_clock_s),
+            timeout_s=remaining,
             metadata={"assessment_id": ctx.assessment_id, "step_key": ctx.step_key},
         )
         try:
             response = gateway.complete(request)
         except LLMUnavailable as exc:
-            return finish("failed", ErrorCode.LLM_UNAVAILABLE, str(exc)[:300])
+            code = getattr(exc, "code", None) or ErrorCode.LLM_UNAVAILABLE
+            if not isinstance(code, ErrorCode):
+                try:
+                    code = ErrorCode(str(code))
+                except ValueError:
+                    code = ErrorCode.LLM_UNAVAILABLE
+            return finish("failed", code, str(exc)[:300])
 
         usd = gateway.cost_usd(response.model, response.usage)
         tracker.add(response.usage.input_tokens, response.usage.output_tokens, usd)

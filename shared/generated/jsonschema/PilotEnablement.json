@@ -1,0 +1,206 @@
+{
+  "$defs": {
+    "ApplicationVerification": {
+      "enum": [
+        "unverified",
+        "ingest_seen",
+        "token_revoked",
+        "disconnected"
+      ],
+      "title": "ApplicationVerification",
+      "type": "string"
+    },
+    "ConnectedApplication": {
+      "additionalProperties": false,
+      "description": "Owner-registered staging app under watch. Never includes secrets.",
+      "properties": {
+        "control_channel_configured": {
+          "default": false,
+          "description": "True when a control channel exists; the HMAC secret is never returned",
+          "title": "Control Channel Configured",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "pattern": "^usr_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Created By",
+          "type": "string"
+        },
+        "disconnected_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disconnected At"
+        },
+        "environment": {
+          "$ref": "#/$defs/StagingEnvironment"
+        },
+        "id": {
+          "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "ingest_configured": {
+          "description": "True when a non-revoked ingest token exists; the token itself is never returned",
+          "title": "Ingest Configured",
+          "type": "boolean"
+        },
+        "last_ingest_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Ingest At"
+        },
+        "name": {
+          "maxLength": 500,
+          "title": "Name",
+          "type": "string"
+        },
+        "project_id": {
+          "pattern": "^prj_[0-9A-Za-z_\\-]{8,64}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "rl_gated_pilot": {
+          "default": false,
+          "description": "When true, the server enforces recommendation-only shadow mode: no grant, channel, authorize, or execute.",
+          "title": "Rl Gated Pilot",
+          "type": "boolean"
+        },
+        "shadow_mode": {
+          "const": true,
+          "default": true,
+          "title": "Shadow Mode",
+          "type": "boolean"
+        },
+        "verification": {
+          "$ref": "#/$defs/ApplicationVerification"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "name",
+        "environment",
+        "ingest_configured",
+        "verification",
+        "created_by",
+        "created_at"
+      ],
+      "title": "ConnectedApplication",
+      "type": "object"
+    },
+    "PilotLeftoverInventory": {
+      "additionalProperties": false,
+      "properties": {
+        "active_channels": {
+          "minimum": 0,
+          "title": "Active Channels",
+          "type": "integer"
+        },
+        "active_grants": {
+          "minimum": 0,
+          "title": "Active Grants",
+          "type": "integer"
+        },
+        "details": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": "Details",
+          "type": "array"
+        },
+        "leftover_controls": {
+          "minimum": 0,
+          "title": "Leftover Controls",
+          "type": "integer"
+        },
+        "pending_execute_jobs": {
+          "minimum": 0,
+          "title": "Pending Execute Jobs",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "active_grants",
+        "active_channels",
+        "leftover_controls",
+        "pending_execute_jobs"
+      ],
+      "title": "PilotLeftoverInventory",
+      "type": "object"
+    },
+    "StagingEnvironment": {
+      "description": "Environments a shadow-pilot app may declare. Production is not allowed.",
+      "enum": [
+        "sandbox",
+        "owned_test"
+      ],
+      "title": "StagingEnvironment",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application": {
+      "$ref": "#/$defs/ConnectedApplication"
+    },
+    "enabled": {
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "fail_closed": {
+      "title": "Fail Closed",
+      "type": "boolean"
+    },
+    "jobs_reconciled": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Jobs Reconciled",
+      "type": "integer"
+    },
+    "leftover": {
+      "$ref": "#/$defs/PilotLeftoverInventory"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    }
+  },
+  "required": [
+    "application",
+    "enabled",
+    "leftover",
+    "fail_closed"
+  ],
+  "title": "PilotEnablement",
+  "type": "object"
+}

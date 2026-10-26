@@ -63,7 +63,7 @@ The customer acknowledges in writing:
 3. The GitHub App requests Contents + Pull requests write (needed to deliver
    fixes); per-call tokens are least-privilege and write tokens are
    repo-pinned.
-4. Security findings outside the three executable check categories are
+4. Security findings outside the four executable check categories are
    flagged, not proven.
 5. Fixes arrive as pull requests or in-app proposals; Ari never auto-commits
    during the pilot.

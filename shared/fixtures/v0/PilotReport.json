@@ -33,6 +33,9 @@
   "unsupported_claims": [
     "shadow prevented breaches",
     "HTTP 200 means the attack succeeded",
-    "health is healthy because this endpoint returned 200"
+    "health is healthy because this endpoint returned 200",
+    "infrastructure completeness authorizes a customer pilot",
+    "merged research PRs, unit tests, or docs are model readiness",
+    "Q-value is a probability of attack"
   ]
 }

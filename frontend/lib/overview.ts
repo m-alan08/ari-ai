@@ -32,6 +32,7 @@ export interface Overview {
 
 /** One next step and three counts, taken only from records the page already loaded. */
 export function projectOverview(input: OverviewInput): Overview {
+  const projectBase = `/projects/${input.projectId}`;
   const latest = [...input.assessments].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
   const all = bucketCounts(input.findings);
   const codeOpen = bucketCounts(input.findings, 'functional').confirmed;
@@ -44,7 +45,7 @@ export function projectOverview(input: OverviewInput): Overview {
       ...base,
       headline: 'No repository is connected yet.',
       detail: 'Connect a repository before any check can run.',
-      action: { label: 'Connect a repository', href: '#connect-repo' },
+      action: { label: 'Connect a repository', href: `${projectBase}/settings#connect-repo` },
     };
   }
   if (input.activeScopeCount === null) {
@@ -68,7 +69,7 @@ export function projectOverview(input: OverviewInput): Overview {
       ...base,
       headline: 'Nothing has been checked yet.',
       detail: 'A scope is approved. The next step is to run a review of one commit.',
-      action: { label: 'Run a review', href: '#start-assessment' },
+      action: { label: 'Run a review', href: `${projectBase}/commits#start-assessment` },
     };
   }
   if (RUNNING.has(latest.state)) {

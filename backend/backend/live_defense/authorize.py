@@ -85,6 +85,7 @@ class AuthorizationInput:
     actions_last_hour: int
     now: datetime
     application_disconnected: bool = False
+    rl_gated_pilot: bool = False
 
 
 @dataclass(frozen=True)
@@ -152,6 +153,12 @@ def _allowlist(inp: AuthorizationInput) -> AuthorizationCheckResult:
 def _app_registered(inp: AuthorizationInput) -> AuthorizationCheckResult:
     if inp.application_disconnected:
         return _ok("application_registered", False, "Application is disconnected.")
+    if inp.rl_gated_pilot:
+        return _ok(
+            "application_registered",
+            False,
+            "RL-gated pilot is shadow-only; control authorization is denied.",
+        )
     if not inp.application_id or not inp.application_exists:
         return _ok("application_registered", False, "Application is not registered.")
     return _ok("application_registered", True, "Application is registered in the project.")

@@ -1,0 +1,128 @@
+FFFF.                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n] _
+
+source = 'api_key=os.environ["API_KEY"]\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-617/test_nonliteral_credential_exp0')
+
+    @pytest.mark.parametrize('source', [
+        'api_key=os.environ["API_KEY"]\n',
+        'password=os.environ.get("DB_PASSWORD")\n',
+    ])
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'api_key=[REDACTED]"API_KEY"]\n'
+E       assert 'api_key=[RED...]"API_KEY"]\n' == 'api_key=os.e...["API_KEY"]\n'
+E         
+E         - api_key=os.environ["API_KEY"]
+E         + api_key=[REDACTED]"API_KEY"]
+
+backend/tests/test_independent_corrected_review.py:26: AssertionError
+_ test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n] _
+
+source = 'password=os.environ.get("DB_PASSWORD")\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-617/test_nonliteral_credential_exp1')
+
+    @pytest.mark.parametrize('source', [
+        'api_key=os.environ["API_KEY"]\n',
+        'password=os.environ.get("DB_PASSWORD")\n',
+    ])
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'password=[REDACTED]"DB_PASSWORD")\n'
+E       assert 'password=[RE..._PASSWORD")\n' == 'password=os...._PASSWORD")\n'
+E         
+E         - password=os.environ.get("DB_PASSWORD")
+E         + password=[REDACTED]"DB_PASSWORD")
+
+backend/tests/test_independent_corrected_review.py:26: AssertionError
+__________________ test_nonliteral_redaction_stays_parseable ___________________
+
+    def test_nonliteral_redaction_stays_parseable():
+        source = 'password=os.environ.get("DB_PASSWORD")\n'
+>       ast.parse(redact_code(source))
+
+backend/tests/test_independent_corrected_review.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = 'password=[REDACTED]"DB_PASSWORD")\n', filename = '<unknown>'
+mode = 'exec'
+
+    def parse(source, filename='<unknown>', mode='exec', *,
+              type_comments=False, feature_version=None):
+        """
+        Parse the source into an AST node.
+        Equivalent to compile(source, filename, mode, PyCF_ONLY_AST).
+        Pass type_comments=True to get back type comments where the syntax allows.
+        """
+        flags = PyCF_ONLY_AST
+        if type_comments:
+            flags |= PyCF_TYPE_COMMENTS
+        if feature_version is None:
+            feature_version = -1
+        elif isinstance(feature_version, tuple):
+            major, minor = feature_version  # Should be a 2-tuple.
+            if major != 3:
+                raise ValueError(f"Unsupported major version: {major}")
+            feature_version = minor
+        # Else it should be an int giving the minor version for 3.x.
+>       return compile(source, filename, mode, flags,
+                       _feature_version=feature_version)
+E         File "<unknown>", line 1
+E           password=[REDACTED]"DB_PASSWORD")
+E                                           ^
+E       SyntaxError: unmatched ')'
+
+/Users/alanmozhoor/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ast.py:52: SyntaxError
+________________ test_legacy_raw_history_is_scrubbed_for_viewer ________________
+
+client_factory = <function client_factory.<locals>.make at 0x10ddb1760>
+
+    def test_legacy_raw_history_is_scrubbed_for_viewer(client_factory):
+        import sqlalchemy as sa
+        from helpers import add_member, setup_project
+        from backend import jobs
+        from backend.db import job_events
+    
+        alice, bob, viewer = (client_factory(n) for n in ('alice', 'bob', 'viewer'))
+        ids = setup_project(alice, bob)
+        org = alice.me['memberships'][0]['organization']['id']
+        add_member(org, viewer.me['user']['id'], role='viewer')
+        secret = 'legacy-history-only-password'
+        raw = 'postgresql://svc:' + secret + '@db.internal/app'
+        with transaction() as conn:
+            jid, _ = jobs.enqueue(conn, 'legacy_review', {'project_id': ids['project']})
+            conn.execute(sa.update(job_events).where(job_events.c.job_id == jid)
+                         .values(reason=raw, details={'note': raw}))
+        response = viewer.get(f'/api/v1/jobs/{jid}/history')
+        assert response.status_code == 200
+        assert secret not in response.text
+>       assert bob.get(f'/api/v1/jobs/{jid}/history').status_code == 404
+E       AssertionError: assert 200 == 404
+E        +  where 200 = <Response [200 OK]>.status_code
+E        +    where <Response [200 OK]> = get('/api/v1/jobs/job_01M5RX9CA6YWFM2S6KDCMEPJEW/history')
+E        +      where get = <starlette.testclient.TestClient object at 0x10e3178c0>.get
+
+backend/tests/test_independent_corrected_review.py:54: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_redaction_stays_parseable
+FAILED backend/tests/test_independent_corrected_review.py::test_legacy_raw_history_is_scrubbed_for_viewer
+4 failed, 1 passed in 0.90s

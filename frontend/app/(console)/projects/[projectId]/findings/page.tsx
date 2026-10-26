@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useProject } from '@/components/project';
 import { Term } from '@/components/term';
-import { Async, Badge, Button, Empty, Mono, PageTitle, Panel, Tag, Time } from '@/components/ui';
+import { Async, Badge, Button, Empty, ErrorState, Loading, Mono, PageTitle, Panel, Tag, Time } from '@/components/ui';
 import { api } from '@/lib/api';
 import { FINDING_GROUP_NOTE, findingGroup, findingGroupCounts, type FindingGroup } from '@/lib/findings';
 import { shortSha } from '@/lib/format';
 import { FINDING_STATUS, SEVERITY } from '@/lib/status';
+import { findingsForRepo } from '@/lib/repo-analytics';
 import { useResource } from '@/lib/use-resource';
 
 const TABS = [
@@ -19,13 +20,17 @@ const TABS = [
 ] as const;
 
 export default function FindingsPage() {
-  const { project } = useProject();
+  const { project, selectedRepo } = useProject();
   const findings = useResource(`findings:${project.id}`, s => api().findings(project.id, { signal: s }));
+  const assessments = useResource(`findings-assessments:${project.id}`, s => api().assessments(project.id, { signal: s }));
+  const snapshots = useResource(selectedRepo ? `findings-snapshots:${selectedRepo.id}` : null,
+    s => selectedRepo ? api().snapshots(selectedRepo.id, { limit: 100 }, { signal: s }) : Promise.resolve({ items: [], next_cursor: null }));
   const [tab, setTab] = useState<FindingGroup>('open');
   return (
-    <>
-      <PageTitle eyebrow="Review" title="Findings" subtitle="Security and correctness findings from assessments, deduplicated by state." />
-    <Panel title="Findings">
+    <div className="flex min-w-0 flex-col gap-6">
+      <PageTitle eyebrow="Review" title="Findings" subtitle={selectedRepo?.full_name ?? 'No repository connected'} />
+      {!selectedRepo && <Empty>No repository connected. <Link className="text-brand hover:underline" href={`/projects/${project.id}/settings#connect-repo`}>Connect a repository</Link>.</Empty>}
+      {selectedRepo && <Panel title="Findings">
       <p className="mb-1 text-sm text-muted">What these words mean: <Term t="finding">finding</Term>, <Term t="hypothesis">hypothesis</Term>, <Term t="validated">validated</Term>, <Term t="verification">verified</Term>.</p>
       <p className="mb-3 text-sm text-muted" data-testid="finding-group-note">{FINDING_GROUP_NOTE}</p>
       <div role="tablist" aria-label="Finding groups" className="mb-3 flex flex-wrap gap-1">
@@ -36,8 +41,12 @@ export default function FindingsPage() {
       </div>
       <Async resource={findings} label="findings">
         {page => {
-          const counts = findingGroupCounts(page.items);
-          const items = page.items.filter(f => findingGroup(f.status) === tab);
+          if (assessments.status === 'loading' || snapshots.status === 'loading') return <Loading label="Loading repository findings" />;
+          if (assessments.status === 'error') return <ErrorState error={assessments.error} onRetry={assessments.reload} />;
+          if (snapshots.status === 'error') return <ErrorState error={snapshots.error} onRetry={snapshots.reload} />;
+          const repoItems = findingsForRepo(selectedRepo.id, assessments.data.items, page.items, snapshots.data.items.map(snapshot => snapshot.id));
+          const counts = findingGroupCounts(repoItems);
+          const items = repoItems.filter(f => findingGroup(f.status) === tab);
           if (items.length === 0 && tab === 'open' && counts.open === 0 && counts.hypothesis + counts.fixed + counts.closed > 0) {
             return (
               <>
@@ -50,29 +59,46 @@ export default function FindingsPage() {
           }
           if (items.length === 0) return <Empty>{tab === 'hypothesis' ? 'No open hypotheses.' : tab === 'closed' ? 'Nothing refuted or closed.' : tab === 'fixed' ? 'No fix has been accepted by independent tests yet.' : 'No open findings in this list.'}</Empty>;
           return (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="text-xs uppercase tracking-wider text-faint">
-                  <tr><th className="py-1.5 pr-3">Finding</th><th className="pr-3">Status</th><th className="pr-3">Kind</th><th className="pr-3">Severity</th><th className="pr-3">Commit</th><th>Updated</th></tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {items.map(f => (
-                    <tr key={f.id}>
-                      <td className="py-2 pr-3"><Link className="hover:text-accent" href={`/projects/${project.id}/findings/${f.id}`}>{f.title}</Link></td>
-                      <td className="pr-3"><Badge view={FINDING_STATUS[f.status]} /></td>
-                      <td className="pr-3"><Tag tone={f.kind === 'security' ? 'bad' : 'info'}>{f.kind}</Tag></td>
-                      <td className="pr-3">{f.severity ? <Badge view={SEVERITY[f.severity.level]} /> : <span className="text-faint">not assessed</span>}</td>
-                      <td className="pr-3"><Mono>{shortSha(f.commit_sha)}</Mono></td>
-                      <td className="text-muted"><Time iso={f.updated_at} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="hidden min-w-0 overflow-x-auto sm:block" data-testid="findings-table-scroll">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead className="text-xs uppercase tracking-wider text-faint">
+                    <tr><th className="py-1.5 pr-3">Finding</th><th className="pr-4">Status</th><th className="pr-3">Kind</th><th className="pr-3">Severity</th><th className="pr-3">Commit</th><th>Updated</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {items.map(f => (
+                      <tr key={f.id}>
+                        <td className="py-2 pr-3"><Link className="hover:text-accent" href={`/projects/${project.id}/findings/${f.id}?repo=${encodeURIComponent(selectedRepo.id)}`}>{f.title}</Link></td>
+                        <td className="whitespace-nowrap pr-4"><Badge view={FINDING_STATUS[f.status]} /></td>
+                        <td className="pr-3"><Tag tone={f.kind === 'security' ? 'bad' : 'info'}>{f.kind}</Tag></td>
+                        <td className="pr-3">{f.severity ? <Badge view={SEVERITY[f.severity.level]} /> : <span className="text-faint">not assessed</span>}</td>
+                        <td className="pr-3"><Mono>{shortSha(f.commit_sha)}</Mono></td>
+                        <td className="text-muted"><Time iso={f.updated_at} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex min-w-0 flex-col gap-2 sm:hidden" data-testid="findings-mobile-list">
+                {items.map(f => (
+                  <article key={f.id} className="min-w-0 rounded-md border border-line bg-panel-2/40 p-3" data-testid="finding-mobile-row">
+                    <Link className="block break-words hover:text-accent" href={`/projects/${project.id}/findings/${f.id}?repo=${encodeURIComponent(selectedRepo.id)}`}>{f.title}</Link>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span data-testid="finding-mobile-status"><Badge view={FINDING_STATUS[f.status]} /></span>
+                      <Tag tone={f.kind === 'security' ? 'bad' : 'info'}>{f.kind}</Tag>
+                      {f.severity ? <Badge view={SEVERITY[f.severity.level]} /> : <span className="text-xs text-faint">not assessed</span>}
+                      <Mono>{shortSha(f.commit_sha)}</Mono>
+                      <span className="text-xs text-muted"><Time iso={f.updated_at} /></span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           );
         }}
       </Async>
     </Panel>
-    </>
+      }
+    </div>
   );
 }

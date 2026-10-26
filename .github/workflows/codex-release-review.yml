@@ -1,0 +1,276 @@
+name: codex-release-review
+
+# Release review pipeline for the Ari AI November 2 pilot candidate.
+# On every push to the integration branch: wait for the PR's CI to settle,
+# run the strict security regressions, run an exact-SHA independent Codex
+# audit, route each actionable finding to its workstream owner (PR comment
+# plus optional Devin session wake via webhook automations), and post one
+# GO/NO-GO report on the integration PR.
+#
+# One-time setup required (repository settings → Secrets → Actions):
+#   OPENAI_API_KEY    enables the Codex audit job (absent → audit SKIPPED,
+#                     report marked CI-only). Cap spend at the OpenAI side.
+#   ARI_FIX_WEBHOOKS  JSON map {owner_key: {url, secret}} of the per-owner
+#                     Devin webhook automation inboxes; absent → routing by
+#                     PR comment only.
+#
+# Cost/retry limits: audit runs at most once per commit (marker-comment dedup
+# + concurrency cancel), jobs are hard-capped by timeouts, findings dispatch is
+# one webhook POST per finding, and the pipeline never merges or deploys.
+
+on:
+  push:
+    branches: [integration/2026-11-02-release]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: release-review-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPO: m-alan08/ari-ai
+  CANDIDATE_SHA: ${{ github.sha }}
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      skip: ${{ steps.gate.outputs.skip }}
+      pr_number: ${{ steps.gate.outputs.pr_number }}
+      base_sha: ${{ steps.gate.outputs.base_sha }}
+      has_openai_key: ${{ steps.gate.outputs.has_openai_key }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Gate
+        id: gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          msg="$(git log -1 --format=%s)"
+          # Report commits only append the coordination file; they never re-audit.
+          if printf '%s' "$msg" | grep -q '^\[release-review report\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Dedup: an audit comment for this exact head already exists.
+          if curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/issues/8/comments?per_page=100" \
+              | grep -q "ari-release-review.*${CANDIDATE_SHA}"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          pr="$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$REPO/pulls?head=m-alan08:integration/2026-11-02-release&state=open" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["number"] if d else "")')"
+          base="$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$REPO/pulls/8" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["base"]["sha"])')"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base" >> "$GITHUB_OUTPUT"
+          [ -n "$OPENAI_API_KEY" ] && echo "has_openai_key=true" >> "$GITHUB_OUTPUT" \
+                                   || echo "has_openai_key=false" >> "$GITHUB_OUTPUT"
+
+  wait-ci:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 95
+    outputs:
+      ci_ok: ${{ steps.wait.outputs.ci_ok }}
+    steps:
+      - name: Wait for all check runs on the candidate SHA
+        id: wait
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ needs.gate.outputs.pr_number }}
+        run: |
+          set -uo pipefail
+          deadline=$(( $(date +%s) + 5400 ))
+          : > ci-summary.txt
+          SELF="gate wait-ci strict-regressions codex-audit report"
+          check_runs() {
+            curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/commits/$CANDIDATE_SHA/check-runs?per_page=100" \
+              | SELF="$SELF" python3 -c 'import json,sys,os
+          self_names = set(os.environ["SELF"].split())
+          rs = [r for r in json.load(sys.stdin)["check_runs"] if r["name"] not in self_names]
+          pend = sum(1 for r in rs if r["status"] != "completed")
+          fail = sum(1 for r in rs if r["status"] == "completed" and r["conclusion"] not in ("success","skipped","neutral"))
+          print(f"{len(rs)} {pend} {fail}")
+          for r in rs: print(r["name"], r["conclusion"], sep=": ")' > /tmp/checks.txt
+            head -1 /tmp/checks.txt
+            tail -n +2 /tmp/checks.txt > ci-summary.txt
+          }
+          while true; do
+            check_runs >/dev/null
+            read -r runs pending failed < /tmp/checks.txt
+            echo "checks=$runs pending=$pending failed=$failed"
+            [ "$runs" -gt 0 ] && [ "$pending" -eq 0 ] && break
+            [ "$failed" -gt 0 ] && break
+            [ "$(date +%s)" -gt "$deadline" ] && { echo "ci_ok=false" >> "$GITHUB_OUTPUT"; break; }
+            sleep 30
+          done
+          cat ci-summary.txt
+          # Absent checks are unverified, never green.
+          if [ "$runs" -eq 0 ]; then echo "ci_ok=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$failed" -gt 0 ] || [ "$pending" -gt 0 ]; then
+            echo "ci_ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "ci_ok=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-summary
+          path: ci-summary.txt
+
+  strict-regressions:
+    needs: gate
+    if: needs.gate.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+      - name: Fetch transfer branches (manifest equivalence test)
+        run: git fetch origin '+refs/heads/transfer/*:refs/remotes/origin/transfer/*' '+refs/heads/ci/*:refs/remotes/origin/ci/*'
+      - uses: astral-sh/setup-uv@v5
+      - name: Install deps and run strict regressions
+        run: |
+          uv sync --quiet
+          {
+            uv run pytest -q backend/tests/live_defense_e2e
+            uv run pytest -q backend/tests/test_independent_corrected_review.py
+            uv run pytest -q backend/tests/test_rc2_transfer_manifest.py
+          } 2>&1 | tee strict-results.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strict-results
+          path: strict-results.txt
+
+  codex-audit:
+    needs: [gate, wait-ci, strict-regressions]
+    if: needs.gate.outputs.skip != 'true' && needs.wait-ci.outputs.ci_ok == 'true' && needs.gate.outputs.has_openai_key == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fetch base + transfer refs
+        run: |
+          git fetch origin '+refs/heads/ci/*:refs/remotes/origin/ci/*' '+refs/heads/transfer/*:refs/remotes/origin/transfer/*'
+          git fetch origin "${{ needs.gate.outputs.base_sha }}"
+          git rev-parse HEAD  # must equal CANDIDATE_SHA
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --quiet
+      - uses: actions/download-artifact@v4
+        with:
+          name: strict-results
+      - name: Codex independent audit
+        uses: openai/codex-action@main
+        env:
+          CANDIDATE_SHA: ${{ env.CANDIDATE_SHA }}
+          BASE_SHA: ${{ needs.gate.outputs.base_sha }}
+          TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/release-review/codex-audit-prompt.md
+          output-schema-file: .github/release-review/audit-schema.json
+          output-file: codex-audit.json
+          permission-profile: ":workspace"
+          safety-strategy: drop-sudo
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codex-audit
+          path: codex-audit.json
+
+  report:
+    needs: [gate, wait-ci, strict-regressions, codex-audit]
+    if: needs.gate.outputs.skip != 'true' && always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: integration/2026-11-02-release
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '*-summary'
+        continue-on-error: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: codex-audit
+          path: .
+        continue-on-error: true
+      - name: Route findings and publish GO/NO-GO
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ env.REPO }}
+          PR: ${{ needs.gate.outputs.pr_number }}
+          BASE_SHA: ${{ needs.gate.outputs.base_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ROUTING_FILE: .github/release-review/routing.json
+          AUDIT_FILE: codex-audit.json
+          CI_SUMMARY_FILE: ci-summary/ci-summary.txt
+          ARI_FIX_WEBHOOKS: ${{ secrets.ARI_FIX_WEBHOOKS }}
+
+        run: |
+          set -uo pipefail
+          export REPORT_FILE="coordination/messages/$(date -u +%Y-%m-%d)-codex-audit-$CANDIDATE_SHA.md"
+          if [ ! -s "$AUDIT_FILE" ]; then
+            printf '{\n "verdict": "NO-GO",\n "reviewed_sha": "%s",\n "summary": "Codex audit unavailable (OPENAI_API_KEY not configured or job skipped); CI and strict regressions executed — audit REQUIRED before release.",\n "findings": []}\n' "$CANDIDATE_SHA" > "$AUDIT_FILE"
+          fi
+          set +e
+          python3 .github/release-review/route_findings.py
+          rc=$?
+          set -e
+          git config user.name "Alan Mozhoor"
+          git config user.email "alanmozhoor@gmail.com"
+          [ -f "$REPORT_FILE" ] && git add "$REPORT_FILE"
+          if ! git diff --cached --quiet; then
+            git commit -m "[release-review report] codex audit $CANDIDATE_SHA" \
+              -m "Report-only commit; does not trigger a re-audit."
+            git push origin HEAD:integration/2026-11-02-release
+          fi
+          # Fail the run on NO-GO so the verdict is visible, but findings are routed first.
+          [ "$rc" -eq 0 ] || exit "$rc"

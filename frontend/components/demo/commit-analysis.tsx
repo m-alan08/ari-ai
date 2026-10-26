@@ -197,7 +197,8 @@ function Review({ analysis, accepted, live }: { analysis: Analysis; accepted: bo
           </section>
           <section>
             <h3 className="review-heading">{live ? 'The tests Ari proposes' : 'The tests Ari wrote'} <span className="text-white/45">· {r.tests.length}</span></h3>
-            <table className="mt-4 w-full text-sm">
+            <div className="mt-4 min-w-0 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-sm">
               <thead><tr className="text-left text-xs text-white/45"><th className="pb-2 font-normal">Test</th><th className="pb-2 font-normal">{live ? 'Expected on this commit' : 'Before'}</th><th className="pb-2 font-normal">After fix</th></tr></thead>
               <tbody>
                 {r.tests.map(test => (
@@ -209,6 +210,7 @@ function Review({ analysis, accepted, live }: { analysis: Analysis; accepted: bo
                 ))}
               </tbody>
             </table>
+            </div>
             <p className="mt-3 text-xs text-white/45">{live ? 'Proposed from the diff and not run yet. A fix only counts once a test fails before it and passes after.' : 'A test that fails before the fix and passes after is what makes a fix count.'}</p>
           </section>
         </div>

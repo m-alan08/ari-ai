@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "description": "Owner-triggered test event: synthetic counters on one route of a registered\nstaging application, ingested through the real ``owned_staging`` channel.",
+  "properties": {
+    "application_id": {
+      "anyOf": [
+        {
+          "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when the project has more than one connected application",
+      "title": "Application Id"
+    },
+    "auth_failures": {
+      "default": 80,
+      "minimum": 0,
+      "title": "Auth Failures",
+      "type": "integer"
+    },
+    "requests": {
+      "default": 100,
+      "maximum": 1000000,
+      "minimum": 1,
+      "title": "Requests",
+      "type": "integer"
+    },
+    "route": {
+      "default": "GET /ari/onboarding-test",
+      "maxLength": 500,
+      "title": "Route",
+      "type": "string"
+    },
+    "status_4xx": {
+      "default": 80,
+      "minimum": 0,
+      "title": "Status 4Xx",
+      "type": "integer"
+    }
+  },
+  "title": "OnboardingTestEventCreate",
+  "type": "object"
+}

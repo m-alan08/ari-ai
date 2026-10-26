@@ -37,7 +37,9 @@ def _bucket(feature: str, dim: int) -> tuple[int, float]:
     return h % dim, (1.0 if (h >> 31) & 1 else -1.0)
 
 
-def featurize(fields: Iterable[tuple[str, str]], dim: int, *, char_ngrams: bool = True) -> dict[int, float]:
+def featurize(
+    fields: Iterable[tuple[str, str]], dim: int, *, char_ngrams: bool = True
+) -> dict[int, float]:
     """Sparse feature vector {bucket: value} for named text fields.
 
     Each field is namespaced (``code:``, ``cwe:``…) so the same word in two fields stays distinct.
@@ -52,7 +54,7 @@ def featurize(fields: Iterable[tuple[str, str]], dim: int, *, char_ngrams: bool 
         feats += [f"{name}:{a}|{b}" for a, b in zip(toks, toks[1:], strict=False)]
         if char_ngrams:
             squashed = re.sub(r"\s+", " ", text.lower())
-            feats += [f"{name}#{squashed[i:i + 3]}" for i in range(max(0, len(squashed) - 2))]
+            feats += [f"{name}#{squashed[i : i + 3]}" for i in range(max(0, len(squashed) - 2))]
         for f in feats:
             idx, sign = _bucket(f, dim)
             counts[idx] = counts.get(idx, 0.0) + sign

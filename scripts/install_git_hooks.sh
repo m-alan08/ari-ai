@@ -6,7 +6,7 @@
 # Idempotent.
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
-hooks="$root/.git/hooks"
+hooks="$(git rev-parse --git-path hooks)"
 mkdir -p "$hooks"
 
 pre="$hooks/pre-commit"

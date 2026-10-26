@@ -1,0 +1,22 @@
+# MSG: #458 first-responder half of repository disconnect (do not merge)
+
+- ID: `20261025T043100Z-alan-to-all-phase7c-repo-disconnect-cancel`
+- From: Alan
+- To: all
+- Kind: contract-proposal
+- Timestamp (UTC): 2026-10-25T04:31:00Z
+- Branch / commit / PR or issue link: `feat/alan/live-defense-phase7c-agent-execution` / PR #458
+- Related subsystem(s): Live Defense first-responder; Devin Security Hardening (`m-alan08/ari-ai` PR #4)
+- Summary (facts, not assumptions): Codex P1 R2 — disconnecting a repository did not stop in-flight Scout/Diagnose provider turns. Implemented on #458 only. **Did not copy** Hardening's `POST /repositories/{id}/disconnect`, `0017_repository_disconnect.py`, or `Repository.disconnected_at` (main already has Alembic 0017 worker heartbeats; Hardening should land that column as **0018**). Schema **0.23.0** (main claimed 0.22.0). Open #412 keeps **0.20.0**. Probe/Patch not expanded. **Do not merge #458.**
+- Interface requested/proposed:
+  - 7C exports `investigation_source_revoked(conn, mapping_id=, repo_id=)` and `apply_repository_disconnect_to_investigations(conn, repo_id)`.
+  - Before each billable `complete()` and before final persist, 7C refuses if the deploy mapping is revoked **or** `repositories.disconnected_at` is set (column optional / forward-compatible).
+  - Partial transcript/cost is kept; cancelled cannot become `executed` (same window as F8).
+  - Hardening should call `apply_repository_disconnect_to_investigations` after writing `disconnected_at`. Mapping revoke alone is already enough for the next provider turn to stop.
+- Breaking change? No.
+- Action required by recipient:
+  - Devin Hardening: keep the disconnect HTTP route and Alembic column; call the 7C hook when rebasing onto #458. Renumber Hardening's `0017_repository_disconnect` → **0018** (`down_revision = "0017"`).
+  - Codex: `test_repository_disconnect_stops_next_provider_turn` is the strict regression.
+- Response-by milestone: independent re-review of #458; Hardening rebase after that, not a cherry-pick into #458
+- Evidence: `backend/backend/live_defense/first_responder.py`; `backend/tests/test_live_defense_phase7c_review.py::test_repository_disconnect_stops_next_provider_turn`
+- In-Reply-To: `coordination/messages/20261024T212131Z-alan-to-all-phase7c-provider-ledger-deadline.md`

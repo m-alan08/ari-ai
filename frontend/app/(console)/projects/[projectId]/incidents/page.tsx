@@ -29,7 +29,7 @@ export default function IncidentsPage() {
                 {page.items.map(i => (
                   <li key={i.id}>
                     <button type="button" onClick={() => setSelected(i.id)} aria-pressed={selected === i.id} data-testid={`incident-${i.id}`}
-                      className={`w-full rounded-md border p-3 text-left ${selected === i.id ? 'border-brand bg-white' : 'border-line bg-panel-2 hover:bg-white'}`}>
+                      className={`w-full rounded-md border bg-panel-2 p-3 text-left ${selected === i.id ? 'border-brand' : 'border-line hover:border-brand/50'}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium">{i.title}</span>
                         <span className="flex gap-1">{i.simulated && <Tag tone="warn">Synthetic</Tag>}<Tag tone={i.state === 'closed' || i.state === 'rejected' ? 'neutral' : 'info'}>{STATE_LABEL[i.state]}</Tag></span>

@@ -22,7 +22,7 @@ export default function ApprovalsPage() {
   const { project } = useProject();
   const approvals = useResource(`approvals:${project.id}`, s => api().approvals(project.id, { signal: s }), 5000);
   return (
-    <>
+    <div className="flex min-w-0 flex-col gap-6">
       <PageTitle eyebrow="Review" title="Approvals" subtitle="Decisions that let agents proceed — scoped to this project." />
       <Panel title="Approval inbox" actions={<span className="text-xs text-muted">Owners may approve their own sandbox scopes. Other approvals require a different requester and approver.</span>}>
       <Async resource={approvals} label="approvals">
@@ -34,7 +34,7 @@ export default function ApprovalsPage() {
         }}
       </Async>
     </Panel>
-    </>
+    </div>
   );
 }
 

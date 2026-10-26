@@ -1,0 +1,133 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_over_limit_hourly_assessments_report_actual_reset ____________
+
+automatic = (<starlette.testclient.TestClient object at 0x10f1b0dd0>, <starlette.testclient.TestClient object at 0x10e3f0260>, {'o...SHPEQV5', 'repo': 'rep_01M5RXDRFKB1NKEXCDA2YM17KH', 'scope': 'scp_01M5RXDRFRCJM7TXMEEC6C8T0Z'}, {'login': 'adamissac'})
+
+    def test_over_limit_hourly_assessments_report_actual_reset(automatic):
+        from datetime import datetime, timedelta
+    
+        from shared.base import utcnow
+    
+        alice, bob, ids, _ = automatic
+        assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+        seeded_at = utcnow() - timedelta(seconds=20)
+        created_at = [seeded_at + timedelta(seconds=index) for index in range(12)]
+        seed_assessments(
+            alice,
+            ids,
+            [AssessmentTrigger.manual] * 12,
+            created_at=created_at,
+        )
+    
+        response = manual_start(alice, ids, "f" * 40)
+        assert response.status_code == 429
+        error = response.json()["error"]
+        assert "project review limit reached (10 per hour); resets at " in error["message"]
+>       assert datetime.fromisoformat(error["details"]["resets_at"]) == created_at[2] + timedelta(
+            hours=1
+        )
+E       AssertionError: assert datetime.datetime(2026, 10, 25, 7, 54, 10, 409226, tzinfo=datetime.timezone.utc) == (datetime.datetime(2026, 10, 25, 6, 54, 12, 409226, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=3600))
+E        +  where datetime.datetime(2026, 10, 25, 7, 54, 10, 409226, tzinfo=datetime.timezone.utc) = <built-in method fromisoformat of type object at 0x1059a0c58>('2026-10-25T07:54:10.409226+00:00')
+E        +    where <built-in method fromisoformat of type object at 0x1059a0c58> = <class 'datetime.datetime'>.fromisoformat
+E        +  and   datetime.timedelta(seconds=3600) = <class 'datetime.timedelta'>(hours=1)
+
+backend/tests/test_rc2_latest_quota.py:394: AssertionError
+____________ test_over_limit_daily_assessments_report_actual_reset _____________
+
+automatic = (<starlette.testclient.TestClient object at 0x10f3b37a0>, <starlette.testclient.TestClient object at 0x10f3ca8d0>, {'o...F59JXY2', 'repo': 'rep_01M5RXDRKX1VXRCACSGJQTNDTF', 'scope': 'scp_01M5RXDRM31X114YDTRDRVQ4RA'}, {'login': 'adamissac'})
+
+    def test_over_limit_daily_assessments_report_actual_reset(automatic):
+        from datetime import datetime, timedelta
+    
+        from shared.base import utcnow
+    
+        alice, bob, ids, _ = automatic
+        assert bob.post(f"/api/v1/scopes/{ids['scope']}/approve").status_code == 200
+        seeded_at = utcnow() - timedelta(hours=2, seconds=51)
+        created_at = [seeded_at + timedelta(seconds=index) for index in range(52)]
+        seed_assessments(
+            alice,
+            ids,
+            [AssessmentTrigger.manual] * 52,
+            created_at=created_at,
+        )
+    
+        response = manual_start(alice, ids, "f" * 40)
+        assert response.status_code == 429
+        error = response.json()["error"]
+        assert "project review limit reached (50 per day); resets at " in error["message"]
+>       assert datetime.fromisoformat(error["details"]["resets_at"]) == created_at[2] + timedelta(
+            days=1
+        )
+E       AssertionError: assert datetime.datetime(2026, 10, 26, 4, 53, 39, 546035, tzinfo=datetime.timezone.utc) == (datetime.datetime(2026, 10, 25, 4, 53, 41, 546035, tzinfo=datetime.timezone.utc) + datetime.timedelta(days=1))
+E        +  where datetime.datetime(2026, 10, 26, 4, 53, 39, 546035, tzinfo=datetime.timezone.utc) = <built-in method fromisoformat of type object at 0x1059a0c58>('2026-10-26T04:53:39.546035+00:00')
+E        +    where <built-in method fromisoformat of type object at 0x1059a0c58> = <class 'datetime.datetime'>.fromisoformat
+E        +  and   datetime.timedelta(days=1) = <class 'datetime.timedelta'>(days=1)
+
+backend/tests/test_rc2_latest_quota.py:484: AssertionError
+_____ test_verify_rejects_a_planted_bad_patch_that_edits_a_protected_test ______
+
+intel = <security_agents.intel.port.LocalIntel object at 0x10ef558b0>
+driver = <security_agents.sandbox.driver.LocalProcessDriver object at 0x10f26c080>
+library = CheckLibrary(templates={'access_control.ownership@1': CheckTemplateMeta(template_id='access_control.ownership', versio...meters=('route_id', 'restricted_identity', 'permitted_identity'), reviewed_by='security-owner:pending-human-signoff')})
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-619/test_verify_rejects_a_planted_0')
+
+    @pytest.mark.boundary
+    def test_verify_rejects_a_planted_bad_patch_that_edits_a_protected_test(intel, driver, library, tmp_path):
+        """A diff authored outside the worktree guard is still rejected by Verify (SB-09).
+    
+        This is the `examples/fixtures/bad-patches` case: a patch that makes the
+        failing expectation pass by weakening the test that encodes it.
+        """
+        from security_agents.agents import verify as verify_agent
+        from security_agents.sandbox.workspace import fresh_checkout, unified_diff
+        from security_agents.tools import AuditSink, PatchApplier, ToolContext
+    
+        recipe_path = intel.snapshot.root / "build_recipe.json"
+        recipe_path.chmod(0o644)
+        recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+        recipe["protected_tests"] = ["tests/test_api.py"]
+        recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+        recipe_path.chmod(0o444)
+        orchestrator, _ = build(intel, driver, library, tmp_path)
+        protected_tests = orchestrator._protected_tests()
+>       assert "tests/test_api.py" in protected_tests
+E       AssertionError: assert 'tests/test_api.py' in []
+
+security-agents/tests/test_rc2_latest_protected.py:408: AssertionError
+=============================== warnings summary ===============================
+security-agents/tests/test_rc2_latest_protected.py:319
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:319: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:338
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:338: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:353
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:353: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:375
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:375: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:389
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:389: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:460
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:460: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+security-agents/tests/test_rc2_latest_protected.py:509
+  /private/tmp/ari-independent-latest/security-agents/tests/test_rc2_latest_protected.py:509: PytestUnknownMarkWarning: Unknown pytest.mark.boundary - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.boundary
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_rc2_latest_quota.py::test_over_limit_hourly_assessments_report_actual_reset
+FAILED backend/tests/test_rc2_latest_quota.py::test_over_limit_daily_assessments_report_actual_reset
+FAILED security-agents/tests/test_rc2_latest_protected.py::test_verify_rejects_a_planted_bad_patch_that_edits_a_protected_test
+3 failed, 7 warnings in 0.88s

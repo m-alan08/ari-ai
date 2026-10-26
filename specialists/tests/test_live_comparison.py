@@ -42,7 +42,10 @@ def test_replay_results_refuse_the_committed_results_path():
 
 def test_main_writes_runs_and_summary(tmp_path):
     out = tmp_path / "cmp.json"
-    assert lc.main(["--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out)]) == 0
+    assert (
+        lc.main(["--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out)])
+        == 0
+    )
     doc = json.loads(out.read_text())
     assert doc["mode"] == "replay" and len(doc["runs"]) == 1
     assert doc["summary"]["claude_only"]["planted"]["fnd_planted_authz"]["validated"]["k"] == 1
@@ -60,7 +63,9 @@ def test_provider_failures_are_excluded_but_refusals_are_not():
             patch["error_turns"] = error_turns
         return {"state": "completed", "per_agent": {"patch": patch}}
 
-    assert lc.provider_failure(score("LLM_UNAVAILABLE", "Error code: 400 credit balance is too low"))
+    assert lc.provider_failure(
+        score("LLM_UNAVAILABLE", "Error code: 400 credit balance is too low")
+    )
     assert lc.provider_failure(score("LLM_UNAVAILABLE", "refusal: policy")) is None
     assert lc.provider_failure(score("BUDGET_EXCEEDED", "cap")) is None
     assert lc.provider_failure({"state": "crashed", "error_code": "RuntimeError"})
@@ -111,8 +116,12 @@ class _HypClass(_Hyp):
 def test_planted_match_requires_class_family_on_shared_route():
     # POST /refunds is both planted CWE-840 and a CWE-639 negative lookalike.
     loc = {
-        "entry_point_id": "ent_post_refunds", "path": "app.py", "symbol": "create_refund",
-        "lines": (40, 60), "planted_id": "fnd_planted_refund_bound", "weakness_class": "CWE-840",
+        "entry_point_id": "ent_post_refunds",
+        "path": "app.py",
+        "symbol": "create_refund",
+        "lines": (40, 60),
+        "planted_id": "fnd_planted_refund_bound",
+        "weakness_class": "CWE-840",
     }
     assert lc._matches_planted(_HypClass("ent_post_refunds", "CWE-840"), loc)
     assert lc._matches_planted(_HypClass("ent_post_refunds", "CWE-1284"), loc)  # family
@@ -121,23 +130,59 @@ def test_planted_match_requires_class_family_on_shared_route():
 
 def test_resume_refuses_mode_or_settings_mismatch(tmp_path):
     out = tmp_path / "cmp.json"
-    assert lc.main(["--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out)]) == 0
+    assert (
+        lc.main(["--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out)])
+        == 0
+    )
     # Same settings resume is fine.
-    assert lc.main(["--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out), "--resume"]) == 0
+    assert (
+        lc.main(
+            [
+                "--mode",
+                "replay",
+                "--reps",
+                "1",
+                "--configs",
+                "claude_only",
+                "--out",
+                str(out),
+                "--resume",
+            ]
+        )
+        == 0
+    )
     # Different validate limit must not pool with the prior runs.
-    assert lc.main([
-        "--mode", "replay", "--reps", "1", "--configs", "claude_only", "--out", str(out),
-        "--resume", "--validate", "1",
-    ]) == 2
+    assert (
+        lc.main(
+            [
+                "--mode",
+                "replay",
+                "--reps",
+                "1",
+                "--configs",
+                "claude_only",
+                "--out",
+                str(out),
+                "--resume",
+                "--validate",
+                "1",
+            ]
+        )
+        == 2
+    )
 
 
 def test_unknown_config_name_is_rejected(tmp_path):
     out = tmp_path / "cmp.json"
-    assert lc.main(["--mode", "replay", "--reps", "1", "--configs", "hybird", "--out", str(out)]) == 2
+    assert (
+        lc.main(["--mode", "replay", "--reps", "1", "--configs", "hybird", "--out", str(out)]) == 2
+    )
 
 
 def test_replay_fixed_results_include_verify_evidence():
-    score, _, _ = lc.run_one("claude_only", mode="replay", max_usd=5.0, max_hypotheses=3, validate=2)
+    score, _, _ = lc.run_one(
+        "claude_only", mode="replay", max_usd=5.0, max_hypotheses=3, validate=2
+    )
     authz = score["planted"]["fnd_planted_authz"]
     assert authz["fixed_verify_accepted"]
     assert authz["verify_evidence"]

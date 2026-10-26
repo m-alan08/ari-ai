@@ -27,7 +27,7 @@ export function InvestigationList({
         <ul className="flex flex-col gap-2">
           {PREVIEW_INCIDENTS.map(item => (
             <li key={item.id}>
-              <Link href={`${liveDefenseHref(projectId, 'incidents', 'layout-preview')}/${encodeURIComponent(item.id)}`} className="block rounded-md border border-line bg-panel-2 p-3 text-ink hover:bg-white">
+              <Link href={`${liveDefenseHref(projectId, 'incidents', 'layout-preview')}/${encodeURIComponent(item.id)}`} className="block rounded-md border border-line bg-panel-2 p-3 text-ink hover:bg-panel">
                 <p className="font-medium">{item.title}</p>
                 <p className="mt-1 text-xs text-muted">{item.summary}</p>
               </Link>
@@ -75,7 +75,7 @@ export function InvestigationList({
             <ul className="flex flex-col gap-2">
               {items.map(item => (
                 <li key={item.id}>
-                  <Link href={`${liveDefenseHref(projectId, 'incidents')}/${item.id}`} className="block rounded-md border border-line bg-panel-2 p-3 text-left text-ink hover:bg-white" data-testid={`live-defense-incident-${item.id}`}>
+                  <Link href={`${liveDefenseHref(projectId, 'incidents')}/${item.id}`} className="block rounded-md border border-line bg-panel-2 p-3 text-left text-ink hover:bg-panel" data-testid={`live-defense-incident-${item.id}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium">{item.title}</span>
                       <span className="flex gap-1">{item.simulated && <Tag tone="warn">Synthetic</Tag>}<Tag>{STATE_LABEL[item.state]}</Tag></span>
@@ -112,7 +112,7 @@ export function InvestigationDetail({
     const sample = previewIncident(incidentId);
     if (!sample) return <Empty>That sample incident is not in the layout-preview fixtures.</Empty>;
     return (
-      <div className="flex flex-col gap-4" data-testid="live-defense-preview-investigation">
+      <div className="flex min-w-0 flex-col gap-6" data-testid="live-defense-preview-investigation">
         <Panel title={sample.title} actions={<SourceTag mode="layout-preview" />}>
           <p className="text-sm text-muted">{sample.summary}</p>
           <p className="mt-2 text-xs text-muted">Linked in this sample: {sample.linked.events} events · {sample.linked.findings} findings · {sample.linked.recommendations} recommendations</p>
@@ -132,7 +132,7 @@ export function InvestigationDetail({
     );
   }
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-6">
       {detail ? (
         <Async resource={detail} label="incident">
           {({ incident }) => (

@@ -23,7 +23,7 @@ export default function RepoCommitsPage() {
   const name = decodeURIComponent(params.repo);
   const repo = useAccessibleRepo(org, name);
   return (
-    <div className="workspace-index mx-auto max-w-5xl px-4 py-8" data-testid="real-commits">
+    <div className="mx-auto min-w-0 max-w-5xl px-4 py-8" data-testid="real-commits">
       <nav aria-label="Breadcrumb" className="mb-5 text-sm text-muted">
         <Link href="/connect" className="hover:text-ink">Organizations</Link><span aria-hidden="true" className="mx-2">/</span>
         <Link href={`/connect/${encodeURIComponent(org)}`} className="hover:text-ink">{org}</Link><span aria-hidden="true" className="mx-2">/</span>
@@ -49,8 +49,8 @@ function Commits({ org, name, repo, onConnected }: { org: string; name: string; 
   };
   return (
     <>
-      <header className="workspace-heading mb-6">
-        <p className="workspace-eyebrow">Commit history / 03</p>
+      <header className="mb-6 border-b border-line pb-6">
+        <p className="label-mono text-muted">Commit history / 03</p>
         <h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
         <p className="mt-1 text-sm text-muted">Commits on {repo.default_branch}</p>
       </header>
@@ -69,7 +69,7 @@ function Commits({ org, name, repo, onConnected }: { org: string; name: string; 
         ? <Empty>{commits.data.available ? `No commits on ${repo.default_branch} yet.` : commits.data.reason}</Empty>
         : (
           <CommitAssessmentProvider repoId={id}>
-            <ol className="workspace-rows overflow-hidden rounded-2xl border border-line bg-white" data-testid="real-commit-list">
+            <ol className="overflow-hidden rounded-2xl border border-line bg-panel" data-testid="real-commit-list">
               {commits.data.items.map((c, i) => (
                 <li key={c.sha} className="demo-rise border-b border-line last:border-b-0" style={{ ['--i' as string]: i }}>
                   <div className="group grid gap-3 px-5 py-4 transition-colors hover:bg-panel-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">

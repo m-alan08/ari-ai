@@ -184,7 +184,7 @@ function Scrubber({ episode, moments, t, steps, horizon, onSeek, truth }: { epis
     <div className="lab-scrub" data-testid="lab-timeline">
       <div className="lab-scrub-track" aria-hidden="true">
         <svg viewBox={cells} preserveAspectRatio="none" className="lab-scrub-heat">
-          {peaks.map((p, i) => <rect key={i} x={i - 0.5} y={0} width={1.02} height={1} fill="var(--signal)" opacity={0.06 + p * 0.55} />)}
+          {peaks.map((p, i) => <rect key={i} x={i - 0.5} y={0} width={1.02} height={1} fill="#c2452d" opacity={0.06 + p * 0.55} />)}
         </svg>
         <span className="lab-scrub-played" style={{ width: at(t) }} />
         {truth && (

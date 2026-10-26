@@ -21,8 +21,8 @@ Do not soften or upgrade these labels in customer-facing material.
 | [FIRST_FIVE_PLAN.md](FIRST_FIVE_PLAN.md) | Staging rehearsal plan and the exact first-five rollout sequence |
 | [LAUNCH_DECISION.md](LAUNCH_DECISION.md) | Signed launch recommendation with every exception documented |
 
-**Launch recommendation: CONDITIONAL GO** — see
-[LAUNCH_DECISION.md](LAUNCH_DECISION.md) for the eight binding conditions.
+**Launch decision: NO-GO** — see
+[LAUNCH_DECISION.md](LAUNCH_DECISION.md) for the open blocking conditions.
 
 ## Non-negotiable claims policy for the pilot
 
@@ -32,11 +32,12 @@ Ari does **not** have, and pilot material must not claim:
 - Zero data retention (see DATA_HANDLING.md — retention is operator-managed,
   not automatic).
 - Dedicated single-tenant infrastructure (the deployment is shared
-  multi-tenant with application-level isolation only — no Postgres RLS yet).
+  multi-tenant; isolation is application-level plus Postgres row-level
+  security enforced on the non-`BYPASSRLS` `ari_app` role).
 - Autonomous defense (the Defense Lab ships simulation-derived and
   rules-based *recommendations*; enforcement is not offered to pilot
   customers).
-- Security coverage beyond the three executable check categories
-  (`access_control.ownership`, `input_validation.bounds`,
-  `access_control.authentication`). Other weakness classes are *flagged*,
-  not *validated*.
+- Security coverage beyond the four executable check categories
+  (`access_control.ownership`, `access_control.authentication`,
+  `access_control.role`, `input_validation.bounds`). Other weakness classes
+  are *flagged*, not *validated*.

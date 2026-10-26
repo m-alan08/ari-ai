@@ -55,7 +55,9 @@ class SpecialistModel:
         h = self.hidden
         sizes = [self.dim * h, h, h * n_out, n_out] if h else [self.dim * n_out, n_out]
         if len(weights) != sum(sizes):
-            raise CheckpointError(f"{self.model_id}: weights have {len(weights)} values, expected {sum(sizes)}")
+            raise CheckpointError(
+                f"{self.model_id}: weights have {len(weights)} values, expected {sum(sizes)}"
+            )
         offsets = [0]
         for s in sizes:
             offsets.append(offsets[-1] + s)
@@ -73,13 +75,17 @@ class SpecialistModel:
         manifest = json.loads(manifest_path.read_text())
         digest = _sha256(weights_path)
         if digest != manifest.get("weights_sha256"):
-            raise CheckpointError(f"{directory.name}: weights.bin SHA-256 {digest[:12]}… does not match the manifest")
+            raise CheckpointError(
+                f"{directory.name}: weights.bin SHA-256 {digest[:12]}… does not match the manifest"
+            )
         weights = array("f")
         weights.frombytes(weights_path.read_bytes())
         return cls(manifest, weights)
 
     def vector(self, inputs: dict[str, str]) -> dict[int, float]:
-        return featurize(((f, inputs.get(f, "")) for f in self.fields), self.dim, char_ngrams=self.char_ngrams)
+        return featurize(
+            ((f, inputs.get(f, "")) for f in self.fields), self.dim, char_ngrams=self.char_ngrams
+        )
 
     def scores(self, inputs: dict[str, str]) -> list[float]:
         x = self.vector(inputs)
@@ -118,11 +124,17 @@ class SpecialistModel:
         return [Prediction(label, round(score, 4)) for label, score in ranked[:top_k]]
 
 
-def write_checkpoint(directory: Path, manifest: dict[str, Any], weights: list[float] | array) -> dict[str, Any]:
+def write_checkpoint(
+    directory: Path, manifest: dict[str, Any], weights: list[float] | array
+) -> dict[str, Any]:
     """Write weights.bin and a manifest carrying its SHA-256. Returns the manifest written."""
     directory.mkdir(parents=True, exist_ok=True)
     blob = array("f", weights).tobytes()
     (directory / "weights.bin").write_bytes(blob)
-    manifest = {**manifest, "weights_sha256": hashlib.sha256(blob).hexdigest(), "weights_bytes": len(blob)}
+    manifest = {
+        **manifest,
+        "weights_sha256": hashlib.sha256(blob).hexdigest(),
+        "weights_bytes": len(blob),
+    }
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
     return manifest

@@ -263,7 +263,7 @@ def live_defense_execute(ctx: JobContext) -> dict[str, Any]:
     from backend.live_defense.controls import execute_control
 
     with transaction() as conn:
-        return execute_control(conn, ctx.job.payload["control_id"])
+        return execute_control(conn, ctx.job.payload["control_id"], effect_guard=ctx.effect)
 
 
 @handler("live_defense_verify")

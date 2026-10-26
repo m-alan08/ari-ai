@@ -1,0 +1,96 @@
+{
+  "categories": [
+    {
+      "category": "A_frozen_scenarios",
+      "evidence_notes": [],
+      "letter": "A",
+      "mandatory": true,
+      "open_pr_is_not_readiness": true,
+      "research_docs_are_not_readiness": true,
+      "status": "BLOCKED",
+      "summary": "No RL-owner-approved frozen scenario set for this gate.",
+      "title": "Frozen evaluation scenarios",
+      "unit_tests_are_not_readiness": true
+    }
+  ],
+  "caveat": "Phase 6 CONDITIONAL GO is rules-based shadow only. The RL-gated pilot stays blocked until RL-owner evidence exists. Open PRs, unit tests, and research docs are not model readiness. Q-values are not probabilities.",
+  "customer_infra_provisioned": false,
+  "evaluation_plan": {
+    "abstention_required": true,
+    "baselines": [
+      "rules",
+      "fixed_block",
+      "v6"
+    ],
+    "frozen_scenarios_required": true,
+    "holdout_required": true,
+    "independent_seeds_required": true,
+    "metrics": [
+      {
+        "description": "Unauthorized access remaining after the candidate acts.",
+        "name": "compromise",
+        "threshold": null,
+        "threshold_status": "pending_rl_owner_approval"
+      }
+    ],
+    "pass_by_total_reward": false,
+    "per_scenario_required": true,
+    "provenance_required": true,
+    "threshold_owner": "rl_owner",
+    "thresholds_invented": false,
+    "uncertainty_required": true
+  },
+  "gated_application_count": 0,
+  "generated_at": "2026-10-17T01:00:00Z",
+  "hosted_inference": {
+    "approved_checkpoint_present": false,
+    "config": {
+      "abstention_on_assumption_failure": true,
+      "approved_checkpoint_sha256": null,
+      "auto_serve_newer_research_checkpoints": false,
+      "auto_serve_unapproved": false,
+      "compatibility_fixture_sha256": null,
+      "fallback_producer": "abstention",
+      "inference_timeout_ms": null,
+      "isolation": "Worker process only; untrusted target code stays in the sandbox; no outbound network by default.",
+      "refuse_on_hash_mismatch": true,
+      "refuse_on_tamper": true,
+      "restart_on_timeout": null,
+      "v6_claimed_to_pass_new_criteria": false
+    },
+    "notes": [],
+    "v6_passed_new_criteria": false,
+    "v6_used_only_as_compatibility_fixture": true
+  },
+  "infrastructure_complete": true,
+  "origin_main_sha": "74a0a3c202fec943e78c8ca03b0c0ba445639c7a",
+  "owner_pilot_authorization": false,
+  "phase6_verdict": "CONDITIONAL GO (rules-based shadow). Distinct from the RL-gated pilot.",
+  "phase7_started": false,
+  "ready": false,
+  "schema_version": "0.20.0",
+  "serving_contract": {
+    "abstention_reason": null,
+    "action": null,
+    "action_mask_valid": null,
+    "auto_served_unapproved_checkpoint": false,
+    "checkpoint_sha256": null,
+    "eval_bundle_sha256": null,
+    "feature_mapping_note": null,
+    "feature_schema_ok": null,
+    "freshness_ok": null,
+    "inference_status": null,
+    "node": null,
+    "observation": null,
+    "observation_complete": null,
+    "observation_dim": null,
+    "policy_version": null,
+    "principal_targets": null,
+    "q_margin": null,
+    "q_values_are_not_probabilities": true,
+    "top_actions": null,
+    "trained_commit_sha": null,
+    "uncertainty": null
+  },
+  "verdict": "INFRASTRUCTURE READY \u2014 RL BLOCKED"
+}

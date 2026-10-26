@@ -1,0 +1,14 @@
+# MSG: Phase 6.5 RL-gated pilot infrastructure (additive 0.20.0)
+- ID: `20261023T163500Z-alan-to-all-live-defense-phase6-5-rl-gated-pilot`
+- From: alan
+- To: all
+- Kind: `contract-proposal`
+- Timestamp (UTC): 2026-10-23T16:35:00Z
+- Branch / commit / PR or issue link: `feat/live-defense-phase6-5-rl-gated-pilot` from `origin/main` `74a0a3c2`
+- Related subsystem(s): shared, backend, frontend, live-defense (not Codex training)
+- Summary (facts, not assumptions): Additive `SCHEMA_VERSION` 0.20.0. `ConnectedApplication.rl_gated_pilot` (default false). New models: `RlReadinessAssessment` (categories A–J), `RlEvaluationPlan` (thresholds null), `PolicyServingOutput` (missing fields stay missing; Q ≠ probability), `HostedInferenceReadinessConfig` (does not serve). `GET /projects/{id}/rl-readiness` is the dashboard source of truth; `ready` stays false. Server-enforced shadow-only for gated apps. Authz list remains 15 checks; `application_registered` denies gated apps (tightening). Codex datasets/holdout/v6 weights/historical evals were not edited. Verdict: INFRASTRUCTURE READY — RL BLOCKED, distinct from Phase 6 CONDITIONAL GO.
+- Interface requested/proposed (field-level types/example payload): see `shared/shared/live_defense.py` Phase 6.5 section and fixtures `shared/fixtures/v0/RlReadinessAssessment.json`. Serving contract does not change v6 research semantics; RL-owner agreement requested if any later field is to be interpreted as a probability or as an approved checkpoint.
+- Breaking change? migration/test impact: Additive. No Alembic head change (flag in application `doc`). Generated JSON Schema + TS regenerated.
+- Action required by recipient: Srihith/interim contract review of 0.20.0. RL owner: do not treat this PR as model readiness; thresholds remain yours. Security owner: review the `application_registered` tightening before merge if treating it as a trust-boundary change.
+- Response-by milestone (not invented clock time): before merging this PR if authz review is required; otherwise ordinary isolated-infra review.
+- Evidence: `uv run pytest -q backend/tests/test_live_defense_phase6_5.py backend/tests/test_live_defense_authorize.py` — 25 passed. Frontend lint/typecheck pass; vitest 331/78; transport 35. Playwright e2e stack not run. Docs: `docs/LIVE_DEFENSE_PHASE6_5_RL_GATED_PILOT.md`.

@@ -33,12 +33,12 @@ export default function ExpectationsPage() {
   if (repos.length === 0) return <Panel title="Behavioral expectations"><Empty>Connect a repository and index a snapshot first.</Empty></Panel>;
   const repo = repos.find(r => r.id === repoId) ?? repos[0]!;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageTitle eyebrow="Defend" title="Expectations" subtitle="Intended behavior learned from the code — the baseline findings are judged against." />
       {repos.length > 1 && (
         <Field label="Repository">
           <select className={inputClass} value={repo.id} onChange={e => setRepoId(e.target.value)}>
-            {repos.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+            {repos.map((r, index) => <option key={`${r.id}:${r.full_name}:${index}`} value={r.id}>{r.full_name}</option>)}
           </select>
         </Field>
       )}
@@ -74,10 +74,10 @@ function SnapshotPicker({ snapshots, selected, onSelect }: { snapshots: Snapshot
     <Panel title="Snapshot">
       <p className="mb-2 text-sm text-muted">Expectations and decisions are pinned to one commit. A decision on an older snapshot does not silently carry forward.</p>
       <ul className="flex flex-wrap gap-2">
-        {snapshots.map(s => (
-          <li key={s.id}>
+        {snapshots.map((s, index) => (
+          <li key={`${s.id}:${s.commit_sha}:${s.created_at}:${index}`}>
             <button type="button" disabled={s.status !== 'ready'} onClick={() => onSelect(s.id)} aria-pressed={s.id === selected}
-              className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs disabled:opacity-50 ${s.id === selected ? 'border-brand bg-white' : 'border-line bg-panel-2 hover:bg-white'}`}>
+              className={`flex min-w-0 flex-wrap items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs disabled:opacity-50 ${s.id === selected ? 'border-brand bg-brand/15' : 'border-line bg-panel-2 hover:bg-panel'}`}>
               <Mono>{s.commit_sha.slice(0, 10)}</Mono>
               <Badge view={SNAPSHOT_STATUS[s.status]} />
               <Time iso={s.created_at} />
@@ -98,7 +98,7 @@ function ExpectationList({ snapshot }: { snapshot: Snapshot }) {
       <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-1">
         {FILTERS.map(f => (
           <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}
-            className={`label-mono rounded px-2 py-1 ${filter === f ? 'bg-white text-brand shadow-sm' : 'text-muted hover:text-ink'}`}>
+            className={`label-mono rounded px-2 py-1 ${filter === f ? 'bg-brand/15 text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>
             {f === 'all' ? 'All' : EXPECTATION_STATUS[f].label}
           </button>
         ))}
@@ -111,7 +111,7 @@ function ExpectationList({ snapshot }: { snapshot: Snapshot }) {
             <>
               <Summary items={page.items} />
               {items.length === 0 ? <Empty>No expectations{filter === 'all' ? '' : ` with status “${EXPECTATION_STATUS[filter].label}”`} on this page.</Empty> : (
-                <ul className="flex flex-col gap-3">{items.map(e => <ExpectationRow key={e.id} exp={e} onDecided={exps.reload} />)}</ul>
+                <ul className="flex min-w-0 flex-col gap-3">{items.map((e, index) => <ExpectationRow key={`${snapshot.id}:${e.id}:${e.kind}:${e.subject_ref}:${index}`} exp={e} onDecided={exps.reload} />)}</ul>
               )}
               <div className="mt-3 flex gap-2">
                 {cursor !== undefined && <Button onClick={() => setCursor(undefined)}>First page</Button>}
@@ -143,21 +143,21 @@ function Summary({ items }: { items: BehavioralExpectation[] }) {
 function ExpectationRow({ exp, onDecided }: { exp: BehavioralExpectation; onDecided: () => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <li className="rounded-md border border-line bg-panel-2 p-3" data-testid={`expectation-${exp.id}`}>
+    <li className="min-w-0 rounded-md border border-line bg-panel-2 p-3" data-testid={`expectation-${exp.id}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="max-w-3xl text-sm text-ink">{exp.statement}</p>
+        <p className="min-w-0 max-w-3xl break-words text-sm text-ink">{exp.statement}</p>
         <Badge view={EXPECTATION_STATUS[exp.status]} />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
         <Tag>{exp.kind.replace('_', ' ')}</Tag>
         <Tag tone={exp.origin === 'human_input' ? 'ok' : 'neutral'}>{exp.origin === 'human_input' ? 'human input' : exp.origin}</Tag>
         <span>confidence {Math.round(exp.confidence * 100)}%</span>
-        <span>subject <Mono>{exp.subject_ref}</Mono></span>
+        <span className="min-w-0 max-w-full break-all">subject <Mono>{exp.subject_ref}</Mono></span>
         {exp.data_sensitivity && <Tag tone="warn">{exp.data_sensitivity}</Tag>}
       </div>
       <ul className="mt-2 flex flex-col gap-0.5 text-xs text-muted">
         {exp.sources.map((src, i) => (
-          <li key={i}>{src.kind.replace('_', ' ')} · <Mono>{sourceLabel(src)}</Mono>{src.note && <> — {src.note}</>}</li>
+          <li key={`${src.kind}:${sourceLabel(src)}:${i}`} className="min-w-0 break-words">{src.kind.replace('_', ' ')} · <span className="break-all"><Mono>{sourceLabel(src)}</Mono></span>{src.note && <> — {src.note}</>}</li>
         ))}
       </ul>
       <div className="mt-2">
@@ -185,7 +185,7 @@ function DecisionPanel({ exp, onDecided }: { exp: BehavioralExpectation; onDecid
     } catch (err) { setError(err); } finally { setBusy(false); }
   };
   return (
-    <div className="mt-3 rounded-md border border-line bg-white p-3">
+    <div className="mt-3 min-w-0 rounded-md border border-line bg-panel p-3">
       <Async resource={history} label="decision history">
         {page => {
           const current = revision(page.items);
@@ -193,8 +193,8 @@ function DecisionPanel({ exp, onDecided }: { exp: BehavioralExpectation; onDecid
             <>
               {page.items.length > 0 && (
                 <ol className="mb-3 flex flex-col gap-1 text-xs text-muted" aria-label="Decision history">
-                  {page.items.map(d => (
-                    <li key={d.revision}>rev {d.revision} · <strong className="text-ink">{EXPECTATION_STATUS[d.status].label}</strong> by <Mono>{d.decided_by}</Mono> · <Time iso={d.decided_at} /> — {d.reason}</li>
+                  {page.items.map((d, index) => (
+                    <li key={`${d.revision}:${d.decided_at}:${d.decided_by}:${index}`} className="break-words">rev {d.revision} · <strong className="text-ink">{EXPECTATION_STATUS[d.status].label}</strong> by <Mono>{d.decided_by}</Mono> · <Time iso={d.decided_at} /> — {d.reason}</li>
                   ))}
                 </ol>
               )}

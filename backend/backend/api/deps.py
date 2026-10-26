@@ -84,6 +84,11 @@ def require_user(conn: Connection, request: Request) -> CurrentUser:
         sent = request.headers.get(CSRF_HEADER, "")
         if not secrets.compare_digest(sent.encode(), user.csrf_token.encode()):
             raise ApiError(ErrorCode.CSRF_FAILED, "missing or invalid X-CSRF-Token", 403)
+    settings = get_settings()
+    if request.method in ("GET", "HEAD"):
+        limiter.check(f"user-read:{user.id}", settings.rate_limit_read_per_minute, 60)
+    else:
+        limiter.check(f"user:{user.id}", settings.rate_limit_per_minute, 60)
     return user
 
 

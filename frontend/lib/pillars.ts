@@ -47,7 +47,7 @@ export function pillarLoop(input: LoopInput): LoopNode[] {
     id: 'understand', pillar: 'Shared intelligence', title: 'Understand the code',
     question: 'What is this software supposed to do?',
     status: input.repoCount === 0 ? 'No repository connected yet.' : `${plural(input.repoCount, 'repository', 'repositories')} connected${input.assessmentCount === null ? '.' : `, ${plural(input.assessmentCount, 'check')} run.`}`,
-    tone: input.repoCount === 0 ? 'empty' : 'good', href: `${base}#connect-repo`,
+    tone: input.repoCount === 0 ? 'empty' : 'good', href: `${base}/settings#connect-repo`,
   };
   const review: LoopNode = {
     id: 'review', pillar: 'Pillar 1', title: 'Review the change',

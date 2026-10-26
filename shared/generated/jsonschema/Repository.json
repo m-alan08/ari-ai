@@ -26,6 +26,24 @@
       "title": "Default Branch",
       "type": "string"
     },
+    "disconnected": {
+      "default": false,
+      "title": "Disconnected",
+      "type": "boolean"
+    },
+    "disconnected_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disconnected At"
+    },
     "full_name": {
       "pattern": "^[A-Za-z0-9_.\\-]+/[A-Za-z0-9_.\\-]+$",
       "title": "Full Name",

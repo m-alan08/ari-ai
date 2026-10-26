@@ -274,6 +274,7 @@ export function NodeGraph({ scenario, states, action = 'noop', t = 0, lastAction
       >
         <defs>
           <pattern id="net-dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.9" fill="rgba(255,255,255,0.07)" /></pattern>
+          <radialGradient id="net-hot"><stop offset="0%" stopColor="#c2452d" stopOpacity="0.42" /><stop offset="100%" stopColor="#c2452d" stopOpacity="0" /></radialGradient>
         </defs>
         <rect width={W} height={H} fill="url(#net-dots)" />
         <text x="28" y="30" className="network-zone">OUTSIDE</text><text x="260" y="30" className="network-zone">YOUR APPLICATION</text>

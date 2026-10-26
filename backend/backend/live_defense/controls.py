@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import Any
 
@@ -186,8 +188,11 @@ def gate_for(
         .first()
     )
     disconnected = False
+    rl_gated_pilot = False
     if app is not None:
-        disconnected = (app["doc"] or {}).get("disconnected_at") is not None
+        doc = app["doc"] or {}
+        disconnected = doc.get("disconnected_at") is not None
+        rl_gated_pilot = bool(doc.get("rl_gated_pilot"))
     grant = load_grant(conn, application_id, for_update=True)
     channel = load_channel(conn, application_id)
     inp = AuthorizationInput(
@@ -226,6 +231,7 @@ def gate_for(
         unresolved_control=unresolved(conn, application_id),
         actions_last_hour=actions_last_hour(conn, grant.id if grant else "", application_id),
         now=utcnow(),
+        rl_gated_pilot=rl_gated_pilot,
     )
     return check(inp), grant, channel
 
@@ -351,8 +357,40 @@ def advance(
     return updated
 
 
-def execute_control(conn: Connection, control_id: str) -> dict[str, Any]:
+def execute_control(
+    conn: Connection,
+    control_id: str,
+    effect_guard: Callable[[str], AbstractContextManager[None]] | None = None,
+) -> dict[str, Any]:
+    """``effect_guard`` (``JobContext.effect`` from the worker) durably records the adapter
+    call before it is made, so a crash mid-call is never replayed automatically."""
+    from backend.live_defense.pilot_guard import SHADOW_ONLY_REASON, application_is_gated
+
     control = load_control(conn, control_id, for_update=True)
+    app_row = (
+        conn.execute(
+            sa.select(connected_applications)
+            .where(connected_applications.c.id == control.application_id)
+            .with_for_update()
+        )
+        .mappings()
+        .first()
+    )
+    if app_row is not None and application_is_gated(app_row):
+        control = control.model_copy(
+            update={"denial_reason": SHADOW_ONLY_REASON, "unresolved": False}
+        )
+        persist(conn, control)
+        if control.status is LiveControlStatus.authorized:
+            control = advance(conn, control, LiveControlStatus.rejected, "live_defense.execute")
+        elif control.status in (LiveControlStatus.executing, LiveControlStatus.verifying):
+            control = advance(conn, control, LiveControlStatus.failed, "live_defense.execute")
+        return {
+            "control_id": control.id,
+            "status": control.status.value,
+            "denied": True,
+            "rl_gated_pilot": True,
+        }
     if control.status is LiveControlStatus.escalated and control.kind is LiveControlKind.escalate:
         return {"control_id": control.id, "status": control.status.value, "adapter": False}
     if control.status is not LiveControlStatus.authorized:
@@ -413,21 +451,23 @@ def execute_control(conn: Connection, control_id: str) -> dict[str, Any]:
         return {"control_id": control.id, "status": "failed", "error": str(exc)}
     control = advance(conn, control, LiveControlStatus.executing, "live_defense.execute")
     expires_unix = (control.expires_at or utcnow()).timestamp()
+    guard = effect_guard or (lambda _key: nullcontext())
     try:
-        result = call(
-            url,
-            secret,
-            {
-                "op": "apply",
-                "control_id": control.id,
-                "kind": control.kind.value,
-                "target_type": control.target.type.value,
-                "target_value": control.target.value,
-                "max_requests": control.max_requests,
-                "log_level": "debug",
-                "expires_at_unix": expires_unix,
-            },
-        )
+        with guard(f"control:{control.id}:apply"):
+            result = call(
+                url,
+                secret,
+                {
+                    "op": "apply",
+                    "control_id": control.id,
+                    "kind": control.kind.value,
+                    "target_type": control.target.type.value,
+                    "target_value": control.target.value,
+                    "max_requests": control.max_requests,
+                    "log_level": "debug",
+                    "expires_at_unix": expires_unix,
+                },
+            )
     except AdapterDenied as exc:
         _audit(
             conn,

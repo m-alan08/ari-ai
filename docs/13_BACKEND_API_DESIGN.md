@@ -90,8 +90,10 @@ by FastAPI is the source for frontend client generation.
 | POST | `/ingest/runtime/{project_id}` | Runtime events (ingest token) |
 | GET | `/projects/{id}/events?limit=&cursor=` | Monitoring feed, newest first; `next_cursor` when older events exist |
 | GET | `/projects/{id}/defense-recommendations?limit=&cursor=` | RL recommendations (labeled), newest first; `next_cursor` when older exist |
-| POST | `/projects/{id}/applications` | Register a sandbox or owned-test staging app (owner; shadow mode) |
+| POST | `/projects/{id}/applications` | Register a sandbox or owned-test staging app (owner; shadow mode; optional `rl_gated_pilot`) |
 | GET | `/projects/{id}/applications` | Connected staging apps (no secrets) |
+| POST | `/applications/{id}/enable-rl-gated-pilot` | Server-enforced shadow-only; 409 if leftover controls remain |
+| GET | `/projects/{id}/rl-readiness` | Backend RL-gated assessment (A–J). `ready` is not a frontend flag |
 | POST | `/applications/{id}/ingest-tokens` | Mint an ingest token bound to that app (shown once) |
 | GET | `/projects/{id}/ingest-tokens` | Ingest-token metadata (owner; secret never returned) |
 | GET | `/projects/{id}/defense-health` | Recorded worker/ingest timestamps; `status` always `unknown` |

@@ -1,0 +1,31 @@
+{
+  "product_sha": "77897e76eb561f166a2b96c1792545075bc8f078",
+  "upstream_sha": "eea084bc87ac6ca94f578073251c478655b09366",
+  "verdict": "NO-GO",
+  "focused": {
+    "passed": 192,
+    "failed": 4,
+    "skipped": 0
+  },
+  "post_base_upstream_probes": {
+    "passed": 0,
+    "failed": 3,
+    "skipped": 0
+  },
+  "manifest_migrations": {
+    "sha": "308f45e4ae68956d837844e436fcf0fa4e6414d1",
+    "passed": 2,
+    "failed": 0
+  },
+  "findings": {
+    "N1": "PASS",
+    "N2": "PASS",
+    "N3": "PASS",
+    "N4": "PASS",
+    "N5": "PASS migration collision; full merge equivalence not proven",
+    "N6": "FAIL full monotonic transfer probe; empty tuple corrected",
+    "N7": "FAIL new P2 diff artifact integrity regression"
+  },
+  "ci": "Unverified: no check runs/statuses/workflow runs for reviewed SHA at capture",
+  "no_production_edits": true
+}

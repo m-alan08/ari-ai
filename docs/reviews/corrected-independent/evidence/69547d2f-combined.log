@@ -1,0 +1,91 @@
+...F.................................................................... [ 54%]
+........................................................FF..             [100%]
+=================================== FAILURES ===================================
+____________ test_declared_transfer_order_does_not_downgrade_schema ____________
+
+    def test_declared_transfer_order_does_not_downgrade_schema():
+        heads = [
+            "8396e836866e33ebc34a402a7c8bd0eb6bc769d8",
+            "6e6733a69170ece2343f9a1eb3e06881d89e0ebe",
+            "cfa06bf649c5ca608c56badc497f0ad69ce444f0",
+            "db8b1fd718522d8b7b2ec8daaf51f93881e4142b",
+        ]
+        versions = [_literal(sha, "shared/shared/__init__.py", "SCHEMA_VERSION") for sha in heads]
+        assert all(isinstance(v, str) for v in versions), versions
+        numeric = [tuple(map(int, v.split("."))) for v in versions]
+>       assert numeric == sorted(numeric), versions
+E       AssertionError: ['0.23.0', '0.24.0', '0.26.0', '0.25.0']
+E       assert [(0, 23, 0), ...), (0, 25, 0)] == [(0, 23, 0), ...), (0, 26, 0)]
+E         
+E         At index 2 diff: (0, 26, 0) != (0, 25, 0)
+E         Use -v to get more diff
+
+backend/tests/test_rc2_transfer_manifest.py:41: AssertionError
+___________ test_job_api_does_not_expose_infrastructure_credentials ____________
+
+client_factory = <function client_factory.<locals>.make at 0x10f47b380>
+
+    def test_job_api_does_not_expose_infrastructure_credentials(client_factory) -> None:
+        """Codex RC2 N4 probe, read side: /jobs/{id} redacts stored last_error/result."""
+        alice, bob = client_factory("alice"), client_factory("bob")
+        ids = setup_project(alice, bob)
+        marker = "review" + "-only-password"
+        with transaction() as conn:
+            jid, _ = jobq.enqueue(conn, "review_credentials", {"project_id": ids["project"]})
+            assert jobq.claim(conn, "review-worker", 60, ["review_credentials"])
+            jobq.fail(
+                conn,
+                jid,
+                "review-worker",
+                {
+                    "code": "TOOL_ERROR",
+                    "message": "connect postgresql://svc:" + marker + "@db.internal/app failed",
+                },
+                retryable=False,
+            )
+        response = alice.get(f"/api/v1/jobs/{jid}")
+        assert response.status_code == 200
+        assert marker not in response.text
+>       assert "dsn_credentials" in response.text
+E       assert 'dsn_credentials' in '{"id":"job_01M5RX5CYCYVQMK14EZG0S463W","kind":"review_credentials","status":"failed","attempts":1,"result":null,"last...p failed","category":"permanent"},"error_category":"permanent","deadline_at":null,"effect_state":null,"recovery":null}'
+E        +  where '{"id":"job_01M5RX5CYCYVQMK14EZG0S463W","kind":"review_credentials","status":"failed","attempts":1,"result":null,"last...p failed","category":"permanent"},"error_category":"permanent","deadline_at":null,"effect_state":null,"recovery":null}' = <Response [200 OK]>.text
+
+backend/tests/test_live_defense_investigations.py:463: AssertionError
+_______________ test_stored_sensitive_job_events_redact_at_read ________________
+
+    def test_stored_sensitive_job_events_redact_at_read() -> None:
+        """Previously stored unsanitized event reasons/details are covered by the
+        same read-side redaction the history surface applies (Reliability wires it
+        into /jobs/{id}/history; see coordination message)."""
+        stored_events = [
+            {
+                "seq": 1,
+                "from_status": "running",
+                "to_status": "failed",
+                "category": "tool_error",
+                "reason": "connect " + _DSN_SECRET + " failed",
+                "details": {"host": "db.internal", "note": "password=READ-SIDE-only-password"},
+                "created_at": "2026-10-25T00:00:00Z",
+            },
+            {
+                "seq": 2,
+                "from_status": "recovery_required",
+                "to_status": "queued",
+                "category": "operator_resolution",
+                "reason": None,
+                "details": {"resolution": "retry", "note": "operator password=READ-SIDE-only-password"},
+                "created_at": "2026-10-25T00:01:00Z",
+            },
+        ]
+        out = redact(stored_events)
+        raw = str(out)
+        assert "READ-SIDE-only-password" not in raw
+>       assert "dsn_credentials" in raw
+E       assert 'dsn_credentials' in "[{'seq': 1, 'from_status': 'running', 'to_status': 'failed', 'category': 'tool_error', 'reason': 'connect postgresql:...n': None, 'details': {'resolution': 'retry', 'note': 'operator [REDACTED:kv]'}, 'created_at': '2026-10-25T00:01:00Z'}]"
+
+backend/tests/test_live_defense_investigations.py:493: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_rc2_transfer_manifest.py::test_declared_transfer_order_does_not_downgrade_schema
+FAILED backend/tests/test_live_defense_investigations.py::test_job_api_does_not_expose_infrastructure_credentials
+FAILED backend/tests/test_live_defense_investigations.py::test_stored_sensitive_job_events_redact_at_read
+3 failed, 129 passed in 16.58s

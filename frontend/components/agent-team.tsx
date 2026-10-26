@@ -7,7 +7,7 @@ import { duration, usd } from '@/lib/format';
 import { AGENTS, AGENT_RUN_STATUS, agentRole, agentRunSummary, handoffNote, providerLabel, TERMINAL_STATES } from '@/lib/status';
 
 /** Label for an agent with no recorded run, from the assessment's final state. */
-function absentLabel(state: AssessmentState | undefined): { short: string; detail: string } {
+export function absentLabel(state: AssessmentState | undefined): { short: string; detail: string } {
   if (state === 'COMPLETED') return { short: 'not needed', detail: 'Not needed this run — the assessment ended before this step had work' };
   if (state && TERMINAL_STATES.has(state)) return { short: 'not reached', detail: 'Not reached — the run ended before this step' };
   return { short: 'not run', detail: 'No persisted run' };
@@ -65,7 +65,7 @@ export function AgentTeam({ runs, selected: controlled, onSelect, hideList = fal
   );
 }
 
-function RunDetail({ run }: { run: AgentRun }) {
+export function RunDetail({ run }: { run: AgentRun }) {
   const provider = providerLabel(run.provider_mode);
   const denied = run.tool_calls.filter(call => call.outcome === 'denied').length;
   const errors = run.tool_calls.filter(call => call.outcome === 'error').length;

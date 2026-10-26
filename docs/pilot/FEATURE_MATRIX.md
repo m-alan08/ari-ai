@@ -30,7 +30,7 @@ Status labels (use exactly these in customer material):
 |---|---|---|
 | Seven distinct agent runners + deterministic orchestrator | Implemented | `security-agents/`, `workflow/`; 581 tests passing |
 | Live pipeline on owned repos | Live-verified | 45-case baseline: IDOR 8/8 flagged→validated→fixed; vuln 23/24 flagged; median 153 s; ~$1.26 total |
-| Executable Probe checks | **Partial — 3 templates** | `access_control.ownership`, `input_validation.bounds`, `access_control.authentication` (`checks/library.py`); other CWEs end inconclusive |
+| Executable Probe checks | **Partial — 4 templates** | `access_control.ownership`, `access_control.authentication`, `access_control.role`, `input_validation.bounds` (`checks/library.py`); other CWEs end inconclusive |
 | Scout specialist (trained model) | Implemented | Promoted checkpoint, macro F1 0.349 vs 0.084 static baseline |
 | Sandboxed execution | Implemented | Vercel microVM driver (prod) + hardened Docker driver (`--network none` default); local-process driver refuses outside dev/test |
 | Scope authorization before any network-capable tool | Implemented | `scope_guard.py`; checks run as code before calls |
@@ -68,7 +68,7 @@ Status labels (use exactly these in customer material):
 | Retention/TTL jobs | **Unavailable** | Artifacts, clones, index payloads persist indefinitely until ops removal |
 | Subscriptions / billing / metering enforcement | **Unavailable** | Pricing page is a proposal; nothing purchasable |
 | Multi-user org invitations | **Unavailable** | Personal org per login only |
-| Postgres row-level security | **Unavailable** | Application-level checks only (defense-in-depth gap) |
+| Postgres row-level security | **Partial — live** | FORCE RLS on source-content tables (`index_payloads` / `index_snapshots`) via the non-`BYPASSRLS` `ari_app` role; membership checks remain the primary gate elsewhere |
 
 ## Deployment facts customers may ask about
 

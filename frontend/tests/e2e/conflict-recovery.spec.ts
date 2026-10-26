@@ -39,8 +39,8 @@ test('a conflicting action requires explicit preparation before a single new sub
     if (response.status() === 202) accepted.push(await response.json());
     await route.fulfill({ response });
   });
-  await alice.goto(`/projects/${project.id}`);
-  await alice.getByLabel('Repository', { exact: true }).selectOption(repo.id);
+  await alice.goto(`/projects/${project.id}/commits?repo=${encodeURIComponent(repo.id)}`);
+  await expect(alice.getByTestId('repo-switcher')).toContainText('owned/conflict-recovery');
   await alice.getByLabel('Authorized scope').selectOption(scope.id);
   await alice.getByLabel('Commit SHA').fill(env('E2E_COMMIT'));
   const start = alice.getByRole('button', { name: 'Start assessment' });

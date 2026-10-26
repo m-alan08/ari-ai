@@ -6,6 +6,7 @@ import type {
   ConnectedApplication,
   FirstResponderDecision,
   FirstResponderIntent,
+  FirstResponderInvocation,
   FirstResponderModeView,
 } from '@hackatl/frontend-transport';
 import { useState } from 'react';
@@ -27,6 +28,7 @@ export function FirstResponder({
   apps,
   frMode,
   decisions,
+  invocations,
   handoffs,
   capabilities,
   onChange,
@@ -36,6 +38,7 @@ export function FirstResponder({
   apps?: Resource<{ items: ConnectedApplication[] }>;
   frMode?: Resource<FirstResponderModeView>;
   decisions?: Resource<{ items: FirstResponderDecision[]; label: string }>;
+  invocations?: Resource<{ items: FirstResponderInvocation[]; next_cursor: string | null }>;
   handoffs?: Resource<{ items: AnalystHandoff[] }>;
   capabilities?: Resource<AgentCapabilityRegistry>;
   onChange?: () => void;
@@ -49,7 +52,7 @@ export function FirstResponder({
   }
   if (!projectId) return <Empty>Choose a project to configure first-responder mode.</Empty>;
   return (
-    <div className="flex flex-col gap-4" data-testid="live-defense-first-responder">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="live-defense-first-responder">
       <p data-testid="live-defense-first-responder-copy" className="rounded-xl border border-line bg-panel-2 px-4 py-3 text-sm text-ink">
         {FIRST_RESPONDER_COPY}
       </p>
@@ -59,7 +62,8 @@ export function FirstResponder({
       <ModePanel projectId={projectId} frMode={frMode} onChange={onChange} />
       <CapabilitiesPanel capabilities={capabilities} />
       <DecisionsPanel decisions={decisions} />
-      <HandoffsPanel handoffs={handoffs} onChange={onChange} />
+      <InvocationsPanel invocations={invocations} />
+      <HandoffsPanel handoffs={handoffs} />
       <MappingPanel apps={apps} onChange={onChange} />
     </div>
   );
@@ -154,9 +158,9 @@ function DecisionsPanel({ decisions }: { decisions?: Resource<{ items: FirstResp
                     <Mono>{item.id}</Mono>
                     <Tag>{item.evidence_state}</Tag>
                     <Tag>{item.action.replaceAll('_', ' ')}</Tag>
-                    <Tag tone={item.executed ? 'bad' : 'info'}>{item.executed ? 'executed' : 'not executed'}</Tag>
+                    <Tag tone={item.executed ? 'bad' : 'info'}>{item.executed ? 'control executed' : 'control not executed'}</Tag>
                   </div>
-                  <p className="mt-1 text-ink">Correlation {item.correlation.confidence}. Confirmation {item.confirmation}. Predicted probability is not set.</p>
+                  <p className="mt-1 text-ink">Correlation {item.correlation.confidence}. Confirmation {item.confirmation}. Predicted probability is not set. Agent execution is listed separately and is not a confirmed threat.</p>
                   <p className="mt-1 text-muted">{item.caveat}</p>
                 </li>
               ))}
@@ -168,12 +172,54 @@ function DecisionsPanel({ decisions }: { decisions?: Resource<{ items: FirstResp
   );
 }
 
+function InvocationsPanel({
+  invocations,
+}: {
+  invocations?: Resource<{ items: FirstResponderInvocation[]; next_cursor: string | null }>;
+}) {
+  return (
+    <Panel title="Agent invocations">
+      {invocations ? (
+        <Async resource={invocations} label="first-responder invocations">
+          {page => page.items.length === 0 ? (
+            <Empty>No agent invocation yet. OFF does not start jobs.</Empty>
+          ) : (
+            <ul className="flex flex-col gap-3" data-testid="live-defense-fr-invocations">
+              {page.items.map(item => (
+                <li key={item.id} className="rounded-lg border border-line px-3 py-2 text-sm" data-testid={`live-defense-fr-invocation-${item.agent}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{item.agent}</span>
+                    <Tag>{item.status.replaceAll('_', ' ')}</Tag>
+                    <Tag>{item.provider_mode}</Tag>
+                  </div>
+                  <p className="mt-1 text-ink">{item.reason}</p>
+                  {item.execution ? (
+                    <p className="mt-1 text-muted" data-testid={`live-defense-fr-execution-${item.agent}`}>
+                      Provider {item.execution.provider_mode}
+                      {item.execution.latency_ms != null ? ` · ${item.execution.latency_ms} ms` : ''}
+                      {item.execution.cost_usd != null ? ` · $${item.execution.cost_usd.toFixed(4)}` : ''}
+                      {item.execution.tool_call_count != null ? ` · ${item.execution.tool_call_count} tools` : ''}
+                      {' · integrity '}{item.execution.execution_integrity}
+                      {' · confirmed '}{item.execution.confirmation}
+                      {' · predicted probability is not set'}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-muted">No agent loop ran. Eligibility or skip is not verification.</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Async>
+      ) : <Empty>Invocations were not requested.</Empty>}
+    </Panel>
+  );
+}
+
 function HandoffsPanel({
   handoffs,
-  onChange,
 }: {
   handoffs?: Resource<{ items: AnalystHandoff[] }>;
-  onChange?: () => void;
 }) {
   return (
     <Panel title="Analyst handoff">

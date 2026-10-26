@@ -15,10 +15,14 @@ from .config import TrainConfig
 from .features import featurize
 
 
-def matrix(rows: list[dict[str, str]], fields: list[str], dim: int, *, char_ngrams: bool = True) -> np.ndarray:
+def matrix(
+    rows: list[dict[str, str]], fields: list[str], dim: int, *, char_ngrams: bool = True
+) -> np.ndarray:
     x = np.zeros((len(rows), dim), dtype=np.float32)
     for n, row in enumerate(rows):
-        for i, v in featurize(((f, row.get(f, "")) for f in fields), dim, char_ngrams=char_ngrams).items():
+        for i, v in featurize(
+            ((f, row.get(f, "")) for f in fields), dim, char_ngrams=char_ngrams
+        ).items():
             x[n, i] = v
     return x
 
@@ -27,7 +31,7 @@ def targets(labels: list[list[str]] | list[str], vocab: list[str], multilabel: b
     index = {label: i for i, label in enumerate(vocab)}
     y = np.zeros((len(labels), len(vocab)), dtype=np.float32)
     for n, lab in enumerate(labels):
-        for item in (lab if multilabel else [lab]):  # type: ignore[list-item]
+        for item in lab if multilabel else [lab]:  # type: ignore[list-item]
             y[n, index[item]] = 1.0
     return y
 
@@ -76,7 +80,15 @@ def _loss(p: np.ndarray, y: np.ndarray, multilabel: bool) -> float:
     return float(-(y * np.log(p + eps)).sum(axis=1).mean())
 
 
-def train(x: np.ndarray, y: np.ndarray, xv: np.ndarray, yv: np.ndarray, *, multilabel: bool, cfg: TrainConfig) -> tuple[Net, dict[str, Any]]:
+def train(
+    x: np.ndarray,
+    y: np.ndarray,
+    xv: np.ndarray,
+    yv: np.ndarray,
+    *,
+    multilabel: bool,
+    cfg: TrainConfig,
+) -> tuple[Net, dict[str, Any]]:
     rng = np.random.default_rng(cfg.seed)
     net = Net(x.shape[1], cfg.hidden, y.shape[1], rng)
     m = [np.zeros_like(p) for p in net.params]
@@ -115,13 +127,20 @@ def train(x: np.ndarray, y: np.ndarray, xv: np.ndarray, yv: np.ndarray, *, multi
                 p -= (cfg.lr * mh / (np.sqrt(vh) + eps)).astype(np.float32)
         train_loss = _loss(_probs(net.forward(x)[0], multilabel), y, multilabel)
         val_loss = _loss(_probs(net.forward(xv)[0], multilabel), yv, multilabel)
-        history.append({"epoch": epoch + 1, "train_loss": round(train_loss, 5), "val_loss": round(val_loss, 5)})
+        history.append(
+            {"epoch": epoch + 1, "train_loss": round(train_loss, 5), "val_loss": round(val_loss, 5)}
+        )
         if val_loss < best[0] - 1e-5:
             best = (val_loss, [p.copy() for p in net.params], epoch + 1)
         elif epoch + 1 - best[2] >= cfg.patience:
             break
     net.params = best[1]
-    return net, {"best_epoch": best[2], "best_val_loss": round(best[0], 5), "epochs_run": len(history), "history": history}
+    return net, {
+        "best_epoch": best[2],
+        "best_val_loss": round(best[0], 5),
+        "epochs_run": len(history),
+        "history": history,
+    }
 
 
 def predict_proba(net: Net, x: np.ndarray, multilabel: bool) -> np.ndarray:

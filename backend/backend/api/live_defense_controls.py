@@ -33,6 +33,7 @@ from backend.live_defense.controls import (
     load_decision,
     origin_from_decision,
 )
+from backend.live_defense.pilot_guard import refuse_control_surface
 from shared.audit import ActorType
 from shared.base import utcnow
 from shared.errors import ErrorCode
@@ -76,6 +77,9 @@ def create_grant(project_id: str, body: ControlGrantCreate, request: Request) ->
         )
         if app is None or app["project_id"] != project_id:
             raise not_found("application")
+        denied = refuse_control_surface(app)
+        if denied:
+            raise ApiError(ErrorCode.LIVE_CONTROL_DENIED, denied, 403)
         grant = ControlGrant(
             id=new_id(IdPrefix.cgr),
             project_id=project_id,
@@ -187,6 +191,9 @@ def create_channel(
         if app is None:
             raise not_found("application")
         org_id, _ = require_project(conn, user, app["project_id"], MemberRole.owner)
+        denied = refuse_control_surface(app)
+        if denied:
+            raise ApiError(ErrorCode.LIVE_CONTROL_DENIED, denied, 403)
         existing = conn.execute(
             sa.select(control_channels.c.id).where(
                 control_channels.c.application_id == app_id,
@@ -273,6 +280,9 @@ def authorize_control(
         if app is None:
             raise not_found("application")
         org_id, _ = require_project(conn, user, app["project_id"], MemberRole.owner)
+        denied = refuse_control_surface(app)
+        if denied:
+            raise ApiError(ErrorCode.LIVE_CONTROL_DENIED, denied, 403)
         decision = load_decision(conn, body.live_policy_decision_id)
         if body.live_policy_decision_id and decision is None:
             raise not_found("live policy decision")

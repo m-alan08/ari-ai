@@ -134,7 +134,9 @@ def test_claim_skips_cancel_requested_running_job_even_after_lease_expiry() -> N
     assert CALLS == []
     row = _job(jid)
     assert row["cancel_requested"] is True
-    assert row["status"] == "running"
+    # Reconciliation confirms the cancellation instead of leaving the row "running" forever.
+    assert row["status"] == "cancelled"
+    assert row["error_category"] == "cancelled"
 
 
 def test_unknown_kind_fails_permanently() -> None:

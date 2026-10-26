@@ -27,14 +27,10 @@ it('ships intact WOFF2 fonts with their redistribution licenses', () => {
 it('restricts Chakra Petch bold to the wordmark while retaining the existing text families', () => {
   const layout = readFileSync(resolve(root, 'app/layout.tsx'), 'utf8');
   const css = readFileSync(resolve(root, 'app/globals.css'), 'utf8');
-  const tokens = readFileSync(resolve(root, 'app/tokens.css'), 'utf8');
   expect(layout).toContain("src: './fonts/chakra-petch-latin-700-normal.woff2', weight: '700'");
   expect(css.match(/var\(--font-chakra-petch\)/g)).toHaveLength(1);
   expect(css).toMatch(/\.ari-wordmark-text\s*\{[^}]*var\(--font-chakra-petch\)[^}]*font-weight: 700/);
-  expect(css).toContain('--font-sans: var(--font-ui)');
-  expect(css).toContain('--font-display: var(--font-ui)');
-  expect(css).toContain('--font-mono: var(--font-code)');
-  expect(tokens).toContain('--font-ui: var(--font-inter)');
-  expect(tokens).toContain('--font-code: var(--font-ibm-plex-mono)');
-  expect(css).not.toContain('var(--font-sixtyfour)');
+  expect(css).toContain('--font-sans: var(--font-inter)');
+  expect(css).toContain('--font-display: var(--font-space-grotesk)');
+  expect(css).toContain('--font-mono: var(--font-ibm-plex-mono)');
 });

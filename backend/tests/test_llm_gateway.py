@@ -81,6 +81,50 @@ def test_tool_loop_executes_allowed_tools_denies_others_and_validates_output() -
     )
 
 
+def test_cost_usd_includes_cache_creation_and_does_not_double_count() -> None:
+    mixed = {
+        "input_tokens": 1_000,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 8_000,
+        "cache_creation_input_tokens": 2_000,
+    }
+    usd = cost_usd("claude-haiku-5-5", mixed)
+    io_only = cost_usd("claude-haiku-5-5", {"input_tokens": 1_000, "output_tokens": 50})
+    assert usd > io_only
+    assert usd == pytest.approx(
+        (1_000 * 0.10 + 50 * 0.50 + 8_000 * 0.01 + 2_000 * 0.10 * 1.25) / 1_000_000
+    )
+
+
+def test_create_message_passes_remaining_deadline_and_stops_retries(monkeypatch) -> None:
+    from backend.llm import LLMGateway
+
+    timeouts: list[float] = []
+
+    class SlowRetry(FakeTransport):
+        def create(self, request):  # type: ignore[no-untyped-def]
+            timeouts.append(float(request["_timeout_s"]))
+            raise LLMError(ErrorCode.LLM_UNAVAILABLE, "rate limited", retryable=True)
+
+    sleeps: list[float] = []
+    gw = LLMGateway(
+        settings=_settings(llm_max_retries=3),
+        transport=SlowRetry([]),
+        sleep=lambda s: sleeps.append(s),
+    )
+    with pytest.raises(LLMError) as exc:
+        gw.create_message(
+            agent="scout",
+            system="s",
+            messages=[{"role": "user", "content": "q"}],
+            timeout_s=1.2,
+        )
+    assert exc.value.code is ErrorCode.BUDGET_EXHAUSTED
+    assert "DEADLINE_EXCEEDED" in str(exc.value)
+    assert timeouts and timeouts[0] <= 1.2
+    assert timeouts[0] >= 1.0
+
+
 def _turn(*uses: tuple[str, dict, str]) -> dict:
     return {
         "content": [{"type": "tool_use", "id": t, "name": n, "input": i} for n, i, t in uses],

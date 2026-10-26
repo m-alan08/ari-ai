@@ -42,8 +42,8 @@ function saveSetupStep(progressKey: string, step: string) {
 
 function StepPanel({ step, title, children }: { step: number; title: string; children: ReactNode }) {
   return (
-    <section data-testid={`setup-step-${step}`} className="rounded-[var(--radius-3)] border border-line bg-panel p-4 sm:p-6">
-      <p className="workspace-eyebrow">Step {step} / 7</p>
+    <section data-testid={`setup-step-${step}`} className="rounded-2xl border border-line bg-panel p-5 sm:p-6">
+      <p className="label-mono text-muted">Step {step} / 7</p>
       <h2 className="mt-1 text-xl font-semibold tracking-tight">{title}</h2>
       <div className="mt-5">{children}</div>
     </section>
@@ -65,7 +65,7 @@ export default function SetupPage() {
   if (runs.status === 'error') return <ErrorState error={runs.error} onRetry={runs.reload} />;
   const repo = repos.data.items.find(r => r.id === repoParam) ?? repos.data.items[0];
   if (!repo) {
-    return <div className="rounded-[var(--radius-3)] border border-line bg-panel p-6 text-sm">No repository is connected yet. <Link className="font-semibold text-brand" href="/connect">Connect one</Link> to start setup.</div>;
+    return <div className="rounded-2xl border border-line bg-panel p-5 text-sm sm:p-6">No repository is connected yet. <Link className="font-semibold text-brand" href="/connect">Connect one</Link> to start setup.</div>;
   }
   const scope = scopeStateFor(scopes.data.items, repo.id, new Date());
   const authorized = scope.kind === 'active';
@@ -169,7 +169,7 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
     const sig = `${project.id}|${repo.id}`;
     const asm = await api().startAssessment(project.id, { scope_id: scope.scope.id, repo_id: repo.id, commit_sha: null, snapshot_id: null, budget: null }, runKeys.keyFor(sig));
     runKeys.done();
-    router.push(`/projects/${project.id}/assessments/${asm.id}`);
+      router.push(`/projects/${project.id}/assessments/${asm.id}?repo=${encodeURIComponent(repo.id)}`);
   });
 
   const doneSteps = [
@@ -188,8 +188,8 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
 
   return (
     <SetupLayout current={currentStep} org={org} doneSteps={doneSteps} onStepChange={navigateStep}>
-      <div className="workspace-index" data-testid="repo-setup">
-        <p className="workspace-eyebrow">Setup / {repo.full_name}</p>
+    <div className="mx-auto min-w-0 max-w-3xl py-4" data-testid="repo-setup">
+        <p className="label-mono text-muted">Setup / {repo.full_name}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Let&apos;s set up Ari for {repo.full_name.split('/')[1]}</h1>
         <p className="mt-2 mb-6 text-sm text-muted">Seven steps. You can change any of this later in Settings.</p>
         {error !== null && <div className="mb-4"><ErrorState error={error} /></div>}
@@ -197,12 +197,12 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
         {currentStep === 3 && (
           <StepPanel step={3} title="Readiness">
             <dl className="grid gap-4 sm:grid-cols-2">
-              <div><dt className="workspace-eyebrow">Repository</dt><dd className="mt-1 break-all font-mono text-sm text-ink">{repo.full_name}</dd></div>
-              <div><dt className="workspace-eyebrow">Default branch</dt><dd className="mt-1 font-mono text-sm text-ink">{repo.default_branch}</dd></div>
-              <div className="sm:col-span-2"><dt className="workspace-eyebrow">GitHub App</dt><dd className="mt-1 text-sm text-muted">{repo.installation_id != null ? `GitHub App installation #${repo.installation_id}` : 'Not connected through the GitHub App'}</dd></div>
+              <div><dt className="label-mono text-muted">Repository</dt><dd className="mt-1 break-all font-mono text-sm text-ink">{repo.full_name}</dd></div>
+              <div><dt className="label-mono text-muted">Default branch</dt><dd className="mt-1 font-mono text-sm text-ink">{repo.default_branch}</dd></div>
+              <div className="sm:col-span-2"><dt className="label-mono text-muted">GitHub App</dt><dd className="mt-1 text-sm text-muted">{repo.installation_id != null ? `GitHub App installation #${repo.installation_id}` : 'Not connected through the GitHub App'}</dd></div>
             </dl>
             <div className="mt-5 border-t border-line pt-4">
-              <p className="workspace-eyebrow mb-2">Build recipe</p>
+              <p className="label-mono mb-2 text-muted">Build recipe</p>
               <BuildRecipeReadiness projectId={project.id} repo={repo} />
             </div>
           </StepPanel>
@@ -220,7 +220,7 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
             <fieldset className="mt-4 grid gap-2 sm:grid-cols-3">
               <legend className="mb-2 text-sm font-medium">How strict should PR comments be?</legend>
               {STRICTNESS.map(([value, label, hint]) => (
-                <label key={value} className={`cursor-pointer rounded-[var(--radius-2)] border p-3 text-sm transition-colors ${strictness === value ? 'border-brand bg-brand/10' : 'border-line bg-panel-2 hover:border-brand'}`}>
+                <label key={value} className={`cursor-pointer rounded-xl border p-3 text-sm transition-colors ${strictness === value ? 'border-brand bg-brand/10' : 'border-line bg-panel-2 hover:border-brand'}`}>
                   <input type="radio" name="strictness" className="sr-only" checked={strictness === value} onChange={() => setStrictness(value)} />
                   <span className="block font-semibold">{label}</span><span className="mt-1 block text-xs text-muted">{hint}</span>
                 </label>
@@ -242,10 +242,10 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
           <StepPanel step={5} title="Testing scope">
             <p className="text-sm text-muted">Authorize Ari to test this repository in an isolated sandbox.</p>
             <dl className="mt-4 grid gap-3 border-y border-line py-4 text-sm sm:grid-cols-2">
-              <div><dt className="workspace-eyebrow">Target</dt><dd className="mt-1 font-mono text-ink">{repo.full_name}</dd></div>
-              <div><dt className="workspace-eyebrow">Sandbox build</dt><dd className="mt-1 text-muted">Built from <code className="font-mono text-ink">build_recipe.json</code></dd></div>
-              <div><dt className="workspace-eyebrow">Duration</dt><dd className="mt-1 text-muted">{scopeExpiryDate && scopeExpiresAt ? <>Until <time dateTime={scopeExpiresAt}>{scopeExpiryDate}</time></> : `${SCOPE_DURATION_DAYS} days`}</dd></div>
-              <div><dt className="workspace-eyebrow">Revocation</dt><dd className="mt-1 text-muted">Revoke anytime in <Link className="text-brand underline-offset-2 hover:underline" href={`/projects/${project.id}/scopes`}>Scopes</Link>.</dd></div>
+              <div><dt className="label-mono text-muted">Target</dt><dd className="mt-1 break-words font-mono text-ink">{repo.full_name}</dd></div>
+              <div><dt className="label-mono text-muted">Sandbox build</dt><dd className="mt-1 text-muted">Built from <code className="font-mono text-ink">build_recipe.json</code></dd></div>
+              <div><dt className="label-mono text-muted">Duration</dt><dd className="mt-1 text-muted">{scopeExpiresAt && scopeExpiryDate ? <>Until <time dateTime={scopeExpiresAt}>{scopeExpiryDate}</time></> : scope.kind === 'none' ? `${SCOPE_DURATION_DAYS} days` : 'Expiry not recorded'}</dd></div>
+              <div><dt className="label-mono text-muted">Revocation</dt><dd className="mt-1 text-muted">Revoke anytime in <Link className="text-brand underline-offset-2 hover:underline" href={`/projects/${project.id}/scopes`}>Scopes</Link>.</dd></div>
             </dl>
             {scope.kind === 'active' && (
               <p className="mt-4 text-sm text-info">
@@ -262,7 +262,7 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
             <p className="mb-4 text-sm text-muted">Choose where a verified fix should go. Pull requests are the default.</p>
             <div className="grid gap-2">
               {DELIVERY.map(([mode, label, hint]) => (
-                <label key={mode} className={`cursor-pointer rounded-[var(--radius-2)] border p-3 text-sm transition-colors ${delivery === mode ? 'border-brand bg-brand/10' : 'border-line bg-panel-2 hover:border-brand'}`}>
+                <label key={mode} className={`cursor-pointer rounded-xl border p-3 text-sm transition-colors ${delivery === mode ? 'border-brand bg-brand/10' : 'border-line bg-panel-2 hover:border-brand'}`}>
                   <input type="radio" name="delivery" className="sr-only" checked={delivery === mode} onChange={() => setDelivery(mode)} />
                   <span className="block font-semibold">{label}</span><span className="mt-1 block text-xs text-muted">{hint}</span>
                 </label>
@@ -287,14 +287,14 @@ function Walkthrough({ repo, scope, authorized, hasRun, reload }: {
               <li className="flex items-center justify-between gap-3 py-3 text-sm"><span className="text-muted">Build recipe</span><BuildRecipeReadiness projectId={project.id} repo={repo} compact /></li>
             </ul>
             {!authorized && <button type="button" className="mt-4 text-sm text-brand underline-offset-2 hover:underline" onClick={() => navigateStep(5)}>Review step 5: testing scope</button>}
-            {hasRun && <p className="mt-4 text-sm"><Link className="font-semibold text-brand" href={`/projects/${project.id}/assessments`}>See your reviews</Link></p>}
+            {hasRun && <p className="mt-4 text-sm"><Link className="font-semibold text-brand" href={`/projects/${project.id}/commits?repo=${encodeURIComponent(repo.id)}#assessments`}>See your reviews</Link></p>}
             <div><Button variant="primary" className="mt-4" disabled={busy !== null || !authorized} title={authorized ? undefined : 'Approve sandbox testing first'} onClick={() => void run()}>{busy === 'run' ? 'Starting…' : hasRun ? 'Run another review' : 'Start first assessment'}</Button></div>
           </StepPanel>
         )}
 
         <div className="mt-5 flex items-center justify-between gap-3">
           {currentStep === 3 ? (
-            <Link href={`/connect/${encodeURIComponent(org)}`} className="inline-flex h-8 items-center rounded-[var(--radius-2)] border border-line-2 px-3 text-xs font-medium text-ink hover:bg-panel-2">Back</Link>
+            <Link href={`/connect/${encodeURIComponent(org)}`} className="inline-flex h-8 items-center rounded-lg border border-line-2 px-3 text-xs font-medium text-ink hover:bg-panel-2">Back</Link>
           ) : (
             <Button onClick={() => navigateStep(currentStep - 1)}>Back</Button>
           )}

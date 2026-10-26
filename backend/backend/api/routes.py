@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -27,6 +28,7 @@ from backend.api.deps import (
     require_project,
     require_user,
 )
+from backend.api.execution import job_project
 from backend.artifacts import ArtifactStore
 from backend.db import (
     agent_runs,
@@ -37,8 +39,10 @@ from backend.db import (
     audit_events,
     authorized_scopes,
     defense_recommendations,
+    deploy_commit_mappings,
     finding_records,
     findings,
+    first_responder_decisions,
     monitoring_events,
     patch_candidates,
     projects,
@@ -47,6 +51,7 @@ from backend.db import (
     rl_evaluations,
     snapshots,
     transaction,
+    users,
     verification_results,
 )
 from backend.db import (
@@ -56,7 +61,7 @@ from backend.github import GitHubApp, GitHubNotConfigured
 from backend.integrations import load_factory
 from backend.intel_store import lock_ready_snapshot
 from backend.quota import check_project_quota, rate_limit_message
-from backend.redaction import redact_text
+from backend.redaction import redact, redact_text
 from backend.services import (
     DomainError,
     budget_over_cap,
@@ -118,13 +123,9 @@ class Page(StrictModel):
 
 
 def _user(conn: Any, request: Request) -> CurrentUser:
-    user = require_user(conn, request)
-    settings = get_settings()
-    if request.method in ("GET", "HEAD"):
-        limiter.check(f"user-read:{user.id}", settings.rate_limit_read_per_minute, 60)
-    else:
-        limiter.check(f"user:{user.id}", settings.rate_limit_per_minute, 60)
-    return user
+    # Session auth, CSRF, and the split read/write rate limits all live in
+    # require_user so every authenticated route — on every router — is covered.
+    return require_user(conn, request)
 
 
 def _audit(
@@ -339,6 +340,8 @@ def _repo(r: Any) -> Repository:
         default_branch=r["default_branch"],
         installation_id=r["installation_id"],
         automatic_assessments=r["automatic_assessments"],
+        disconnected_at=r["disconnected_at"],
+        disconnected=r["disconnected_at"] is not None,
         created_at=r["created_at"],
     )
 
@@ -358,11 +361,32 @@ def connect_repository(project_id: str, body: RepositoryConnect, request: Reques
     with transaction() as conn:
         user = _user(conn, request)
         org_id, _ = require_project(conn, user, project_id, MemberRole.owner)
+        limiter.check(f"connect:{user.id}", 20, 3600)
+        if body.installation_id is None and not get_settings().is_dev:
+            # A name-only row carries zero proof of access and globally squats the
+            # repo name (uq provider+full_name), blocking the real owner. Dev/test
+            # still allow it for local fixtures where no GitHub App exists.
+            raise ApiError(
+                ErrorCode.VALIDATION_FAILED,
+                "connecting a repository requires a GitHub App installation",
+                422,
+            )
         # The worker fetches App-connected repositories with an installation token, so the
         # caller must have reached this exact repository through that installation at sign-in.
         if body.installation_id is not None:
-            from backend.api.github_repos import can_connect, verify_installation_access
+            from backend.api.github_repos import (
+                _refresh_personal_installation_repositories,
+                can_connect,
+                verify_installation_access,
+            )
 
+            # Access snapshots are captured at sign-in; refresh the user's personal
+            # installation before trusting them so revoked access fails now.
+            gh = conn.execute(
+                sa.select(users.c.github_login, users.c.github_id).where(users.c.id == user.id)
+            ).first()
+            if gh is not None:
+                _refresh_personal_installation_repositories(user.id, gh.github_login, gh.github_id)
             if not can_connect(conn, user.id, body.full_name, body.installation_id):
                 raise ApiError(
                     ErrorCode.FORBIDDEN,
@@ -451,11 +475,189 @@ def update_repository(repo_id: str, body: RepositoryUpdate, request: Request) ->
         )
 
 
+def _owner_repo(conn: Any, user: CurrentUser, repo_id: str) -> dict[str, Any]:
+    return _repo_access(conn, user, repo_id, MemberRole.owner)
+
+
+@router.post("/repositories/{repo_id}/disconnect")
+def disconnect_repository(repo_id: str, request: Request) -> dict[str, Any]:
+    """Canonical owner kill-switch. ``repositories.disconnected_at`` is the single
+    source of truth: it gates every new repo read (snapshots, assessments, live
+    commit fetches) and all push automation. On disconnect we also revoke the
+    app's owner-attested deploy→commit mappings, cancel queued repo-driven jobs,
+    mark wedged pending/indexing snapshots failed, and cooperatively cancel
+    in-flight assessments. ``installation_id`` is kept — it is the audit record
+    of which grant provided access, not the revocation signal. The App itself is
+    NOT uninstalled on GitHub's side (we cannot); the customer does that."""
+    with transaction() as conn:
+        user = _user(conn, request)
+        repo = _owner_repo(conn, user, repo_id)
+        # Canonical revocation-protocol lock order: repositories first, then
+        # deploy_commit_mappings — finalizing callers lock in the same order via
+        # services.repository_revocation_locked, so disconnect and a mid-flight
+        # persist serialize deterministically and cannot deadlock (same order).
+        conn.execute(
+            sa.select(repositories.c.id).where(repositories.c.id == repo_id).with_for_update()
+        )
+        conn.execute(
+            sa.select(deploy_commit_mappings.c.id)
+            .where(deploy_commit_mappings.c.repo_id == repo_id)
+            .with_for_update()
+        )
+        if repo["disconnected_at"] is None:
+            now = utcnow()
+            conn.execute(
+                sa.update(repositories)
+                .where(repositories.c.id == repo_id)
+                .values(disconnected_at=now, automatic_assessments=False)
+            )
+            # Trusted repo<->mapping linkage: every application that ever attested
+            # this repo (revoked or not) identifies the live-defense work to stop.
+            app_ids = sa.select(deploy_commit_mappings.c.application_id).where(
+                deploy_commit_mappings.c.repo_id == repo_id
+            )
+            mapping_ids = sa.select(deploy_commit_mappings.c.id).where(
+                deploy_commit_mappings.c.repo_id == repo_id
+            )
+            decision_ids = sa.select(first_responder_decisions.c.id).where(
+                first_responder_decisions.c.application_id.in_(app_ids)
+            )
+            repo_snapshot_ids = sa.select(snapshots.c.id).where(snapshots.c.repo_id == repo_id)
+            linked = sa.or_(
+                jobs_table.c.payload["repo_id"].astext == repo_id,
+                sa.and_(
+                    jobs_table.c.kind == "index_snapshot",
+                    jobs_table.c.payload["snapshot_id"].astext.in_(repo_snapshot_ids),
+                ),
+                jobs_table.c.payload["application_id"].astext.in_(app_ids),
+                jobs_table.c.payload["mapping_id"].astext.in_(mapping_ids),
+                jobs_table.c.payload["decision_id"].astext.in_(decision_ids),
+            )
+            mappings_revoked = conn.execute(
+                sa.update(deploy_commit_mappings)
+                .where(
+                    deploy_commit_mappings.c.repo_id == repo_id,
+                    deploy_commit_mappings.c.revoked_at.is_(None),
+                )
+                .values(revoked_at=now)
+            ).rowcount
+            jobs_cancelled = conn.execute(
+                sa.update(jobs_table)
+                .where(jobs_table.c.status.in_(["queued", "waiting"]), linked)
+                .values(status="cancelled", updated_at=sa.func.now())
+            ).rowcount
+            # Running steps can't be un-spent: flag them for cooperative cancel so
+            # the worker/agent loop and the provider callback stop at the next
+            # boundary. Already-incurred evidence and cost are preserved.
+            jobs_flagged = conn.execute(
+                sa.update(jobs_table)
+                .where(jobs_table.c.status == "running", linked)
+                .values(cancel_requested=True, updated_at=sa.func.now())
+            ).rowcount
+            snapshots_failed = conn.execute(
+                sa.update(snapshots)
+                .where(
+                    snapshots.c.repo_id == repo_id,
+                    snapshots.c.status.in_(["pending", "indexing"]),
+                )
+                .values(status="failed")
+            ).rowcount
+            assessments_cancelled = 0
+            for asm_id in conn.execute(
+                sa.select(assessments.c.id).where(
+                    assessments.c.repo_id == repo_id,
+                    assessments.c.state.notin_([s.value for s in TERMINAL_STATES]),
+                )
+            ).scalars():
+                if not cancel_queued_assessment(conn, asm_id):
+                    request_assessment_cancel(conn, asm_id)
+                assessments_cancelled += 1
+            _audit(
+                conn,
+                project_org(conn, repo["project_id"]),
+                repo["project_id"],
+                user,
+                "repository.disconnected",
+                "repository",
+                repo_id,
+                full_name=repo["full_name"],
+                installation_id=repo["installation_id"],
+                deploy_mappings_revoked=mappings_revoked,
+                queued_jobs_cancelled=jobs_cancelled,
+                running_jobs_flagged=jobs_flagged,
+                snapshots_failed=snapshots_failed,
+                assessments_cancelled=assessments_cancelled,
+            )
+        return {"id": repo_id, "disconnected": True}
+
+
+@router.post("/repositories/{repo_id}/reconnect")
+def reconnect_repository(repo_id: str, request: Request) -> dict[str, Any]:
+    """Re-enable a disconnected repository — only after renewed authorization.
+
+    App-connected rows require the owner to still hold access through the
+    recorded installation, verified with GitHub *fresh*: a revoked installation
+    or a GitHub outage denies the request rather than trusting the stale
+    sign-in snapshot. The personal-installation refresh runs in strict mode to
+    refresh the cache and fail fast on GitHub errors; the *target* installation
+    is then always verified directly — a healthy unrelated personal install can
+    never stand in for the recorded grant. Reconnect does NOT restore
+    ``automatic_assessments`` or revoked deploy mappings: the owner opts back
+    in explicitly.
+    """
+    from backend.db import users
+
+    with transaction() as conn:
+        user = _user(conn, request)
+        repo = _repo_access(conn, user, repo_id, MemberRole.owner)
+        if repo["installation_id"] is not None:
+            from backend.api.github_repos import (
+                _refresh_personal_installation_repositories,
+                can_connect,
+                verify_installation_access,
+            )
+
+            gh = conn.execute(
+                sa.select(users.c.github_login, users.c.github_id).where(users.c.id == user.id)
+            ).first()
+            if gh is not None:
+                _refresh_personal_installation_repositories(
+                    user.id, gh.github_login, gh.github_id, strict=True
+                )
+            verify_installation_access(repo["full_name"], repo["installation_id"])
+            if not can_connect(conn, user.id, repo["full_name"], repo["installation_id"]):
+                raise ApiError(
+                    ErrorCode.FORBIDDEN,
+                    "you no longer have access to this repository through its installation",
+                    403,
+                )
+        if "disconnected_at" in repo and repo["disconnected_at"] is not None:
+            conn.execute(
+                sa.update(repositories)
+                .where(repositories.c.id == repo_id)
+                .values(disconnected_at=None)
+            )
+            _audit(
+                conn,
+                project_org(conn, repo["project_id"]),
+                repo["project_id"],
+                user,
+                "repository.reconnected",
+                "repository",
+                repo_id,
+                full_name=repo["full_name"],
+            )
+        return {"id": repo_id, "disconnected": False}
+
+
 @router.post("/repositories/{repo_id}/snapshots", status_code=202, response_model=Snapshot)
 def request_snapshot(repo_id: str, body: SnapshotCreate, request: Request) -> Snapshot:
     with transaction() as conn:
         user = _user(conn, request)
         repo = _repo_access(conn, user, repo_id, MemberRole.member)
+        if repo["disconnected_at"] is not None:
+            raise ApiError(ErrorCode.CONFLICT_STATE, "repository is disconnected", 409)
+        limiter.check(f"snapshots:{user.id}", 30, 3600)
         existing = conn.execute(
             sa.select(snapshots.c.doc)
             .where(
@@ -1112,10 +1314,19 @@ async def stream_events(
     async def gen():  # type: ignore[no-untyped-def]
         nonlocal cursor
         idle = 0.0
+        auth_checked_at = time.monotonic()
         yield "retry: 2000\n\n"
         while True:
             if await request.is_disconnected():
                 return
+            if time.monotonic() - auth_checked_at >= 15:
+                # Membership/role is live state: a revoked viewer must not keep
+                # streaming for the rest of the session TTL.
+                try:
+                    await run_in_threadpool(_check)
+                except ApiError:
+                    return
+                auth_checked_at = time.monotonic()
             batch = await run_in_threadpool(_events_after, assessment_id, cursor)
             for doc in batch:
                 ev = StreamEvent.model_validate(doc)
@@ -1581,6 +1792,7 @@ def request_recommendation(
     with transaction() as conn:
         user = _user(conn, request)
         require_project(conn, user, project_id, MemberRole.member)
+        limiter.check(f"rl_recommend:{user.id}", 20, 3600)
         job_id, _ = jobs.enqueue(
             conn,
             "rl_recommend",
@@ -1731,31 +1943,33 @@ def list_project_jobs(
 @router.get("/jobs/{job_id}")
 def get_job(job_id: str, request: Request) -> dict[str, Any]:
     from backend.db import jobs as jobs_t
+    from backend.redaction import redact
 
     with transaction() as conn:
         user = _user(conn, request)
         row = conn.execute(sa.select(jobs_t).where(jobs_t.c.id == job_id)).mappings().first()
-        pid = (row["payload"] or {}).get("project_id") if row else None
         # Assessment jobs (including approval resumes) retain only assessment_id
-        # in their payload. Resolve their project through the persisted assessment,
-        # rather than trusting an optional redundant project_id field.
-        if row and row["kind"] == "run_assessment":
-            pid = conn.execute(
-                sa.select(assessments.c.project_id).where(
-                    assessments.c.id == (row["payload"] or {}).get("assessment_id")
-                )
-            ).scalar_one_or_none()
+        # in their payload; job_project resolves them through the persisted assessment.
+        pid = job_project(conn, row) if row else None
         if row is None or not pid:
             raise not_found("job")
         require_project(conn, user, pid)
+        # Scrub at read too: rows persisted before the write-side redaction
+        # keep credentials in last_error/recovery text.
         return {
             "id": row["id"],
             "kind": row["kind"],
             "status": row["status"],
             "attempts": row["attempts"],
-            "result": row["result"],
-            "last_error": {k: v for k, v in (row["last_error"] or {}).items() if k != "trace"}
+            "result": redact(row["result"]),
+            "last_error": redact(
+                {k: v for k, v in (row["last_error"] or {}).items() if k != "trace"}
+            )
             or None,
+            "error_category": row["error_category"],
+            "deadline_at": row["deadline_at"].isoformat() if row["deadline_at"] else None,
+            "effect_state": row["effect_state"],
+            "recovery": redact(row["recovery"]),
         }
 
 
@@ -1780,7 +1994,11 @@ def audit_log(
         page = rows[:limit]
         ok, n = audit.verify_chain(conn, org_id)
         return {
-            "items": [AuditEvent.model_validate(r.doc).model_dump(mode="json") for r in page],
+            # Read-side redaction: stored docs (and any previously persisted
+            # sensitive strings) must not surface infrastructure credentials.
+            "items": [
+                redact(AuditEvent.model_validate(r.doc).model_dump(mode="json")) for r in page
+            ],
             "chain_verified": ok,
             "chain_events_checked": n,
             "next_cursor": str(page[-1].seq) if len(rows) > limit and page else None,

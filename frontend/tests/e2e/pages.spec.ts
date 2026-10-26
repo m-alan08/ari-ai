@@ -1,7 +1,57 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { env, evidenceShot, newUser } from './helpers';
 
 const project = () => env('E2E_PROJECT_ID');
+
+async function expectStatusBadgesInsideRows(rows: Locator, statusTestId: string) {
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index++) {
+    const row = rows.nth(index);
+    const badge = row.getByTestId(statusTestId);
+    await expect(badge).toBeVisible();
+    const rowBox = await row.boundingBox();
+    const badgeBox = await badge.boundingBox();
+    expect(rowBox).not.toBeNull();
+    expect(badgeBox).not.toBeNull();
+    expect(badgeBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+    expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 0.5);
+  }
+}
+
+async function expectNoDocumentOverflow(page: Page) {
+  const { clientWidth, scrollWidth } = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+}
+
+test('repo analytics and commits stay scoped to seeded payments-lite data', async ({ browser }) => {
+  const page = await newUser(browser, 'e2e-alice');
+  const repoId = env('E2E_REPO_ID');
+  const commit = env('E2E_COMMIT');
+
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+    await page.goto(`/projects/${project()}?repo=${repoId}`);
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    await expect(page.getByText(/From Ari's saved records for acme\/payments-lite/)).toBeVisible();
+    await expect(page.getByText('Checks run', { exact: true })).toBeVisible();
+    await expectNoDocumentOverflow(page);
+
+    await page.goto(`/projects/${project()}/commits?repo=${repoId}&commit=${commit}`);
+    await expect(page.getByRole('heading', { name: 'Commits', exact: true })).toBeVisible();
+    await expect(page.getByTestId(`commit-row-${commit}`)).toBeVisible();
+    await page.getByRole('tab', { name: '7 agents', exact: true }).click();
+    const agents = page.getByTestId('agent-team');
+    await expect(agents).toBeVisible();
+    for (const agent of ['scout', 'probe', 'trace', 'diagnose', 'patch', 'verify', 'fortify']) {
+      await expect(agents.getByTestId(`agent-${agent}`)).toBeVisible();
+    }
+    await expectNoDocumentOverflow(page);
+  }
+});
 
 test('owner edits project settings and they persist on reload', async ({ browser }) => {
   const page = await newUser(browser, 'e2e-alice');
@@ -9,17 +59,18 @@ test('owner edits project settings and they persist on reload', async ({ browser
   const form = page.getByRole('form', { name: 'Project settings' });
   const interval = form.getByLabel('Minimum interval between reassessments (s)');
   await expect(interval).toHaveValue(/\d+/);
+  const updatedInterval = await interval.inputValue() === '900' ? '901' : '900';
   // The form renders the action row at the top and the bottom; scope to the bottom
   // row, which also carries the "Saved." status text.
   const save = form.getByRole('button', { name: 'Save settings' }).last();
   await expect(save).toBeDisabled();
   await interval.fill('abc');
   await expect(form.getByRole('alert')).toContainText('Minimum interval');
-  await interval.fill('900');
+  await interval.fill(updatedInterval);
   await save.click();
   await expect(form.getByRole('status')).toContainText('Saved.');
   await page.reload();
-  await expect(page.getByLabel('Minimum interval between reassessments (s)')).toHaveValue('900');
+  await expect(page.getByLabel('Minimum interval between reassessments (s)')).toHaveValue(updatedInterval);
   await evidenceShot(page, 'settings');
 });
 
@@ -145,7 +196,40 @@ test('incident closure: link verified finding, criteria with evidence, communica
 test('expectations page shows the version-pinned snapshot view', async ({ browser }) => {
   const page = await newUser(browser, 'e2e-alice');
   await page.goto(`/projects/${project()}/expectations`);
-  await expect(page.getByRole('link', { name: 'Expectations' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Expectations' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText(/No indexed snapshot|awaiting a human decision/)).toBeVisible();
   await evidenceShot(page, 'expectations');
+});
+
+test('findings and assessment history use contained mobile rows and desktop tables', async ({ browser }) => {
+  const page = await newUser(browser, 'e2e-alice');
+  const repoId = env('E2E_REPO_ID');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${project()}/findings?repo=${repoId}`);
+  await page.getByRole('tab', { name: 'Fixed (independently verified)' }).click();
+  const findingsTable = page.getByTestId('findings-table-scroll');
+  const findingsMobile = page.getByTestId('findings-mobile-list');
+  await expect(findingsMobile).toBeVisible();
+  await expect(findingsTable).toBeHidden();
+  await expectStatusBadgesInsideRows(findingsMobile.getByTestId('finding-mobile-row'), 'finding-mobile-status');
+  await expectNoDocumentOverflow(page);
+  await evidenceShot(page, 'findings-mobile');
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(findingsTable).toBeVisible();
+  await expect(findingsMobile).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/projects/${project()}/commits?repo=${repoId}`);
+  const historyTable = page.getByTestId('assessment-history-table-scroll');
+  const historyMobile = page.getByTestId('assessment-history-mobile-list');
+  await expect(historyMobile).toBeVisible();
+  await expect(historyTable).toBeHidden();
+  await expectStatusBadgesInsideRows(historyMobile.getByTestId('assessment-history-mobile-row'), 'assessment-mobile-status');
+  await expectNoDocumentOverflow(page);
+  await evidenceShot(page, 'project-overview-mobile');
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(historyTable).toBeVisible();
+  await expect(historyMobile).toBeHidden();
 });

@@ -16,11 +16,11 @@ export default function ConnectOrgsPage() {
 
   return (
     <SetupLayout current={1}>
-      <div className="workspace-index" data-testid="connect-orgs">
-        <header className="workspace-heading mb-6">
-          <p className="workspace-eyebrow">Your workspace / 01</p>
+      <div className="mx-auto min-w-0 max-w-6xl" data-testid="connect-orgs">
+        <header className="mb-6 border-b border-line pb-6">
+          <p className="label-mono text-muted">Your workspace / 01</p>
           <h1 className="text-3xl font-semibold tracking-tight">Organizations</h1>
-          <div className="workspace-heading-bottom"><p>Choose an organization to see its repositories.</p><RefreshFromGitHub className="mt-1 text-sm" /></div>
+          <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3 text-sm text-muted"><p>Choose an organization to see its repositories.</p><RefreshFromGitHub className="mt-1" /></div>
         </header>
         <Panel title="What Ari can access" className="mb-6">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
@@ -41,14 +41,14 @@ export default function ConnectOrgsPage() {
               {orgs.length === 0 ? (
                 <Panel title="No repositories yet" className="text-center">
                   <p data-testid="connect-empty" className="mx-auto max-w-md text-sm text-muted">Install the {BRAND_NAME} GitHub App on an organization or your account.</p>
-                  {install !== null && <a href={install} className="mt-5 inline-flex h-9 items-center gap-2 rounded-[var(--radius-2)] bg-brand px-3.5 text-sm font-medium text-on-brand hover:bg-brand-deep"><GitHubMark />Install the GitHub App</a>}
+                  {install !== null && <a href={install} className="mt-5 inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3.5 text-sm font-medium text-on-brand hover:bg-brand-deep"><GitHubMark />Install the GitHub App</a>}
                 </Panel>
               ) : (
                 <ul className="grid gap-3 md:grid-cols-3">
                   {orgs.map((org, i) => (
                     <li key={org.login}>
-                      <Link href={`/connect/${encodeURIComponent(org.login)}`} className="workspace-org-card group flex h-full flex-col gap-4 rounded-[var(--radius-3)] border border-line bg-panel p-5 transition-colors hover:bg-panel-2" data-testid={`connect-org-${org.login}`}>
-                        <span className="workspace-card-top"><span className="workspace-eyebrow">{String(i + 1).padStart(2, '0')} / ORGANIZATION</span><svg className="workspace-arrow" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 18 18 6M6 6h12v12" stroke="currentColor" strokeWidth="1.5" /></svg></span>
+                      <Link href={`/connect/${encodeURIComponent(org.login)}`} className="group flex h-full min-w-0 flex-col gap-4 rounded-2xl border border-line bg-panel p-5 transition-colors hover:bg-panel-2" data-testid={`connect-org-${org.login}`}>
+                        <span className="flex w-full items-center justify-between gap-4"><span className="label-mono text-muted">{String(i + 1).padStart(2, '0')} / ORGANIZATION</span><span aria-hidden="true" className="text-2xl text-muted transition-transform group-hover:translate-x-1">↗</span></span>
                         <span className="flex items-center gap-3">
                           <Avatar login={org.login} size={40} />
                           <span className="min-w-0 truncate font-semibold">{org.login}</span>

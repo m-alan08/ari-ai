@@ -1,0 +1,48 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "reviewed_sha", "summary", "findings"],
+  "properties": {
+    "verdict": {"type": "string", "enum": ["GO", "NO-GO"]},
+    "reviewed_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Must equal CANDIDATE_SHA."
+    },
+    "summary": {"type": "string"},
+    "checks_run": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "title", "detail", "component"],
+        "properties": {
+          "id": {"type": "string"},
+          "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3", "info"]},
+          "title": {"type": "string"},
+          "detail": {"type": "string"},
+          "component": {
+            "type": "string",
+            "enum": [
+              "execution-reliability",
+              "e2e-tests",
+              "investigation-observability",
+              "security-hardening",
+              "deployment-ops",
+              "customer-onboarding",
+              "release-validation",
+              "upstream-412",
+              "upstream-458",
+              "integration"
+            ]
+          },
+          "paths": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

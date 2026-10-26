@@ -24,7 +24,7 @@ import json
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 EVIDENCE_DIR = Path(__file__).resolve().parent / "evidence"
@@ -88,8 +88,15 @@ def main() -> int:
     pa = proj_a["id"]
 
     s, repo_a = _auth(
-        ha, "POST", base, f"/api/v1/projects/{pa}/repositories",
-        {"full_name": f"rehearsal/books-target-{int(time.time())}", "default_branch": "main", "installation_id": None},
+        ha,
+        "POST",
+        base,
+        f"/api/v1/projects/{pa}/repositories",
+        {
+            "full_name": f"rehearsal/books-target-{int(time.time())}",
+            "default_branch": "main",
+            "installation_id": None,
+        },
     )
     record("org A repository connect", s == 201, repo_a)
     ra = repo_a.get("id")
@@ -99,18 +106,23 @@ def main() -> int:
     _register_binding(Path(args.bindings_file), ra, Path(args.repo_path).resolve())
     record("org A repo binding registered", True, {"repo_id": ra})
 
-    expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    expires = (datetime.now(UTC) + timedelta(days=30)).isoformat()
     s, scope_a = _auth(
-        ha, "POST", base, f"/api/v1/projects/{pa}/scopes",
+        ha,
+        "POST",
+        base,
+        f"/api/v1/projects/{pa}/scopes",
         {
             "name": "rehearsal-a-scope",
             "expires_at": expires,
-            "targets": [{
-                "kind": "sandbox_build",
-                "repo_id": ra,
-                "build_recipe_ref": "build_recipe.json",
-                "exposed_ports": [8080],
-            }],
+            "targets": [
+                {
+                    "kind": "sandbox_build",
+                    "repo_id": ra,
+                    "build_recipe_ref": "build_recipe.json",
+                    "exposed_ports": [8080],
+                }
+            ],
             "allowed_check_categories": ["authorization.ownership", "access_control.role"],
         },
     )
@@ -122,22 +134,37 @@ def main() -> int:
 
     # The worker verifies commit_sha is a real commit in the bound checkout.
     import subprocess
+
     repo_path = Path(args.repo_path).resolve()
     if not (repo_path / ".git").exists():
         subprocess.run(["git", "init", "-q"], cwd=repo_path, check=True)
         subprocess.run(["git", "add", "-A"], cwd=repo_path, check=True)
         subprocess.run(
-            ["git", "-c", "user.name=Adam Issac",
-             "-c", "user.email=62719255+adamissac@users.noreply.github.com",
-             "commit", "-qm", "rehearsal target app"],
-            cwd=repo_path, check=True,
+            [
+                "git",
+                "-c",
+                "user.name=Adam Issac",
+                "-c",
+                "user.email=62719255+adamissac@users.noreply.github.com",
+                "commit",
+                "-qm",
+                "rehearsal target app",
+            ],
+            cwd=repo_path,
+            check=True,
         )
     commit_sha = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=repo_path, check=True,
-        capture_output=True, text=True,
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_path,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
     s, asm_a = _auth(
-        ha, "POST", base, f"/api/v1/projects/{pa}/assessments",
+        ha,
+        "POST",
+        base,
+        f"/api/v1/projects/{pa}/assessments",
         {"scope_id": sa_scope, "repo_id": ra, "commit_sha": commit_sha},
     )
     record("org A assessment start (real provider+sandbox)", s == 202, asm_a)
@@ -170,7 +197,10 @@ def main() -> int:
 
     # --- Ingest / defense-lab surface ---------------------------------------
     s, app_b = _auth(
-        hb, "POST", base, f"/api/v1/projects/{proj_b.get('id')}/applications",
+        hb,
+        "POST",
+        base,
+        f"/api/v1/projects/{proj_b.get('id')}/applications",
         {"name": "books staging", "environment": "owned_test"},
     )
     record("org B owned_test application", s == 201, app_b)
@@ -189,4 +219,5 @@ def _finish(results: list[dict], code: int) -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

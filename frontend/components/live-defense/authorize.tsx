@@ -28,7 +28,7 @@ export function AuthorizeControlForm({
   apps: ConnectedApplication[];
   onSaved?: () => void;
 }) {
-  const owned = apps.filter(app => app.environment === 'owned_test' || app.environment === 'sandbox');
+  const owned = apps.filter(app => (app.environment === 'owned_test' || app.environment === 'sandbox') && app.rl_gated_pilot !== true);
   const [appId, setAppId] = useState('');
   const selectedAppId = appId || owned[0]?.id || '';
   const [kind, setKind] = useState<LiveControlKind>('rate_limit');

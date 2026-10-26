@@ -3,12 +3,13 @@
 import type { Project } from '@hackatl/frontend-transport';
 import { useState, type FormEvent } from 'react';
 import { useProject } from '@/components/project';
+import { Repositories } from '@/components/repositories';
 import { Button, ErrorState, Field, inputClass, PageTitle, Panel } from '@/components/ui';
 import { api } from '@/lib/api';
 import { AUTO_WARNING, draftOf, parseSettings, type Draft } from '@/lib/settings';
 
 export default function SettingsPage() {
-  const { project, reloadProject } = useProject();
+  const { project, repos, reloadProject } = useProject();
   const [saved, setSaved] = useState<Project>(project);
   const [draft, setDraft] = useState<Draft>(() => draftOf(project));
   const [busy, setBusy] = useState(false);
@@ -34,9 +35,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <>
+    <div className="flex min-w-0 flex-col gap-6">
       <PageTitle eyebrow="Configure" title="Settings" subtitle="Project name, languages, budgets and monitoring policy." />
-    <form onSubmit={submit} className="grid grid-cols-1 gap-4 lg:grid-cols-2" aria-label="Project settings">
+      <Repositories repos={repos} />
+    <form onSubmit={submit} className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2" aria-label="Project settings">
       <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
         <Button type="submit" variant="primary" disabled={busy || !dirty || 'error' in parsed}>Save settings</Button>
         <Button type="button" disabled={busy || !dirty} onClick={() => setDraft(draftOf(saved))}>Discard changes</Button>
@@ -163,6 +165,6 @@ export default function SettingsPage() {
       </div>
       {error !== null && <div className="lg:col-span-2"><ErrorState error={error} context="Settings not saved (only project owners can change settings)" /></div>}
     </form>
-    </>
+    </div>
   );
 }

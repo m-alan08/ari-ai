@@ -1,4 +1,4 @@
-"""Live Defense shadow-pilot API (Phase 2, 3, and 5 readiness).
+"""Live Defense shadow-pilot API (Phase 2, 3, 5, and 6.5 RL-gated readiness).
 
 Connected staging apps, ingest-token issue/rotate/revoke, disconnect,
 recorded health/topology, analyst reviews, genuine ``LivePolicyDecision``
@@ -36,6 +36,12 @@ from backend.db import (
     runtime_windows,
     transaction,
 )
+from backend.live_defense.pilot_guard import (
+    leftover_inventory,
+    leftovers_block_enable,
+    reconcile_pending_jobs,
+)
+from backend.live_defense.readiness import assess
 from monitoring.runtime import ANOMALY_EVENT_THRESHOLD
 from shared.audit import ActorType
 from shared.base import utcnow
@@ -60,8 +66,10 @@ from shared.live_defense import (
     IngestTokenRotated,
     IngestTokenView,
     LivePolicyDecision,
+    PilotEnablement,
     PilotReport,
     PilotTrailEntry,
+    RlReadinessAssessment,
     StagingEnvironment,
 )
 from shared.monitoring import (
@@ -128,6 +136,7 @@ def _application_from_rows(
         last_ingest_at=_aware(last_ingest_at),
         verification=verification,
         control_channel_configured=control_channel_configured,
+        rl_gated_pilot=bool((app_row["doc"] or {}).get("rl_gated_pilot")),
         disconnected_at=disconnected_at,
         created_by=app_row["created_by"],
         created_at=_aware(app_row["created_at"]) or utcnow(),
@@ -222,6 +231,7 @@ def create_application(
             ingest_configured=False,
             last_ingest_at=None,
             verification=ApplicationVerification.unverified,
+            rl_gated_pilot=body.rl_gated_pilot,
             created_by=user.id,
             created_at=now,
         )
@@ -244,7 +254,11 @@ def create_application(
             action="live_defense.application.created",
             subject_type="connected_application",
             subject_id=app_id,
-            details={"environment": body.environment.value, "shadow_mode": True},
+            details={
+                "environment": body.environment.value,
+                "shadow_mode": True,
+                "rl_gated_pilot": body.rl_gated_pilot,
+            },
         )
         return app
 
@@ -498,6 +512,58 @@ def shadow_verify_application(app_id: str, request: Request) -> ConnectedApplica
         return app
 
 
+@router.post(
+    "/applications/{app_id}/enable-rl-gated-pilot",
+    response_model=PilotEnablement,
+)
+def enable_rl_gated_pilot(app_id: str, request: Request) -> PilotEnablement:
+    """Server-enforced shadow-only. Fail closed if leftover controls remain."""
+    with transaction() as conn:
+        user = require_user(conn, request)
+        conn.execute(
+            sa.select(connected_applications.c.id)
+            .where(connected_applications.c.id == app_id)
+            .with_for_update()
+        )
+        app = _load_application(conn, app_id)
+        org_id, _ = require_project(conn, user, app.project_id, MemberRole.owner)
+        leftover = leftover_inventory(conn, app_id)
+        if leftovers_block_enable(leftover):
+            raise ApiError(
+                ErrorCode.CONFLICT_STATE,
+                "Existing controls must be removed and verified before enabling.",
+                409,
+                details=leftover.model_dump(mode="json"),
+            )
+        reconciled = reconcile_pending_jobs(conn, app_id)
+        leftover = leftover_inventory(conn, app_id)
+        app = app.model_copy(update={"rl_gated_pilot": True})
+        _persist_application(conn, app)
+        audit.record(
+            conn,
+            org_id=org_id,
+            project_id=app.project_id,
+            actor_type=ActorType.user,
+            actor_id=user.id,
+            action="live_defense.application.rl_gated_pilot_enabled",
+            subject_type="connected_application",
+            subject_id=app_id,
+            details={
+                "jobs_reconciled": reconciled,
+                "executes": False,
+                "shadow_only": True,
+            },
+        )
+        return PilotEnablement(
+            application=app,
+            enabled=True,
+            leftover=leftover,
+            fail_closed=False,
+            jobs_reconciled=reconciled,
+            reason="Shadow-only enforced. Analyst accept still does not execute.",
+        )
+
+
 @router.get("/projects/{project_id}/ingest-tokens")
 def list_ingest_tokens(project_id: str, request: Request) -> dict[str, Any]:
     with transaction() as conn:
@@ -623,6 +689,23 @@ def defense_health(project_id: str, request: Request) -> DefenseHealth:
     with transaction() as conn:
         require_project(conn, require_user(conn, request), project_id)
         return _defense_health(conn, project_id)
+
+
+@router.get("/projects/{project_id}/rl-readiness", response_model=RlReadinessAssessment)
+def rl_readiness(project_id: str, request: Request) -> RlReadinessAssessment:
+    """Internal dashboard source of truth. Frontend flags cannot set ready=true."""
+    with transaction() as conn:
+        require_project(conn, require_user(conn, request), project_id)
+        gated = sum(
+            1
+            for row in conn.execute(
+                sa.select(connected_applications.c.doc).where(
+                    connected_applications.c.project_id == project_id
+                )
+            ).scalars()
+            if row and row.get("rl_gated_pilot")
+        )
+        return assess(gated_application_count=gated)
 
 
 @router.get("/projects/{project_id}/pilot-report", response_model=PilotReport)

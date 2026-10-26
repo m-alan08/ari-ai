@@ -41,17 +41,17 @@ export default function ConnectReposPage() {
 
   return (
     <SetupLayout current={2} org={login}>
-      <div className="workspace-index" data-testid="connect-repos">
+      <div className="mx-auto min-w-0 max-w-6xl" data-testid="connect-repos">
         <nav aria-label="Breadcrumb" className="mb-5 text-sm text-muted">
           <Link href="/connect" className="hover:text-ink">Organizations</Link><span aria-hidden="true" className="mx-2">/</span><span className="text-ink">{login}</span>
         </nav>
-        <header className="workspace-heading mb-6">
-          <p className="workspace-eyebrow">Repositories / 02</p>
+        <header className="mb-6 border-b border-line pb-6">
+          <p className="label-mono text-muted">Repositories / 02</p>
           <div className="flex flex-wrap items-center gap-4">
             <Avatar login={login} size={48} />
             <h1 className="text-3xl font-semibold tracking-tight">{login}</h1>
           </div>
-          <p className="workspace-description">Select a repository to review its changes.</p>
+          <p className="mt-4 text-sm text-muted">Select a repository to review its changes.</p>
         </header>
         {list.status === 'loading' && <Loading label="Loading repositories" />}
         {list.status === 'error' && <ErrorState error={list.error} onRetry={list.reload} context="Could not list your GitHub repositories" />}
@@ -68,7 +68,7 @@ export default function ConnectReposPage() {
             {repos.length === 0 ? (
               <Empty>No repositories match &quot;{filter}&quot;</Empty>
             ) : (
-              <ul className="workspace-rows flex flex-col divide-y divide-line overflow-hidden rounded-[var(--radius-3)] border border-line bg-panel">
+              <ul className="flex min-w-0 flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line bg-panel">
                 {repos.map(repo => {
                   const name = repoName(repo.full_name);
                   return (

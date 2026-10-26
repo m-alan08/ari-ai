@@ -93,7 +93,12 @@ describe('project overview', () => {
   it('asks to connect a repository before anything else', () => {
     const view = projectOverview({ ...base, repoCount: 0 });
     expect(view.action.label).toBe('Connect a repository');
+    expect(view.action.href).toBe('/projects/prj_1/settings#connect-repo');
     expect(view.headline).toMatch(/No repository/);
+  });
+  it('points a new review to the Commits workspace', () => {
+    const view = projectOverview(base);
+    expect(view.action.href).toBe('/projects/prj_1/commits#start-assessment');
   });
   it('uses the newest assessment and does not treat hypotheses as confirmed exploits', () => {
     const view = projectOverview({

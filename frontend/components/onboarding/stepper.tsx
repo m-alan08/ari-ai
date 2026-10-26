@@ -81,7 +81,7 @@ export function SetupLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10 lg:py-8">
+    <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-5 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8 lg:py-8">
       <SetupSteps current={current} org={org} doneSteps={doneSteps} onStepChange={onStepChange} />
       <div className="min-w-0">{children}</div>
     </div>

@@ -16,8 +16,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {".git", ".venv", "node_modules", "runs", ".worktrees", "worktrees"}
 MERMAID_TYPES = (
-    "flowchart", "graph", "sequenceDiagram", "stateDiagram", "stateDiagram-v2", "classDiagram",
-    "erDiagram", "gantt", "pie", "journey", "gitGraph", "mindmap", "timeline", "C4Context",
+    "flowchart",
+    "graph",
+    "sequenceDiagram",
+    "stateDiagram",
+    "stateDiagram-v2",
+    "classDiagram",
+    "erDiagram",
+    "gantt",
+    "pie",
+    "journey",
+    "gitGraph",
+    "mindmap",
+    "timeline",
+    "C4Context",
 )
 LINK = re.compile(r"\]\(([^)\s]+)\)")
 FENCE = re.compile(r"```.*?```", re.S)
@@ -50,7 +62,9 @@ def check() -> list[str]:
         for block in re.findall(r"```mermaid\n(.*?)```", raw, re.S):
             first = block.strip().split(None, 1)[0] if block.strip() else ""
             if first not in MERMAID_TYPES:
-                errors.append(f"{md.relative_to(ROOT)}: mermaid block starts with unknown type {first!r}")
+                errors.append(
+                    f"{md.relative_to(ROOT)}: mermaid block starts with unknown type {first!r}"
+                )
         text = INLINE_CODE.sub("", FENCE.sub("", raw))
         for target in LINK.findall(text):
             if re.match(r"^(https?:|mailto:)", target):
@@ -59,7 +73,12 @@ def check() -> list[str]:
             dest = (md.parent / path).resolve() if path else md
             if not dest.exists():
                 errors.append(f"{md.relative_to(ROOT)}: broken link -> {target}")
-            elif frag and dest.is_file() and dest.suffix == ".md" and frag not in anchors(dest, cache):
+            elif (
+                frag
+                and dest.is_file()
+                and dest.suffix == ".md"
+                and frag not in anchors(dest, cache)
+            ):
                 errors.append(f"{md.relative_to(ROOT)}: missing anchor -> {target}")
     return errors
 

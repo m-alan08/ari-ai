@@ -9,6 +9,7 @@
   "last_ingest_at": "2026-10-17T01:00:00Z",
   "name": "payments-lite staging",
   "project_id": "prj_01JFIXTURE0000000000000PRJ",
+  "rl_gated_pilot": true,
   "shadow_mode": true,
   "verification": "ingest_seen"
 }

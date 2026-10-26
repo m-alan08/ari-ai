@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "OnboardingStepId": {
+      "description": "Ordered customer journey steps. The frontend renders them in this order.",
+      "enum": [
+        "sign_in",
+        "organization",
+        "repository",
+        "github_access",
+        "snapshot",
+        "scope",
+        "application",
+        "deploy_mapping",
+        "monitoring",
+        "test_event",
+        "evidence"
+      ],
+      "title": "OnboardingStepId",
+      "type": "string"
+    },
+    "OnboardingStepState": {
+      "enum": [
+        "done",
+        "todo",
+        "in_progress",
+        "blocked",
+        "failed"
+      ],
+      "title": "OnboardingStepState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "detail": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Detail",
+      "type": "string"
+    },
+    "id": {
+      "$ref": "#/$defs/OnboardingStepId"
+    },
+    "state": {
+      "$ref": "#/$defs/OnboardingStepState"
+    },
+    "subject_id": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Entity the step is about (repo, snapshot, app, ...)",
+      "title": "Subject Id"
+    }
+  },
+  "required": [
+    "id",
+    "state"
+  ],
+  "title": "OnboardingStep",
+  "type": "object"
+}

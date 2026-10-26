@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "anomalies": {
+      "title": "Anomalies",
+      "type": "integer"
+    },
+    "application_id": {
+      "pattern": "^app_[0-9A-Za-z_\\-]{8,64}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "executed": {
+      "const": false,
+      "default": false,
+      "description": "Test events never execute enforcement; shadow output is recommendation-only",
+      "title": "Executed",
+      "type": "boolean"
+    },
+    "monitoring_event_ids": {
+      "items": {
+        "pattern": "^evt_[0-9A-Za-z_\\-]{8,64}$",
+        "type": "string"
+      },
+      "title": "Monitoring Event Ids",
+      "type": "array"
+    },
+    "route": {
+      "maxLength": 500,
+      "title": "Route",
+      "type": "string"
+    },
+    "source": {
+      "const": "owned_staging",
+      "default": "owned_staging",
+      "title": "Source",
+      "type": "string"
+    },
+    "window_end": {
+      "format": "date-time",
+      "title": "Window End",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "route",
+    "anomalies",
+    "window_end"
+  ],
+  "title": "OnboardingTestEventResult",
+  "type": "object"
+}

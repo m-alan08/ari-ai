@@ -1,0 +1,126 @@
+...................................F.................................... [ 36%]
+........................................................................ [ 73%]
+...............................................FFF..                     [100%]
+=================================== FAILURES ===================================
+____________ test_declared_transfer_order_does_not_downgrade_schema ____________
+
+    def test_declared_transfer_order_does_not_downgrade_schema():
+        heads = [
+            "8396e836866e33ebc34a402a7c8bd0eb6bc769d8",
+            "6e6733a69170ece2343f9a1eb3e06881d89e0ebe",
+            "cfa06bf649c5ca608c56badc497f0ad69ce444f0",
+            "db8b1fd718522d8b7b2ec8daaf51f93881e4142b",
+        ]
+        versions = [_literal(sha, "shared/shared/__init__.py", "SCHEMA_VERSION") for sha in heads]
+        assert all(isinstance(v, str) for v in versions), versions
+        numeric = [tuple(map(int, v.split("."))) for v in versions]
+>       assert numeric == sorted(numeric), versions
+E       AssertionError: ['0.23.0', '0.24.0', '0.26.0', '0.25.0']
+E       assert [(0, 23, 0), ...), (0, 25, 0)] == [(0, 23, 0), ...), (0, 26, 0)]
+E         
+E         At index 2 diff: (0, 26, 0) != (0, 25, 0)
+E         Use -v to get more diff
+
+backend/tests/test_rc2_transfer_manifest.py:41: AssertionError
+_ test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n] _
+
+source = 'api_key=os.environ["API_KEY"]\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-618/test_nonliteral_credential_exp0')
+
+    @pytest.mark.parametrize('source', [
+        'api_key=os.environ["API_KEY"]\n',
+        'password=os.environ.get("DB_PASSWORD")\n',
+    ])
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'api_key=[REDACTED]"API_KEY"]\n'
+E       assert 'api_key=[RED...]"API_KEY"]\n' == 'api_key=os.e...["API_KEY"]\n'
+E         
+E         - api_key=os.environ["API_KEY"]
+E         + api_key=[REDACTED]"API_KEY"]
+
+backend/tests/test_independent_corrected_review.py:26: AssertionError
+_ test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n] _
+
+source = 'password=os.environ.get("DB_PASSWORD")\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-618/test_nonliteral_credential_exp1')
+
+    @pytest.mark.parametrize('source', [
+        'api_key=os.environ["API_KEY"]\n',
+        'password=os.environ.get("DB_PASSWORD")\n',
+    ])
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'password=[REDACTED]"DB_PASSWORD")\n'
+E       assert 'password=[RE..._PASSWORD")\n' == 'password=os...._PASSWORD")\n'
+E         
+E         - password=os.environ.get("DB_PASSWORD")
+E         + password=[REDACTED]"DB_PASSWORD")
+
+backend/tests/test_independent_corrected_review.py:26: AssertionError
+__________________ test_nonliteral_redaction_stays_parseable ___________________
+
+    def test_nonliteral_redaction_stays_parseable():
+        source = 'password=os.environ.get("DB_PASSWORD")\n'
+>       ast.parse(redact_code(source))
+
+backend/tests/test_independent_corrected_review.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = 'password=[REDACTED]"DB_PASSWORD")\n', filename = '<unknown>'
+mode = 'exec'
+
+    def parse(source, filename='<unknown>', mode='exec', *,
+              type_comments=False, feature_version=None):
+        """
+        Parse the source into an AST node.
+        Equivalent to compile(source, filename, mode, PyCF_ONLY_AST).
+        Pass type_comments=True to get back type comments where the syntax allows.
+        """
+        flags = PyCF_ONLY_AST
+        if type_comments:
+            flags |= PyCF_TYPE_COMMENTS
+        if feature_version is None:
+            feature_version = -1
+        elif isinstance(feature_version, tuple):
+            major, minor = feature_version  # Should be a 2-tuple.
+            if major != 3:
+                raise ValueError(f"Unsupported major version: {major}")
+            feature_version = minor
+        # Else it should be an int giving the minor version for 3.x.
+>       return compile(source, filename, mode, flags,
+                       _feature_version=feature_version)
+E         File "<unknown>", line 1
+E           password=[REDACTED]"DB_PASSWORD")
+E                                           ^
+E       SyntaxError: unmatched ')'
+
+/Users/alanmozhoor/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ast.py:52: SyntaxError
+=============================== warnings summary ===============================
+backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_per_project_concurrency_is_fair
+  /private/tmp/ari-independent-latest/backend/tests/conftest.py:182: PytestWarning: Value of environment variable JOB_MAX_RUNNING_PER_PROJECT type should be str, but got 1 (type: int); converted to str implicitly
+    monkeypatch.setenv(k.upper(), v)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_rc2_transfer_manifest.py::test_declared_transfer_order_does_not_downgrade_schema
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_redaction_stays_parseable
+4 failed, 192 passed, 1 warning in 22.61s

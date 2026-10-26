@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "active_channels": {
+      "minimum": 0,
+      "title": "Active Channels",
+      "type": "integer"
+    },
+    "active_grants": {
+      "minimum": 0,
+      "title": "Active Grants",
+      "type": "integer"
+    },
+    "details": {
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "title": "Details",
+      "type": "array"
+    },
+    "leftover_controls": {
+      "minimum": 0,
+      "title": "Leftover Controls",
+      "type": "integer"
+    },
+    "pending_execute_jobs": {
+      "minimum": 0,
+      "title": "Pending Execute Jobs",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "active_grants",
+    "active_channels",
+    "leftover_controls",
+    "pending_execute_jobs"
+  ],
+  "title": "PilotLeftoverInventory",
+  "type": "object"
+}

@@ -24,24 +24,26 @@ from security_agents.api import PatchWorktree, TestRunner, LocalIntel, SnapshotH
 from security_agents.sandbox.driver import LocalProcessDriver, DockerSandboxDriver
 
 # 1. pin the snapshot you are reviewing (git commit, or a directory for dev)
-snapshot = SnapshotHandle.from_git(repo, sha, subdir, dest,
-                                   snapshot_id="snp_…", repo_id="rep_…")
-intel = LocalIntel(snapshot)            # or your own CodeIntel implementation
+snapshot = SnapshotHandle.from_git(repo, sha, subdir, dest, snapshot_id="snp_…", repo_id="rep_…")
+intel = LocalIntel(snapshot)  # or your own CodeIntel implementation
 
 # 2. a writable worktree bounded by the files your plan allows
 worktree = PatchWorktree.create(
-    intel, dest=Path("/tmp/wt-1"),
-    allowed_paths=["payments_lite/app.py"],   # plan files
-    test_roots=("tests/",),                   # new test files always allowed
+    intel,
+    dest=Path("/tmp/wt-1"),
+    allowed_paths=["payments_lite/app.py"],  # plan files
+    test_roots=("tests/",),  # new test files always allowed
 )
 worktree.write_file("payments_lite/app.py", new_text)
 # -> {"path": ..., "action": "created"|"updated", "bytes": n, "lines": n}
 # -> {"error": "PATH_NOT_ALLOWED", "detail": "..."} for anything else; nothing is written
 
 # 3. run tests in a sandbox (network none), getting structured results
-runner = TestRunner(driver=LocalProcessDriver(allow=True),   # dev; Docker driver in CI
-                    workspace_provider=lambda ctx: worktree,
-                    test_command_args=("-q", "tests"))
+runner = TestRunner(
+    driver=LocalProcessDriver(allow=True),  # dev; Docker driver in CI
+    workspace_provider=lambda ctx: worktree,
+    test_command_args=("-q", "tests"),
+)
 result = runner.run(ctx, "project_suite", [])
 # -> {"sandbox_run_id", "driver", "isolation_level", "exit_code", "timed_out",
 #     "passed", "failed", "errors", "failing_tests": [...], "stdout_tail", ...}

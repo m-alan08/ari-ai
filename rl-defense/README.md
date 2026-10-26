@@ -153,21 +153,40 @@ summary, table and a few trajectories are committed under `results/`.
 ```python
 from rl_defense.api import load_policy
 from rl_defense.platform_mapping import (
-    FindingInput, ExpectationInput, RouteSignal, facts_from_platform, load_topology,
+    FindingInput,
+    ExpectationInput,
+    RouteSignal,
+    facts_from_platform,
+    load_topology,
 )
 
-topology = load_topology("configs/topology/payments_lite.yaml")   # route -> node mapping
+topology = load_topology("configs/topology/payments_lite.yaml")  # route -> node mapping
 facts, provenance = facts_from_platform(
     topology,
-    findings=[FindingInput(id="fnd_…", status="validated", severity="high",
-                           routes=("GET /payments/{payment_id}",))],
-    expectations=[ExpectationInput(id="exp_…", route="GET /payments/{payment_id}",
-                                   data_sensitivity="financial", status="confirmed")],
-    signals=[RouteSignal(route="GET /payments/{payment_id}", alert_rate=4.0,
-                         anomaly_score=0.4, source="runtime_demo")],
+    findings=[
+        FindingInput(
+            id="fnd_…", status="validated", severity="high", routes=("GET /payments/{payment_id}",)
+        )
+    ],
+    expectations=[
+        ExpectationInput(
+            id="exp_…",
+            route="GET /payments/{payment_id}",
+            data_sensitivity="financial",
+            status="confirmed",
+        )
+    ],
+    signals=[
+        RouteSignal(
+            route="GET /payments/{payment_id}",
+            alert_rate=4.0,
+            anomaly_score=0.4,
+            source="runtime_demo",
+        )
+    ],
 )
 runner = load_policy("runs/protocol-v1/ddqn_seed0.pt")  # verifies sha256 against the manifest
-rec = runner.recommend(facts)                           # -> DefenseRecommendation
+rec = runner.recommend(facts)  # -> DefenseRecommendation
 ```
 
 `runner.recommend_with_explanation(facts)` also returns an `RLExplanation` (shared V0.1)

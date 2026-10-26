@@ -41,5 +41,5 @@ it('links to Start an assessment when the repository has an active scope', () =>
   render(<ProjectReviewCta repoId="repo-1" />);
 
   const cta = screen.getByRole('link', { name: 'Run a review' });
-  expect(cta.getAttribute('href')).toBe('/projects/project-1#start-assessment');
+  expect(cta.getAttribute('href')).toBe('/projects/project-1/commits#start-assessment');
 });

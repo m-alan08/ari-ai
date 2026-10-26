@@ -5,6 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any
 
+# Token- and transport-shaped patterns safe to apply to any text, including
+# source code: every match is self-contained and never rewrites syntax outside
+# the secret itself. Code-aware redaction (``redact_code``) applies ONLY this
+# list plus the quoted-literal rule below — never the free-text key=value
+# matcher, which would corrupt expressions like ``api_key=os.environ["K"]``.
 _HIGH_CONFIDENCE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}"), "[REDACTED:anthropic_key]"),
     (re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"), "[REDACTED:github_token]"),
@@ -19,6 +24,14 @@ _HIGH_CONFIDENCE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{2,}"), "[REDACTED:jwt]"),
     # credentials inside connection strings: scheme://user:pass@host -> scheme://[REDACTED]@host
     (re.compile(r"\bsk_live_[A-Za-z0-9]{8,}\b"), "[REDACTED:stripe_key]"),
+    # Credentials embedded in driver URLs in connector errors
+    # (``postgresql://svc:secret@db.internal/app``). Only rewrites the
+    # ``scheme://user:pass@`` span, so it is safe inside quoted code literals.
+    # Runs before the DSN-specific pattern below so that marker wins the name.
+    (
+        re.compile(r"(?i)([a-z][a-z0-9+.\-]*://[^/\s:@]+):[^@\s/]+@"),
+        r"\1:[REDACTED:uri_password]@",
+    ),
     (
         re.compile(
             r"(?i)\b(postgres(?:ql)?(?:\+\w+)?|mysql(?:\+\w+)?|mongodb(?:\+srv)?|redis|amqp)://[^\s:/@]+:[^\s@]+@"
@@ -28,11 +41,37 @@ _HIGH_CONFIDENCE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 ]
 _KV_KEY = r"\w*(?:password|passwd|pwd|api_key|apikey|secret|token)\w*"
 _KV_PATTERN = re.compile(r"(?i)\b" + _KV_KEY + r"\s*[=:]\s*(?:'[^'\n]*'|\"[^\"\n]*\"|[^\s'\"]+)")
+# Code-aware key=value matcher. Three prefix shapes, all ending in a quoted
+# literal — only the literal is rewritten, so unquoted non-secret expressions
+# (``api_key=os.environ["API_KEY"]``, ``password: str = os.getenv("P")``) are
+# left byte-identical.
 _CODE_KV_PATTERN = re.compile(
-    r"(?i)(?P<prefix>\b" + _KV_KEY + r"\s*[=:]\s*)"
-    r"(?P<literal>'(?:\\.|[^'\\\n])+'|\"(?:\\.|[^\"\\\n])+\")"
+    r"(?i)(?P<prefix>(?:"
+    + r"\b"
+    + _KV_KEY
+    + r"\s*:\s*[^=\n;#]+?=\s*"  # annotated: name: Type = "..." (annot span can't cross ; or #)
+    + r"|\b"
+    + _KV_KEY
+    + r"\s*[=:]\s*"  # simple: name = "..." or name: "..."
+    + r"|['\"]"
+    + _KV_KEY
+    + r"['\"](?:\s*\])?\s*[:=]\s*"  # quoted mapping key/subscript: {"name": "..."}
+    + r"))"
+    + r"(?P<literal>'(?:\\.|[^'\\\n])+'|\"(?:\\.|[^\"\\\n])+\")"
 )
-_PATTERNS = [*_HIGH_CONFIDENCE_PATTERNS, (_KV_PATTERN, "[REDACTED:kv]")]
+# Free-text-only matcher: catches credential-looking ``key=value`` fragments
+# ``_KV_PATTERN`` misses (hyphenated spellings like ``api-key``/``access-token``).
+# Deliberately excluded from ``_HIGH_CONFIDENCE_PATTERNS``/``redact_code``: in
+# source, ``api_key=os.environ["API_KEY"]`` is a non-secret expression and must
+# not be rewritten.
+_GENERIC_KV_PATTERN = (
+    re.compile(
+        r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|"
+        r"client[_-]?secret)=([^\s&'\"]+)"
+    ),
+    r"\1=[REDACTED]",
+)
+_PATTERNS = [*_HIGH_CONFIDENCE_PATTERNS, (_KV_PATTERN, "[REDACTED:kv]"), _GENERIC_KV_PATTERN]
 
 # Deliberately NOT scrubbed: absolute paths and internal hostnames. They aid
 # debugging and are bounded to project members; revisit if members must be
@@ -66,7 +105,10 @@ def redact_code(text: str) -> str:
 
 
 def find_high_confidence_secret(text: str) -> str | None:
-    for pattern, replacement in _HIGH_CONFIDENCE_PATTERNS:
+    # Labeling checks the most specific transport-DSN pattern before the generic
+    # URI-password pattern; substitution order in _PATTERNS is the reverse.
+    ordered = sorted(_HIGH_CONFIDENCE_PATTERNS, key=lambda pair: "uri_password" in pair[1])
+    for pattern, replacement in ordered:
         match = re.search(r"\[REDACTED:([a-z0-9_]+)\]", replacement)
         if match is None:
             continue

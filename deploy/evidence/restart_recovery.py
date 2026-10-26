@@ -37,7 +37,6 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,9 +59,17 @@ def _port() -> int:
 def _git(repo: Path, *args: str) -> str:
     return subprocess.check_output(
         [
-            "git", "-C", str(repo),
-            "-c", "user.name=e2e", "-c", "user.email=e2e@example.invalid",
-            "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null",
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=e2e",
+            "-c",
+            "user.email=e2e@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
             *args,
         ],
         text=True,
@@ -94,7 +101,10 @@ class Proc:
             env["EVIDENCE_PROBE"] = "1"
         self.p = subprocess.Popen(
             [sys.executable, str(ROOT / "deploy" / "evidence" / "scripted_worker.py")],
-            cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=None,
+            cwd=ROOT,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=None,
         )
         return self.p
 
@@ -159,15 +169,16 @@ def main() -> int:
         admin = sa.create_engine(admin_url, isolation_level="AUTOCOMMIT")
         with admin.connect() as c:
             c.execute(sa.text(f'CREATE DATABASE "{dbname}"'))
-        db_url = sa.engine.make_url(admin_url).set(database=dbname).render_as_string(
-            hide_password=False
+        db_url = (
+            sa.engine.make_url(admin_url).set(database=dbname).render_as_string(hide_password=False)
         )
 
         repo = tmp / "owned-repo"
         import shutil as _sh
 
         _sh.copytree(
-            PAYMENTS, repo,
+            PAYMENTS,
+            repo,
             ignore=_sh.ignore_patterns("__pycache__", ".pytest_cache", "*.egg-info", ".venv"),
         )
         (repo / "labels.yaml").unlink(missing_ok=True)
@@ -218,9 +229,7 @@ def main() -> int:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("127.0.0.1", api_port))
         server = uvicorn.Server(uvicorn.Config(create_app(), log_level="warning"))
-        thread = threading.Thread(
-            target=server.run, kwargs={"sockets": [sock]}, daemon=True
-        )
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
         thread.start()
         _wait_http(f"http://127.0.0.1:{api_port}/healthz")
 
@@ -231,10 +240,16 @@ def main() -> int:
 
         base = f"http://127.0.0.1:{api_port}/api/v1"
         alice = httpx.Client(base_url=base)
-        me = alice.post("/auth/dev/login", json={"github_login": "ev-alice"}).raise_for_status().json()
+        me = (
+            alice.post("/auth/dev/login", json={"github_login": "ev-alice"})
+            .raise_for_status()
+            .json()
+        )
         alice.headers["X-CSRF-Token"] = me["csrf_token"]
         pid = (
-            alice.post("/projects", json={"name": "evidence", "settings": {"delivery_mode": "manual"}})
+            alice.post(
+                "/projects", json={"name": "evidence", "settings": {"delivery_mode": "manual"}}
+            )
             .raise_for_status()
             .json()["id"]
         )
@@ -250,7 +265,11 @@ def main() -> int:
                 json={
                     "name": "evidence sandbox",
                     "targets": [
-                        {"kind": "sandbox_build", "repo_id": rid, "build_recipe_ref": "build_recipe.json"}
+                        {
+                            "kind": "sandbox_build",
+                            "repo_id": rid,
+                            "build_recipe_ref": "build_recipe.json",
+                        }
                     ],
                     # Same categories as test_unified_assessment: produces a diagnosable
                     # finding -> AWAITING_APPROVAL pause -> checkpoint to resume from.
@@ -270,7 +289,9 @@ def main() -> int:
         from backend.db import memberships
 
         bob = httpx.Client(base_url=base)
-        bobme = bob.post("/auth/dev/login", json={"github_login": "ev-bob"}).raise_for_status().json()
+        bobme = (
+            bob.post("/auth/dev/login", json={"github_login": "ev-bob"}).raise_for_status().json()
+        )
         with transaction() as conn:
             conn.execute(
                 sa.insert(memberships).values(
@@ -281,7 +302,8 @@ def main() -> int:
             )
         bob.headers["X-CSRF-Token"] = bobme["csrf_token"]
 
-        from backend.db import assessment_events, assessments, jobs as jobs_t
+        from backend.db import assessment_events, assessments
+        from backend.db import jobs as jobs_t
 
         def asm_state(aid: str) -> str | None:
             with transaction() as conn:
@@ -291,9 +313,7 @@ def main() -> int:
 
         def job_row(jid: str) -> dict[str, Any] | None:
             with transaction() as conn:
-                r = conn.execute(
-                    sa.select(jobs_t).where(jobs_t.c.id == jid)
-                ).mappings().first()
+                r = conn.execute(sa.select(jobs_t).where(jobs_t.c.id == jid)).mappings().first()
                 return dict(r) if r else None
 
         def job_running(jid: str) -> bool:
@@ -302,11 +322,15 @@ def main() -> int:
 
         def checkpoint_artifact(aid: str) -> str | None:
             with transaction() as conn:
-                rows = conn.execute(
-                    sa.select(assessment_events.c.doc)
-                    .where(assessment_events.c.assessment_id == aid)
-                    .where(assessment_events.c.type == "assessment.progress")
-                ).scalars().all()
+                rows = (
+                    conn.execute(
+                        sa.select(assessment_events.c.doc)
+                        .where(assessment_events.c.assessment_id == aid)
+                        .where(assessment_events.c.type == "assessment.progress")
+                    )
+                    .scalars()
+                    .all()
+                )
             for d in rows:
                 ref = (d or {}).get("data", {}).get("checkpoint_artifact_id")
                 if ref:
@@ -323,10 +347,14 @@ def main() -> int:
             return artifacts / key if key else None
 
         def start_assessment() -> tuple[str, str]:
-            r = alice.post(
-                f"/projects/{pid}/assessments",
-                json={"scope_id": scope["id"], "repo_id": rid, "commit_sha": sha},
-            ).raise_for_status().json()
+            r = (
+                alice.post(
+                    f"/projects/{pid}/assessments",
+                    json={"scope_id": scope["id"], "repo_id": rid, "commit_sha": sha},
+                )
+                .raise_for_status()
+                .json()
+            )
             return r["assessment"]["id"], r["job_id"]
 
         # ------------------------------------------------ S1 SIGTERM drains job
@@ -338,8 +366,11 @@ def main() -> int:
         w.p.terminate()  # SIGTERM — must finish the in-hand job, then exit
         rc1 = w.p.wait(timeout=args.timeout / 3)
         _poll(lambda: job_row(jid1)["status"], lambda s: s == "succeeded", timeout=args.timeout / 3)
-        _poll(lambda: asm_state(aid1), lambda s: s in ("AWAITING_APPROVAL", "COMPLETED"),
-              timeout=args.timeout / 4)
+        _poll(
+            lambda: asm_state(aid1),
+            lambda s: s in ("AWAITING_APPROVAL", "COMPLETED"),
+            timeout=args.timeout / 4,
+        )
         st1 = asm_state(aid1)
         ref1 = checkpoint_artifact(aid1)
         found = [artifact_path(ref1)] if ref1 and artifact_path(ref1).exists() else []
@@ -380,7 +411,7 @@ def main() -> int:
         procs.append(w3)
         _poll(lambda: asm_state(aid2), lambda s: s == "FAILED", timeout=180)
         j2 = job_row(jid2)
-        err2 = ((j2 or {}).get("last_error") or {})
+        err2 = (j2 or {}).get("last_error") or {}
         msg2 = err2 if isinstance(err2, str) else json.dumps(err2)
         honest = "lost" in msg2 or "CONFLICT_STATE" in msg2 or "conflict" in msg2.lower()
         results.record(
@@ -405,10 +436,14 @@ def main() -> int:
         ]
         decided = None
         for a in pend:
-            decided = bob.post(
-                f"/approvals/{a['id']}/decision",
-                json={"decision": "approved", "reason": "evidence harness"},
-            ).raise_for_status().json()
+            decided = (
+                bob.post(
+                    f"/approvals/{a['id']}/decision",
+                    json={"decision": "approved", "reason": "evidence harness"},
+                )
+                .raise_for_status()
+                .json()
+            )
         w4 = Proc(worker_env, "w4")
         w4.start()
         procs.append(w4)
@@ -472,8 +507,9 @@ def main() -> int:
         def probes_done() -> tuple[int, int]:
             with transaction() as conn:
                 rows = conn.execute(
-                    sa.select(jobs_t.c.status, jobs_t.c.attempts)
-                    .where(jobs_t.c.kind == "evidence_probe")
+                    sa.select(jobs_t.c.status, jobs_t.c.attempts).where(
+                        jobs_t.c.kind == "evidence_probe"
+                    )
                 ).all()
             done = sum(1 for s, _ in rows if s == "succeeded")
             return done, len(rows)
@@ -481,8 +517,9 @@ def main() -> int:
         _poll(probes_done, lambda t: t[0] >= 11, timeout=60)
         with transaction() as conn:
             rows = conn.execute(
-                sa.select(jobs_t.c.status, jobs_t.c.attempts, jobs_t.c.dedupe_key)
-                .where(jobs_t.c.kind == "evidence_probe")
+                sa.select(jobs_t.c.status, jobs_t.c.attempts, jobs_t.c.dedupe_key).where(
+                    jobs_t.c.kind == "evidence_probe"
+                )
             ).all()
         attempts_ok = all(a == 1 for _, a, _ in rows)
         dup_rows = [r for r in rows if r[2] == "ev-dup"]
@@ -539,20 +576,29 @@ def main() -> int:
         dump_path = tmp / "dump.sql"
         subprocess.run(
             [
-                str(pgbin / "pg_dump"), "--no-owner", "--file", str(dump_path),
+                str(pgbin / "pg_dump"),
+                "--no-owner",
+                "--file",
+                str(dump_path),
                 server_pg.get_uri(dbname),
             ],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         db2 = f"ev_{uuid.uuid4().hex[:10]}"
         with admin.connect() as c:
             c.execute(sa.text(f'CREATE DATABASE "{db2}"'))
         subprocess.run(
             [
-                str(pgbin / "psql"), "-v", "ON_ERROR_STOP=1", "-f", str(dump_path),
+                str(pgbin / "psql"),
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-f",
+                str(dump_path),
                 server_pg.get_uri(db2),
             ],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         counts = {}
         eng = sa.create_engine(
@@ -563,8 +609,7 @@ def main() -> int:
                 counts[t] = c.execute(sa.text(f'SELECT count(*) FROM "{t}"')).scalar()
         with transaction() as conn:
             src_counts = {
-                t: conn.execute(sa.text(f'SELECT count(*) FROM "{t}"')).scalar()
-                for t in counts
+                t: conn.execute(sa.text(f'SELECT count(*) FROM "{t}"')).scalar() for t in counts
             }
         results.record(
             "S6_backup_restore",
@@ -600,7 +645,9 @@ def main() -> int:
         _sh.rmtree(tmp, ignore_errors=True)
 
     n_fail = sum(1 for r in results.rows if not r["ok"])
-    print(f"EVIDENCE COMPLETE: {len(results.rows) - n_fail}/{len(results.rows)} passed → {out}/evidence.json")
+    print(
+        f"EVIDENCE COMPLETE: {len(results.rows) - n_fail}/{len(results.rows)} passed → {out}/evidence.json"
+    )
     return 1 if n_fail or not results.rows else 0
 
 

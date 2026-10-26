@@ -69,13 +69,13 @@ export default function FindingPage() {
               ))}
             </dl>
           </Panel>
-          <div className="mt-4">
+          <div className="mt-6 min-w-0">
             <BeforeAfter kind={d.finding.kind} status={d.finding.status} validation={validation} patches={patchItems} patchesError={patches.status === 'error' ? { error: patches.error, onRetry: patches.reload } : null} />
           </div>
           <RepoScope assessmentId={d.finding.assessment_id} projectId={project.id} repos={repos}>
           {(repo, note) => (
-          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[3fr_2fr]">
-            <div className="flex flex-col gap-4">
+          <div className="mt-6 grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[3fr_2fr]">
+            <div className="flex min-w-0 flex-col gap-6">
               {note && <p className="text-xs text-muted">{note}</p>}
               <EvidenceChain detail={d} patches={patchItems} repo={repo} projectId={project.id} />
               <Panel title="Patches and independent verification">
@@ -86,7 +86,7 @@ export default function FindingPage() {
                 </Async>
               </Panel>
             </div>
-            <div className="flex flex-col gap-4">
+            <div className="flex min-w-0 flex-col gap-6">
               <StandardsPanel finding={d.finding} />
               {d.finding.severity && (
                 <Panel title="Severity">

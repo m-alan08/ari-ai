@@ -56,7 +56,12 @@ def scout(test_family: int = 3) -> Split:
         )
     for r in evalcommit_rows():
         out[r["split"]].append(
-            {"family": r["family"], "framework": r["framework"], "code": r["code"], "label": r["label"]}
+            {
+                "family": r["family"],
+                "framework": r["framework"],
+                "code": r["code"],
+                "label": r["label"],
+            }
         )
     return out
 

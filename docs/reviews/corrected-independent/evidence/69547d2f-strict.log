@@ -1,0 +1,8 @@
+................................                                         [100%]
+=============================== warnings summary ===============================
+backend/tests/live_defense_e2e/test_exec_reliability_compat.py::test_compat_per_project_concurrency_is_fair
+  /private/tmp/ari-corrected-final/backend/tests/conftest.py:182: PytestWarning: Value of environment variable JOB_MAX_RUNNING_PER_PROJECT type should be str, but got 1 (type: int); converted to str implicitly
+    monkeypatch.setenv(k.upper(), v)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+32 passed, 1 warning in 4.88s

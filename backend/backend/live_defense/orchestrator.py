@@ -7,6 +7,7 @@ LLM prose is never proof of a confirmed threat. None of these actions execute a
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 
 from backend.live_defense.capabilities import load_registry
 from shared.assessment import AgentName
@@ -233,7 +234,7 @@ def decide(facts: OrchestratorFacts) -> FirstResponderDecision:
             recommended_control=facts.shadow_action,
             simulated=facts.simulated,
             budget_usd_remaining=facts.budget_usd_remaining,
-            deadline_at=None,
+            deadline_at=now + timedelta(seconds=FIRST_RESPONDER_DEADLINE_S),
             retry_count=facts.retry_count,
             loop_count=facts.loop_count,
             cancelled=cancelled,

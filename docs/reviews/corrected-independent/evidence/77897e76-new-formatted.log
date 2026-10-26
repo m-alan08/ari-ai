@@ -1,0 +1,103 @@
+FFF..                                                                    [100%]
+=================================== FAILURES ===================================
+_ test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n] _
+
+source = 'api_key=os.environ["API_KEY"]\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-620/test_nonliteral_credential_exp0')
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            'api_key=os.environ["API_KEY"]\n',
+            'password=os.environ.get("DB_PASSWORD")\n',
+        ],
+    )
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'api_key=[REDACTED]"API_KEY"]\n'
+E       assert 'api_key=[RED...]"API_KEY"]\n' == 'api_key=os.e...["API_KEY"]\n'
+E         
+E         - api_key=os.environ["API_KEY"]
+E         + api_key=[REDACTED]"API_KEY"]
+
+backend/tests/test_independent_corrected_review.py:29: AssertionError
+_ test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n] _
+
+source = 'password=os.environ.get("DB_PASSWORD")\n'
+tmp_path = PosixPath('/private/var/folders/zx/g7x09fys7f39_65741pxh9h00000gn/T/pytest-of-alanmozhoor/pytest-620/test_nonliteral_credential_exp1')
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            'api_key=os.environ["API_KEY"]\n',
+            'password=os.environ.get("DB_PASSWORD")\n',
+        ],
+    )
+    def test_nonliteral_credential_expression_survives_diff_artifact(source, tmp_path):
+        """N7: source expressions contain no credential; artifact bytes must survive."""
+        ast.parse(source)
+        store = ArtifactStore(tmp_path.as_uri())
+        with transaction() as conn:
+            ref = store.put_text(conn, source, kind=ArtifactKind.diff, project_id=None)
+        with transaction() as conn:
+            _, body = store.get(conn, ref.id)
+        actual = body.decode()
+>       assert actual == source, f"redaction altered non-secret source: {actual!r}"
+E       AssertionError: redaction altered non-secret source: 'password=[REDACTED]"DB_PASSWORD")\n'
+E       assert 'password=[RE..._PASSWORD")\n' == 'password=os...._PASSWORD")\n'
+E         
+E         - password=os.environ.get("DB_PASSWORD")
+E         + password=[REDACTED]"DB_PASSWORD")
+
+backend/tests/test_independent_corrected_review.py:29: AssertionError
+__________________ test_nonliteral_redaction_stays_parseable ___________________
+
+    def test_nonliteral_redaction_stays_parseable():
+        source = 'password=os.environ.get("DB_PASSWORD")\n'
+>       ast.parse(redact_code(source))
+
+backend/tests/test_independent_corrected_review.py:35: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = 'password=[REDACTED]"DB_PASSWORD")\n', filename = '<unknown>'
+mode = 'exec'
+
+    def parse(source, filename='<unknown>', mode='exec', *,
+              type_comments=False, feature_version=None):
+        """
+        Parse the source into an AST node.
+        Equivalent to compile(source, filename, mode, PyCF_ONLY_AST).
+        Pass type_comments=True to get back type comments where the syntax allows.
+        """
+        flags = PyCF_ONLY_AST
+        if type_comments:
+            flags |= PyCF_TYPE_COMMENTS
+        if feature_version is None:
+            feature_version = -1
+        elif isinstance(feature_version, tuple):
+            major, minor = feature_version  # Should be a 2-tuple.
+            if major != 3:
+                raise ValueError(f"Unsupported major version: {major}")
+            feature_version = minor
+        # Else it should be an int giving the minor version for 3.x.
+>       return compile(source, filename, mode, flags,
+                       _feature_version=feature_version)
+E         File "<unknown>", line 1
+E           password=[REDACTED]"DB_PASSWORD")
+E                                           ^
+E       SyntaxError: unmatched ')'
+
+/Users/alanmozhoor/.local/share/uv/python/cpython-3.12.14-macos-aarch64-none/lib/python3.12/ast.py:52: SyntaxError
+=========================== short test summary info ============================
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[api_key=os.environ["API_KEY"]\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_credential_expression_survives_diff_artifact[password=os.environ.get("DB_PASSWORD")\n]
+FAILED backend/tests/test_independent_corrected_review.py::test_nonliteral_redaction_stays_parseable
+3 failed, 2 passed in 0.87s

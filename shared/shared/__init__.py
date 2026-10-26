@@ -6,10 +6,7 @@ coordination/CONTRACTS.md.
 """
 
 SCHEMA_VERSION = (
-    "0.22.0"  # 0.2 RLExplanation; 0.3 runtime signals; 0.4 ids allow _-; 0.5 early REPORTING;
-    # 0.22 ops readiness (additive): ReadinessStatus gains workers/capabilities/
-    #      capabilities_ready/git_sha/schema_version; HealthStatus gains
-    #      git_sha/schema_version; new DiagnosticsReport. /readyz consumers only.
+    "0.26.0"  # 0.2 RLExplanation; 0.3 runtime signals; 0.4 ids allow _-; 0.5 early REPORTING;
     # 0.6 intelligence memory (PR #39); 0.7 security standards + incidents (PR #49);
     # 0.8 FindingDetail / AssessmentReport response DTOs (additive);
     # 0.9 CheckCategory enum (Probe ids + V0 fixture aliases);
@@ -40,8 +37,12 @@ SCHEMA_VERSION = (
     #      default to false (owner must explicitly enable; PR #385).
     # 0.19 ProjectSettings.delivery_mode (auto | pull_request | manual, pilot default pull_request) and
     #      server-set delivery_authorized_by (additive, ADR-0021).
-    # 0.20 reserved by open PR #412 (Phase 6.5 RL-gated pilot). This branch does
-    #      not claim 0.20.0 so both PRs can land independently.
+    # 0.20 live-defense Phase 6.5 RL-gated pilot infrastructure (additive):
+    #      ConnectedApplication.rl_gated_pilot; RL readiness categories A–J;
+    #      evaluation plan with unset thresholds; policy serving contract;
+    #      hosted-inference readiness config. ready=true only if every mandatory
+    #      category is PASS. Merged research PRs / unit tests / docs are not
+    #      model readiness. No new executable action.
     # 0.21 live-defense Phase 7A first-responder (additive): OFF/MONITOR|SHADOW/
     #      ASSISTED RESPONSE modes, deterministic orchestrator decisions,
     #      seven-agent capability registry, runtime↔code correlation,
@@ -49,4 +50,29 @@ SCHEMA_VERSION = (
     #      No AUTO-EXECUTE. LLM prose is never proof of a confirmed threat.
     #      evidence_state=verified requires independently executed verification
     #      evidence, not Verify eligibility.
+    # 0.22 ops readiness (additive, upstream): ReadinessStatus gains
+    #      workers/capabilities/capabilities_ready/git_sha/schema_version;
+    #      HealthStatus gains git_sha/schema_version; new DiagnosticsReport.
+    #      /readyz consumers only.
+    # 0.23 live-defense Phase 7C live agent execution (additive): genuine
+    #      first-responder agent-loop records (cost, latency, transcript,
+    #      typed output, execution integrity). predicted_probability stays
+    #      null. executed investigative output is not threat confirmation.
+    #      Probe/Patch/Verify privileges are not expanded. Execution lives in
+    #      invocation JSONB plus the durable billable ProviderAttempt ledger,
+    #      invocation deadline_at and idempotent provider redelivery (unknown
+    #      outcomes never replay).
+    # 0.24 first-responder observability (additive, read-only): investigation
+    #      timeline/summary DTOs, invocation view with queue state, execution
+    #      view mirroring the 7C record (all fields optional), diagnostics.
+    # 0.25 customer onboarding (additive): computed OnboardingStatus steps and
+    #      the owner-triggered OnboardingTestEvent (real owned_staging ingest).
+    #      MonitoringEvent.test_event (additive). Refreshed 7C ProviderAttempt
+    #      ledger + invocation.deadline_at are optional fields; old payloads
+    #      still validate.
+    # 0.26 Repository.disconnected/disconnected_at (additive): canonical
+    #      disconnect state for the repository kill-switch; installation_id is
+    #      kept as the access record. Alembic: 0016 tenant_rls + 0017
+    #      worker_heartbeats (upstream), then 0018 execution_reliability +
+    #      0019 repository_disconnect (release workstreams).
 )

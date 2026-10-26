@@ -1,0 +1,25 @@
+{
+  "abstention_required": true,
+  "baselines": [
+    "rules",
+    "fixed_block",
+    "v6"
+  ],
+  "frozen_scenarios_required": true,
+  "holdout_required": true,
+  "independent_seeds_required": true,
+  "metrics": [
+    {
+      "description": "Unauthorized access remaining after the candidate acts.",
+      "name": "compromise",
+      "threshold": null,
+      "threshold_status": "pending_rl_owner_approval"
+    }
+  ],
+  "pass_by_total_reward": false,
+  "per_scenario_required": true,
+  "provenance_required": true,
+  "threshold_owner": "rl_owner",
+  "thresholds_invented": false,
+  "uncertainty_required": true
+}

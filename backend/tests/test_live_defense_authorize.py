@@ -72,6 +72,17 @@ def test_disconnected_application_is_denied_without_new_check() -> None:
     )
 
 
+def test_rl_gated_pilot_is_denied_without_new_check() -> None:
+    decision = check(_inp(rl_gated_pilot=True))
+    assert not decision.allowed
+    assert len(decision.checks) == 15
+    assert [c.name for c in decision.checks] == list(AUTHORIZATION_CHECKS)
+    assert any(
+        c.name == "application_registered" and not c.passed and "shadow-only" in c.reason
+        for c in decision.checks
+    )
+
+
 def test_typed_usr_in_claimed_actor_is_not_identity() -> None:
     decision = check(_inp(claimed_actor_id=USER))
     assert not decision.allowed

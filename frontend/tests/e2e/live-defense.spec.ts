@@ -192,3 +192,13 @@ test('Live Defense Phase 5: rotate, revoke, disconnect, restart ingest, export r
   await expect(page.getByRole('button', { name: /^(apply|isolate|rate-limit|block)$/i })).toHaveCount(0);
   await evidenceShot(page, 'live-defense-phase5-disconnect');
 });
+
+test('RL-gated readiness dashboard stays BLOCKED from the backend', async ({ browser }) => {
+  const page = await newUser(browser, 'e2e-alice');
+  const pid = project();
+  await page.goto(`/projects/${pid}/live-defense/readiness`);
+  await expect(page.getByTestId('live-defense-readiness-verdict')).toContainText('INFRASTRUCTURE READY — RL BLOCKED');
+  await expect(page.getByTestId('live-defense-readiness-categories')).toContainText('BLOCKED');
+  await expect(page.getByTestId('live-defense-readiness')).toContainText('ready=false');
+  await expect(page.getByRole('button', { name: /^(apply|isolate|rate-limit|block)$/i })).toHaveCount(0);
+});

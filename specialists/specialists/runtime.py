@@ -27,7 +27,7 @@ AGENTS = ("scout", "probe", "trace", "diagnose", "patch", "fortify", "verify")
 class Advice:
     agent: str
     model_id: str | None
-    source: str                 # "model" | "baseline:<name>" | "unavailable"
+    source: str  # "model" | "baseline:<name>" | "unavailable"
     predictions: list[dict[str, Any]] = field(default_factory=list)
     latency_ms: float = 0.0
     reason: str | None = None
@@ -76,19 +76,41 @@ class Specialists:
             fallback = m.manifest.get("fallback") or {}
             table: dict[str, Any] = fallback.get("table") or {}
             field_name = fallback.get("key", "cwe")
-            key = inputs.get(field_name, "").split()[0] if field_name and inputs.get(field_name) else ""
+            key = (
+                inputs.get(field_name, "").split()[0]
+                if field_name and inputs.get(field_name)
+                else ""
+            )
             answer = table.get(key) or fallback.get("default")
             if not answer:
-                return Advice(agent, m.model_id, "unavailable", reason="model not promoted and no baseline answer")
+                return Advice(
+                    agent,
+                    m.model_id,
+                    "unavailable",
+                    reason="model not promoted and no baseline answer",
+                )
             labels = answer if isinstance(answer, list) else [answer]
-            return Advice(agent, m.model_id, f"baseline:{fallback.get('name', 'lookup')}", [{"label": x, "score": 1.0} for x in labels[:k]],
-                          round((time.perf_counter() - started) * 1000, 3), reason="model did not beat this baseline on held-out data")
+            return Advice(
+                agent,
+                m.model_id,
+                f"baseline:{fallback.get('name', 'lookup')}",
+                [{"label": x, "score": 1.0} for x in labels[:k]],
+                round((time.perf_counter() - started) * 1000, 3),
+                reason="model did not beat this baseline on held-out data",
+            )
         try:
             preds = m.predict(inputs, top_k=k)
         except Exception as exc:  # noqa: BLE001 - inference must never fail an assessment
-            return Advice(agent, m.model_id, "unavailable", reason=f"inference error: {type(exc).__name__}")
-        return Advice(agent, m.model_id, "model", [{"label": p.label, "score": p.score} for p in preds],
-                      round((time.perf_counter() - started) * 1000, 3))
+            return Advice(
+                agent, m.model_id, "unavailable", reason=f"inference error: {type(exc).__name__}"
+            )
+        return Advice(
+            agent,
+            m.model_id,
+            "model",
+            [{"label": p.label, "score": p.score} for p in preds],
+            round((time.perf_counter() - started) * 1000, 3),
+        )
 
     def status(self) -> dict[str, dict[str, Any]]:
         """Per agent: loaded or not, version, promoted, held-out score (for health/UI)."""
@@ -99,10 +121,16 @@ class Specialists:
                 out[agent] = {"loaded": False, "reason": str(m)[:200]}
             else:
                 ev = m.manifest.get("evaluation", {})
-                out[agent] = {"loaded": True, "model": m.model_id, "promoted": ev.get("promoted"),
-                              "metric": ev.get("primary_metric"), "test": ev.get("test"),
-                              "best_baseline": ev.get("best_baseline"), "best_baseline_test": ev.get("best_baseline_test"),
-                              "weights_sha256": m.manifest.get("weights_sha256")}
+                out[agent] = {
+                    "loaded": True,
+                    "model": m.model_id,
+                    "promoted": ev.get("promoted"),
+                    "metric": ev.get("primary_metric"),
+                    "test": ev.get("test"),
+                    "best_baseline": ev.get("best_baseline"),
+                    "best_baseline_test": ev.get("best_baseline_test"),
+                    "weights_sha256": m.manifest.get("weights_sha256"),
+                }
         return out
 
 

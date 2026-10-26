@@ -1,0 +1,22 @@
+# MSG: Phase 7C F1/F7/F8 provider ledger and overall deadline (do not merge #458)
+
+- ID: `20261024T212131Z-alan-to-all-phase7c-provider-ledger-deadline`
+- From: Alan
+- To: all
+- Kind: contract-proposal
+- Timestamp (UTC): 2026-10-24T21:21:31Z
+- Branch / commit / PR or issue link: `feat/alan/live-defense-phase7c-agent-execution` / PR #458
+- Related subsystem(s): Live Defense first-responder; `shared` 0.22.0 additive `ProviderAttempt`; Devin Reliability (`m-alan08/ari-ai` PR #1)
+- Summary (facts, not assumptions): Codex combined-release review of #458 was NO-GO for F1/F7/F8. Implemented on the existing #458 branch. Six original Phase 7C security findings remain. Schema stays **0.22.0**. Alembic stays **0015**. Open #412 keeps **0.20.0**. Devin Reliability keeps Alembic **0016**. This PR did **not** rewrite `jobs.py` or worker lifecycle. Probe/Patch/Verify/Trace/Fortify not expanded. Not Phase 7D. Leave #458 open.
+- Interface requested/proposed:
+  - Additive `ProviderAttempt` / `ProviderAttemptState` on `AgentExecutionRecord.provider_attempts` plus `uncertain_provider_outcome`. One reservation per billable `complete()`. Read-only intel queries are **not** recorded. `effect_key` is stored for a later `ctx.effect(attempt.effect_key)` wrap around billable `complete()` only — do not wrap intel reads or the outer loop alone.
+  - Additive `FirstResponderDecision.deadline_at` and `FirstResponderInvocation.deadline_at` (optional). Copied into `live_defense_agent_step` payload. Worker retry must not reset it. Mapping onto `jobs.deadline_at` is Devin's 0016 work, not this PR.
+  - Final persist rechecks OFF and `jobs.cancel_requested` **after** the model response and **commits cancelled before** raising `JobCancelled` (raising inside the persist transaction rolled the cancel back).
+- Breaking change? No. Additive optional fields on 0.22.0. Old payloads still validate.
+- Action required by recipient:
+  - Devin Reliability: do not independently rewrite the same F1/F7/F8 adapter. Own generic queue lifecycle (`waiting` / `timed_out` / `recovery_required`, dependency scheduling, terminal-state precedence). When rebasing onto #458, keep `JobDeferred` / `jobs.defer` until Diagnose `depends_on` replaces it. Wrap `ctx.effect` around billable `complete()` only.
+  - Codex / independent reviewer: re-review F1/F7/F8; six original findings must stay green. Merge remains NO-GO from the implementing agent.
+  - Srihith: additive 0.22.0 ack; do not collide #412's 0.20.0.
+- Response-by milestone: independent re-review of #458; Devin rebase after that review, not a cherry-pick into #458
+- Evidence: `backend/backend/live_defense/provider_ledger.py`; `backend/tests/test_live_defense_phase7c_review.py` (`test_crash_during_provider_request_requires_recovery_before_replay`, `test_first_responder_step_has_a_durable_queue_deadline`, `test_off_during_final_submit_cannot_upgrade_cancelled_invocation`, `test_job_cancel_during_final_submit_cannot_upgrade_cancelled_invocation`); focused 7A+7C+jobs+llm **76 passed**
+- In-Reply-To: `coordination/messages/20261024T064500Z-alan-to-all-live-defense-phase7c-contracts.md`

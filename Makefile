@@ -38,6 +38,24 @@ test:
 smoke-live:
 	RUN_LIVE_LLM_EVAL=1 uv run pytest -q -m live_llm -s
 
+# Live Defense owned-staging e2e tiers (backend/tests/live_defense_e2e).
+# Fast deterministic subset for every PR:
+e2e-ld-smoke:
+	uv run pytest -q -m live_defense_smoke backend/tests/live_defense_e2e
+
+# Full deterministic integration suite (scenarios A-H, FakeLLM):
+e2e-ld:
+	uv run pytest -q -m live_defense_e2e backend/tests/live_defense_e2e
+
+# Failure-injection suite only (provider/worker/OFF-mode faults):
+e2e-ld-fault:
+	uv run pytest -q -m live_defense_fault backend/tests/live_defense_e2e
+
+# OPT-IN live-provider check. Requires RUN_LIVE_LLM_EVAL=1 and a real
+# HACKATL_LIVE_ANTHROPIC_API_KEY; calls the real Anthropic API and costs money.
+e2e-ld-live:
+	RUN_LIVE_LLM_EVAL=1 uv run pytest -q -m "live_llm and live_defense_e2e" backend/tests/live_defense_e2e -s
+
 smoke: check test
 
 stop-db:

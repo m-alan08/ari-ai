@@ -224,7 +224,13 @@ def main(argv: list[str]) -> int:
         # (REPOSITORY_BINDINGS_FILE is an operator registry, not a user-facing API).
         import httpx
 
-        from backend.db import defense_recommendations, github_repo_access, memberships, repositories, transaction
+        from backend.db import (
+            defense_recommendations,
+            github_repo_access,
+            memberships,
+            repositories,
+            transaction,
+        )
 
         base = f"http://127.0.0.1:{api_port}/api/v1"
         alice = httpx.Client(base_url=base)
@@ -249,7 +255,10 @@ def main(argv: list[str]) -> int:
             )
         alice.headers["X-CSRF-Token"] = me["csrf_token"]
         pid = (
-            alice.post("/projects", json={"name": "payments-lite (e2e)", "settings": {"delivery_mode": "manual"}})
+            alice.post(
+                "/projects",
+                json={"name": "payments-lite (e2e)", "settings": {"delivery_mode": "manual"}},
+            )
             .raise_for_status()
             .json()["id"]
         )
@@ -261,7 +270,10 @@ def main(argv: list[str]) -> int:
         # The commit-workspace journey completes its own runs. Keep its findings/approvals
         # separate from the original journey's exact-count assertions.
         workspace_pid = (
-            alice.post("/projects", json={"name": "commit-workspace (e2e)", "settings": {"delivery_mode": "manual"}})
+            alice.post(
+                "/projects",
+                json={"name": "commit-workspace (e2e)", "settings": {"delivery_mode": "manual"}},
+            )
             .raise_for_status()
             .json()["id"]
         )
@@ -462,14 +474,17 @@ def main(argv: list[str]) -> int:
         )
         _wait(f"http://127.0.0.1:{web_port}/lab/bundles")
 
-        print(f"[manual stack] READY", flush=True)
+        print("[manual stack] READY", flush=True)
         print(f"[manual stack] web:     http://127.0.0.1:{web_port}", flush=True)
         print(f"[manual stack] api:     {base}", flush=True)
         print(f"[manual stack] commit:  {sha}", flush=True)
         print(f"[manual stack] project: {pid} repo: {rid} ({REPO_NAME})", flush=True)
-        print(f"[manual stack] project: {workspace_pid} repo: {workspace_rid} ({workspace_name})", flush=True)
+        print(
+            f"[manual stack] project: {workspace_pid} repo: {workspace_rid} ({workspace_name})",
+            flush=True,
+        )
         print(f"[manual stack] rec_id:  {rec_id}", flush=True)
-        print(f"[manual stack] dev login: e2e-alice (or e2e-bob)", flush=True)
+        print("[manual stack] dev login: e2e-alice (or e2e-bob)", flush=True)
         try:
             while True:
                 time.sleep(60)

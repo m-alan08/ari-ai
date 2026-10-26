@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   automaticAssessments: false,
   scopeItems: [] as unknown[],
+  runItems: [] as unknown[],
 }));
 vi.mock('@/components/project', () => ({ useProject: () => mocks.project }));
 vi.mock('@/lib/use-resource', () => ({ useResource: mocks.useResource }));
@@ -42,6 +43,7 @@ beforeEach(() => {
   mocks.query = 'repo=rep_12345678&step=5';
   mocks.automaticAssessments = false;
   mocks.scopeItems = [];
+  mocks.runItems = [];
   mocks.project = { project, reloadProject: vi.fn() };
   mocks.useResource.mockImplementation((key: string | null) => {
     if (key?.includes('setup-repos')) return {
@@ -50,7 +52,7 @@ beforeEach(() => {
       reload: vi.fn(),
     };
     if (key?.includes('setup-scopes')) return { status: 'ready', data: { items: mocks.scopeItems }, reload: vi.fn() };
-    if (key?.includes('setup-runs')) return { status: 'ready', data: { items: [] }, reload: vi.fn() };
+    if (key?.includes('setup-runs')) return { status: 'ready', data: { items: mocks.runItems }, reload: vi.fn() };
     return { status: 'ready', data: { items: [] }, reload: vi.fn() };
   });
 });
@@ -103,4 +105,11 @@ it('shows automatic reviews as On when repository automatic assessments are enab
   render(<SetupPage />);
   expect(screen.getByText('On')).toBeTruthy();
   expect(screen.queryByText('Off — you start each review')).toBeNull();
+});
+
+it('links setup review history to the project assessment section', () => {
+  mocks.query = 'repo=rep_12345678&step=7';
+  mocks.runItems = [{ id: 'asm_12345678', repo_id: repo.id }];
+  render(<SetupPage />);
+  expect(screen.getByRole('link', { name: 'See your reviews' }).getAttribute('href')).toBe('/projects/prj_12345678/commits?repo=rep_12345678#assessments');
 });

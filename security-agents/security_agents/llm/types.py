@@ -33,6 +33,7 @@ class LLMUsage:
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
 
 
 @dataclass
@@ -53,4 +54,18 @@ class LLMResponse:
 
 
 class LLMUnavailable(Exception):
-    """Upstream model failure after retries (maps to LLM_UNAVAILABLE)."""
+    """Upstream model failure after retries (maps to a structured ErrorCode)."""
+
+    def __init__(self, message: str, *, code: object | None = None) -> None:
+        super().__init__(message)
+        from ..contracts import ErrorCode
+
+        if code is None:
+            self.code = ErrorCode.LLM_UNAVAILABLE
+        elif isinstance(code, ErrorCode):
+            self.code = code
+        else:
+            try:
+                self.code = ErrorCode(str(code))
+            except ValueError:
+                self.code = ErrorCode.LLM_UNAVAILABLE

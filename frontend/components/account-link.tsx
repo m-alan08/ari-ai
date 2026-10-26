@@ -136,7 +136,7 @@ export function AccountLink() {
         <button
           ref={buttonRef}
           type="button"
-          className="group hdr-account label-mono inline-flex h-8 items-center gap-2 rounded-[var(--radius-2)] px-2 sm:px-3"
+          className="group hdr-account label-mono inline-flex h-8 items-center gap-2 rounded-lg px-2 sm:px-3"
           title={`Signed in as ${login}`}
           aria-label={`Signed in as ${login}`}
           aria-haspopup="menu"
@@ -158,7 +158,7 @@ export function AccountLink() {
           <span className="sr-only max-w-[8rem] truncate normal-case sm:not-sr-only sm:inline-block" data-testid="signed-in-user">{login}</span>
         </button>
         {menuOpen && (
-          <div ref={menuRef} role="menu" aria-label="Account" className="account-menu absolute right-0 top-full z-50 mt-2 min-w-56 rounded-[var(--radius-2)] border border-line-2 bg-panel p-2 shadow-[var(--shadow-pop)]">
+          <div ref={menuRef} role="menu" aria-label="Account" className="account-menu absolute right-0 top-full z-50 mt-2 min-w-56 rounded-xl border border-line-2 bg-panel p-2 shadow-lg">
             <div role="none" className="border-b border-line px-3 py-2 text-xs text-muted">
               <p>Signed in as <span className="text-ink">{login}</span></p>
               {membership && <p className="mt-1">{membership.organization.name} · {membership.role}</p>}

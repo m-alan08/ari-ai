@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "EvidenceCheckStatus": {
+      "description": "Dashboard values. Computed by the backend, never a frontend flag.",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "NOT VERIFIED"
+      ],
+      "title": "EvidenceCheckStatus",
+      "type": "string"
+    },
+    "RlEvidenceCategory": {
+      "description": "Mandatory evidence categories for the RL-gated pilot. Letters A\u2013J.",
+      "enum": [
+        "A_frozen_scenarios",
+        "B_holdout",
+        "C_independent_seeds",
+        "D_baselines",
+        "E_safety_metrics",
+        "F_per_scenario",
+        "G_abstention",
+        "H_uncertainty",
+        "I_provenance",
+        "J_hosted_serving"
+      ],
+      "title": "RlEvidenceCategory",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/RlEvidenceCategory"
+    },
+    "evidence_notes": {
+      "items": {
+        "maxLength": 500,
+        "type": "string"
+      },
+      "title": "Evidence Notes",
+      "type": "array"
+    },
+    "letter": {
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J"
+      ],
+      "title": "Letter",
+      "type": "string"
+    },
+    "mandatory": {
+      "default": true,
+      "title": "Mandatory",
+      "type": "boolean"
+    },
+    "open_pr_is_not_readiness": {
+      "const": true,
+      "default": true,
+      "title": "Open Pr Is Not Readiness",
+      "type": "boolean"
+    },
+    "research_docs_are_not_readiness": {
+      "const": true,
+      "default": true,
+      "title": "Research Docs Are Not Readiness",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/EvidenceCheckStatus"
+    },
+    "summary": {
+      "maxLength": 500,
+      "title": "Summary",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 500,
+      "title": "Title",
+      "type": "string"
+    },
+    "unit_tests_are_not_readiness": {
+      "const": true,
+      "default": true,
+      "title": "Unit Tests Are Not Readiness",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "category",
+    "letter",
+    "title",
+    "status",
+    "summary"
+  ],
+  "title": "RlCategoryResult",
+  "type": "object"
+}

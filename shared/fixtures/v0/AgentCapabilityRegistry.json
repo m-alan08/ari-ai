@@ -5,6 +5,6 @@
   "missing_names": [
     "scout"
   ],
-  "orchestrator_version": "7a.1.1",
+  "orchestrator_version": "7c.1.0",
   "source": "security_agents.agents.ALL_SPECS"
 }

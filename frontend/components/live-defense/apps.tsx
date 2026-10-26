@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { OwnedTestBanner, ShadowModeNote, SourceTag } from '@/components/live-defense/common';
 import { Async, Button, Empty, ErrorState, Field, inputClass, Mono, Panel, Tag, Time } from '@/components/ui';
 import { api } from '@/lib/api';
-import { controlKindLabel, ingestCurl, OWNED_TEST_LABEL, type LiveDefenseMode } from '@/lib/live-defense';
+import { controlKindLabel, ingestCurl, OWNED_TEST_LABEL, RL_GATED_COPY, type LiveDefenseMode } from '@/lib/live-defense';
 import type { Resource } from '@/lib/use-resource';
 
 export function StagingApps({
@@ -43,7 +43,7 @@ export function StagingApps({
   }
   if (!projectId) return <Empty>Choose a project to register a staging app.</Empty>;
   return (
-    <div className="flex flex-col gap-4" data-testid="live-defense-apps">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="live-defense-apps">
       <OwnedTestBanner />
       <ShadowModeNote />
       <RegisterApp projectId={projectId} onChange={onChange} />
@@ -86,13 +86,14 @@ export function StagingApps({
 function RegisterApp({ projectId, onChange }: { projectId: string; onChange?: () => void }) {
   const [name, setName] = useState('');
   const [environment, setEnvironment] = useState<'sandbox' | 'owned_test'>('sandbox');
+  const [gated, setGated] = useState(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [error, setError] = useState<unknown>(null);
   const submit = async () => {
     setStatus('saving');
     setError(null);
     try {
-      await api().createConnectedApplication(projectId, { name: name.trim(), environment });
+      await api().createConnectedApplication(projectId, { name: name.trim(), environment, rl_gated_pilot: gated });
       setName('');
       setStatus('idle');
       onChange?.();
@@ -116,6 +117,10 @@ function RegisterApp({ projectId, onChange }: { projectId: string; onChange?: ()
         </Field>
         <Button variant="primary" disabled={status === 'saving' || name.trim().length === 0} onClick={() => void submit()}>Register app</Button>
       </div>
+      <label className="mt-3 flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" checked={gated} onChange={e => setGated(e.target.checked)} data-testid="live-defense-register-gated" />
+        RL-gated shadow-only (server refuses grants, channels, and execute)
+      </label>
       {status === 'error' && error !== null && <div className="mt-2"><ErrorState error={error} onRetry={() => void submit()} context="Register app" /></div>}
     </Panel>
   );
@@ -135,6 +140,7 @@ function AppCard({
   const [issued, setIssued] = useState<IngestTokenCreated | IngestTokenRotated | null>(null);
   const [error, setError] = useState<unknown>(null);
   const disconnected = app.verification === 'disconnected' || app.disconnected_at !== null;
+  const gated = app.rl_gated_pilot === true;
   const mint = async () => {
     setError(null);
     try {
@@ -171,6 +177,15 @@ function AppCard({
       setError(err);
     }
   };
+  const enableGated = async () => {
+    setError(null);
+    try {
+      await api().enableRlGatedPilot(app.id);
+      onChange?.();
+    } catch (err) {
+      setError(err);
+    }
+  };
   const appTokens = tokens?.status === 'ready' ? tokens.data.items.filter(item => item.application_id === app.id) : [];
   return (
     <li className="rounded-md border border-line bg-panel-2 p-3 text-sm text-ink" data-testid={`live-defense-app-${app.id}`}>
@@ -180,6 +195,7 @@ function AppCard({
           <Tag>{app.environment.replaceAll('_', ' ')}</Tag>
           {(app.environment === 'owned_test' || app.environment === 'sandbox') && <Tag tone="ok">{OWNED_TEST_LABEL}</Tag>}
           <Tag tone="info">shadow ingest</Tag>
+          {gated ? <Tag tone="ok">RL-gated shadow-only</Tag> : <Tag>owned-test controls allowed</Tag>}
           <Tag>{app.verification.replaceAll('_', ' ')}</Tag>
           {app.control_channel_configured ? <Tag>control channel registered</Tag> : <Tag>no control channel</Tag>}
         </span>
@@ -196,10 +212,18 @@ function AppCard({
           </>
         )}
         <Button className="!px-2 !py-0.5 text-xs" onClick={() => void verify()}>Verify from ingest records</Button>
+        {!disconnected && !gated && (
+          <Button className="!px-2 !py-0.5 text-xs" onClick={() => void enableGated()}>Enable RL-gated shadow-only</Button>
+        )}
         {!disconnected && (
           <Button className="!px-2 !py-0.5 text-xs" onClick={() => void disconnect()}>Disconnect app</Button>
         )}
       </div>
+      {gated && (
+        <p className="mt-2 text-xs text-muted" data-testid="live-defense-app-gated">
+          {RL_GATED_COPY}
+        </p>
+      )}
       {disconnected && (
         <p className="mt-2 text-xs text-muted" data-testid="live-defense-app-disconnected">
           Disconnected. Ingest is rejected. This is not a production block or isolate.
@@ -212,7 +236,7 @@ function AppCard({
           <Mono className="mt-1 block break-all text-ink">{issued.token}</Mono>
         </div>
       )}
-      <ControlChannelForm app={app} onChange={onChange} />
+      {!gated && <ControlChannelForm app={app} onChange={onChange} />}
       {appTokens.length > 0 && (
         <ul className="mt-3 text-xs text-muted">
           {appTokens.map(token => (
@@ -282,7 +306,7 @@ function GrantForm({
         <Field label="Max duration (seconds)">
           <input className={inputClass} type="number" min={5} max={300} value={maxDuration} onChange={e => setMaxDuration(e.target.value)} />
         </Field>
-        <Button variant="primary" disabled={selectedAppId.length === 0 || kinds.length === 0} onClick={() => void submit()}>Create grant</Button>
+        <Button variant="primary" disabled={selectedAppId.length === 0 || kinds.length === 0 || appItems.find(item => item.id === selectedAppId)?.rl_gated_pilot === true} onClick={() => void submit()}>Create grant</Button>
       </div>
       <fieldset className="mt-3">
         <legend className="text-xs text-muted">Allowed kinds</legend>

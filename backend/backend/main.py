@@ -10,15 +10,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from backend import ops
+from backend import jobs, ops
 from backend.api import (
     auth,
+    execution,
     github_repos,
     incidents,
     intelligence,
     live_defense,
     live_defense_controls,
     live_defense_first_responder,
+    live_defense_investigations,
+    onboarding,
     routes,
     runtime,
     webhooks,
@@ -63,7 +66,7 @@ def create_app() -> FastAPI:
         version=VERSION,
         description=f"Control-plane API. Contract schema {SCHEMA_VERSION}.",
         docs_url="/api/docs" if s.is_dev else None,
-        openapi_url="/api/openapi.json",
+        openapi_url="/api/openapi.json" if s.is_dev else None,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -89,6 +92,17 @@ def create_app() -> FastAPI:
             else None
         )
         return _error(request, exc.status, exc.code, str(exc), exc.details, headers)
+
+    @app.exception_handler(jobs.QueueBackpressure)
+    async def _backpressure(request: Request, exc: jobs.QueueBackpressure) -> JSONResponse:
+        return _error(
+            request,
+            429,
+            exc.code,
+            str(exc),
+            {"retry_after_s": exc.retry_after_s, "pending": exc.pending, "limit": exc.limit},
+            {"Retry-After": str(exc.retry_after_s)},
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -170,7 +184,10 @@ def create_app() -> FastAPI:
         live_defense.router,
         live_defense_controls.router,
         live_defense_first_responder.router,
+        execution.router,
+        live_defense_investigations.router,
         ops_api.router,
+        onboarding.router,
     ):
         app.include_router(r, prefix="/api/v1")
     return app

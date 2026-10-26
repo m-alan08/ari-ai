@@ -59,7 +59,7 @@ export function CommitAssessmentChip({ repoId, sha }: { repoId: string; sha: str
   return (
     <>
       <Link
-        href={`/projects/${lookup.projectId}/assessments/${newest.id}`}
+        href={`/projects/${lookup.projectId}/assessments/${newest.id}?repo=${encodeURIComponent(repoId)}`}
         aria-label={`${status.label} assessment`}
         data-testid="commit-assessment-status"
         className="inline-flex"

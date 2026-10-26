@@ -177,6 +177,7 @@ def test_orchestrator_fail_closed_and_unknown_correlation() -> None:
     assert unknown.action is OrchestratorAction.correlate
     assert unknown.confirmation is ConfirmationState.unverified
     assert unknown.predicted_probability is None
+    assert unknown.deadline_at is not None
     auto = decide(_facts(auto_execute_requested=True))
     assert auto.action is OrchestratorAction.reject_auto_execute
     looped = decide(_facts(loop_count=1))

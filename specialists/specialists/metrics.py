@@ -19,7 +19,12 @@ def single_label(gold: list[str], pred: list[str], labels: list[str]) -> dict[st
         prec = tp / (tp + fp) if tp + fp else 0.0
         rec = tp / (tp + fn) if tp + fn else 0.0
         f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
-        per[lab] = {"precision": round(prec, 4), "recall": round(rec, 4), "f1": round(f1, 4), "support": tp + fn}
+        per[lab] = {
+            "precision": round(prec, 4),
+            "recall": round(rec, 4),
+            "f1": round(f1, 4),
+            "support": tp + fn,
+        }
     present = [lab for lab in labels if per[lab]["support"]]
     macro = sum(per[lab]["f1"] for lab in present) / len(present) if present else 0.0
     return {"n": n, "accuracy": round(acc, 4), "macro_f1": round(macro, 4), "per_label": per}
@@ -51,9 +56,19 @@ def ranked(gold: list[list[str]], pred: list[list[str]], k: int) -> dict[str, An
     prec = tp / n_pred if n_pred else 0.0
     rec = tp / n_gold if n_gold else 0.0
     f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
-    hit1 = sum(bool(p) and p[0] in g for g, p in zip(gold, pred, strict=True)) / len(gold) if gold else 0.0
-    return {"n": len(gold), "k": k, "precision_at_k": round(prec, 4), "recall_at_k": round(rec, 4),
-            "f1_at_k": round(f1, 4), "hit_at_1": round(hit1, 4)}
+    hit1 = (
+        sum(bool(p) and p[0] in g for g, p in zip(gold, pred, strict=True)) / len(gold)
+        if gold
+        else 0.0
+    )
+    return {
+        "n": len(gold),
+        "k": k,
+        "precision_at_k": round(prec, 4),
+        "recall_at_k": round(rec, 4),
+        "f1_at_k": round(f1, 4),
+        "hit_at_1": round(hit1, 4),
+    }
 
 
 def label_counts(rows: list[dict[str, Any]], multilabel: bool) -> dict[str, int]:

@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "ProviderAttemptState": {
+      "description": "Durable billable-request ledger. Unknown outcomes are never auto-replayed.",
+      "enum": [
+        "reserved",
+        "in_flight",
+        "settled",
+        "uncertain",
+        "cancelled"
+      ],
+      "title": "ProviderAttemptState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One billable provider request. Read-only intel queries are not recorded here.",
+  "properties": {
+    "cache_creation_input_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cache Creation Input Tokens"
+    },
+    "cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Usd"
+    },
+    "effect_key": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Effect Key"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Code"
+    },
+    "id": {
+      "maxLength": 500,
+      "title": "Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 500,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "input_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Tokens"
+    },
+    "model_id": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Id"
+    },
+    "output_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Tokens"
+    },
+    "reserved_at": {
+      "format": "date-time",
+      "title": "Reserved At",
+      "type": "string"
+    },
+    "response_id": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Response Id"
+    },
+    "sent_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sent At"
+    },
+    "settled_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Settled At"
+    },
+    "status": {
+      "$ref": "#/$defs/ProviderAttemptState"
+    }
+  },
+  "required": [
+    "id",
+    "idempotency_key",
+    "status",
+    "reserved_at"
+  ],
+  "title": "ProviderAttempt",
+  "type": "object"
+}

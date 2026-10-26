@@ -1,0 +1,23 @@
+{
+  "abstention_reason": "Labeled fixture: inference did not run.",
+  "action": null,
+  "action_mask_valid": null,
+  "auto_served_unapproved_checkpoint": false,
+  "checkpoint_sha256": null,
+  "eval_bundle_sha256": null,
+  "feature_mapping_note": null,
+  "feature_schema_ok": null,
+  "freshness_ok": null,
+  "inference_status": "skipped_unavailable",
+  "node": null,
+  "observation": null,
+  "observation_complete": null,
+  "observation_dim": null,
+  "policy_version": null,
+  "principal_targets": null,
+  "q_margin": null,
+  "q_values_are_not_probabilities": true,
+  "top_actions": null,
+  "trained_commit_sha": null,
+  "uncertainty": null
+}

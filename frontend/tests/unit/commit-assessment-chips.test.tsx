@@ -35,7 +35,7 @@ describe('commit assessment chips', () => {
     });
     renderChip();
     const link = await screen.findByTestId('commit-assessment-status');
-    expect(link.getAttribute('href')).toBe('/projects/project-1/assessments/new');
+    expect(link.getAttribute('href')).toBe('/projects/project-1/assessments/new?repo=repo-1');
     expect(link.textContent).toContain('Completed');
     expect(screen.getByTestId('other-assessments').textContent).toBe('+1');
     expect(screen.getByTestId('other-assessments').getAttribute('title')).toBe('1 more assessment of this commit');

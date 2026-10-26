@@ -121,7 +121,7 @@
       "type": "array"
     },
     "orchestrator_version": {
-      "default": "7a.1.1",
+      "default": "7c.1.0",
       "maxLength": 500,
       "title": "Orchestrator Version",
       "type": "string"

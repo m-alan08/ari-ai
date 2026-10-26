@@ -77,21 +77,22 @@ Rules that override convenience:
 ### 2.2 Shared contracts, additive 0.6.0 (`shared/shared/standards.py` + additions)
 
 ```python
-class StandardRef(StrictModel):          # one validated identifier with provenance
+class StandardRef(StrictModel):  # one validated identifier with provenance
     framework: Literal["attack", "d3fend", "cwe", "capec", "owasp_llm", "nist_800_61"]
-    id: ShortText                         # e.g. "T1078", "D3-NI", "CWE-639", "LLM01:2025"
-    name: ShortText                       # from the catalog, never model text
+    id: ShortText  # e.g. "T1078", "D3-NI", "CWE-639", "LLM01:2025"
+    name: ShortText  # from the catalog, never model text
     catalog_version: ShortText
     mapped_via: Literal["direct", "cwe_capec_attack", "attack_d3fend", "rule", "human"]
     confidence: Confidence
     evidence: list[EvidenceRef] = []
 
+
 class CVSSAssessment(StrictModel):
     version: Literal["4.0"]
-    vector: str                           # validated CVSS:4.0/AV:.../... string
+    vector: str  # validated CVSS:4.0/AV:.../... string
     base_score: float = Field(ge=0, le=10)
     severity: Literal["none", "low", "medium", "high", "critical"]
-    assumed_metrics: list[ShortText] = [] # metrics not determined by evidence
+    assumed_metrics: list[ShortText] = []  # metrics not determined by evidence
     rationale: ShortText
 ```
 
@@ -109,28 +110,29 @@ the CSF 2.0 Respond and Recover functions. Verify the phase and function names a
 published document, and keep a mapping table to the Rev. 2 lifecycle as well.
 
 ```python
-class IncidentPhase(StrEnum):   # Rev.2 lifecycle labels kept for familiarity, CSF function in data
+class IncidentPhase(StrEnum):  # Rev.2 lifecycle labels kept for familiarity, CSF function in data
     detection_analysis = "detection_analysis"
     containment = "containment"
     eradication = "eradication"
     recovery = "recovery"
     post_incident = "post_incident"
 
+
 class Incident(StrictModel):
-    id: IncidentId                 # new id prefix "inc"
+    id: IncidentId  # new id prefix "inc"
     project_id: ProjectId
     title: ShortText
     phase: IncidentPhase
     csf_function: Literal["DE", "RS", "RC", "ID", "PR", "GV"]
     severity: SeverityLevel
-    simulated: bool                # true when built only from demo/replay/simulated signals
+    simulated: bool  # true when built only from demo/replay/simulated signals
     monitoring_event_ids: list[MonitoringEventId]
     finding_ids: list[FindingId]
-    recommendation_ids: list[RecommendationId]   # RL, simulation-derived
+    recommendation_ids: list[RecommendationId]  # RL, simulation-derived
     approval_ids: list[ApprovalId]
     attack: list[StandardRef] = []
-    timeline: list[IncidentTimelineEntry]        # who/what/when, linked to audit events
-    lessons_learned: ShortText | None = None     # filled in post_incident, cites regression tests
+    timeline: list[IncidentTimelineEntry]  # who/what/when, linked to audit events
+    lessons_learned: ShortText | None = None  # filled in post_incident, cites regression tests
     opened_at: UtcDatetime
     closed_at: UtcDatetime | None = None
 ```

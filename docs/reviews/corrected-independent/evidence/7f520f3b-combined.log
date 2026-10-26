@@ -1,0 +1,26 @@
+...F.................................................................... [ 68%]
+.................................                                        [100%]
+=================================== FAILURES ===================================
+____________ test_declared_transfer_order_does_not_downgrade_schema ____________
+
+    def test_declared_transfer_order_does_not_downgrade_schema():
+        heads = [
+            "8396e836866e33ebc34a402a7c8bd0eb6bc769d8",
+            "6e6733a69170ece2343f9a1eb3e06881d89e0ebe",
+            "cfa06bf649c5ca608c56badc497f0ad69ce444f0",
+            "db8b1fd718522d8b7b2ec8daaf51f93881e4142b",
+        ]
+        versions = [_literal(sha, "shared/shared/__init__.py", "SCHEMA_VERSION") for sha in heads]
+        assert all(isinstance(v, str) for v in versions), versions
+        numeric = [tuple(map(int, v.split("."))) for v in versions]
+>       assert numeric == sorted(numeric), versions
+E       AssertionError: ['0.23.0', '0.24.0', '0.26.0', '0.25.0']
+E       assert [(0, 23, 0), ...), (0, 25, 0)] == [(0, 23, 0), ...), (0, 26, 0)]
+E         
+E         At index 2 diff: (0, 26, 0) != (0, 25, 0)
+E         Use -v to get more diff
+
+backend/tests/test_rc2_transfer_manifest.py:41: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_rc2_transfer_manifest.py::test_declared_transfer_order_does_not_downgrade_schema
+1 failed, 104 passed in 14.37s

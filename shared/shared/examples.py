@@ -381,12 +381,14 @@ def build() -> dict[str, BaseModel]:
             ingest_configured=True,
             last_ingest_at=T0,
             verification=live_defense.ApplicationVerification.ingest_seen,
+            rl_gated_pilot=True,
             created_by=USR,
             created_at=T0,
         ),
         "ConnectedApplicationCreate": live_defense.ConnectedApplicationCreate(
             name="payments-lite staging",
             environment=live_defense.StagingEnvironment.sandbox,
+            rl_gated_pilot=True,
         ),
         "IngestTokenView": live_defense.IngestTokenView(
             id=ITK,
@@ -420,6 +422,99 @@ def build() -> dict[str, BaseModel]:
             reviews=0,
             incidents=0,
             health=live_defense.DefenseHealth(project_id=PRJ, queue_depth=0),
+        ),
+        "RlEvaluationMetricSpec": live_defense.RlEvaluationMetricSpec(
+            name="compromise",
+            description="Unauthorized access remaining after the candidate acts.",
+        ),
+        "RlCategoryResult": live_defense.RlCategoryResult(
+            category=live_defense.RlEvidenceCategory.A_frozen_scenarios,
+            letter="A",
+            title="Frozen evaluation scenarios",
+            status=live_defense.EvidenceCheckStatus.blocked,
+            summary="No RL-owner-approved frozen scenario set for this gate.",
+            evidence_notes=["Open or merged research PRs are not scenario approval."],
+        ),
+        "RlEvaluationPlan": live_defense.RlEvaluationPlan(
+            metrics=[
+                live_defense.RlEvaluationMetricSpec(
+                    name="compromise",
+                    description="Unauthorized access remaining after the candidate acts.",
+                )
+            ]
+        ),
+        "PolicyServingOutput": live_defense.PolicyServingOutput(
+            inference_status=live_defense.InferenceStatus.skipped_unavailable,
+            abstention_reason="Labeled fixture: inference did not run.",
+        ),
+        "HostedInferenceReadinessConfig": live_defense.HostedInferenceReadinessConfig(
+            compatibility_fixture_sha256="8113a37f4ff9360a9efed2e9f499c4b2ae36e97bfb78372436f97da106fc05f1",
+        ),
+        "HostedInferenceReadinessReport": live_defense.HostedInferenceReadinessReport(
+            config=live_defense.HostedInferenceReadinessConfig(),
+            approved_checkpoint_present=False,
+            v6_used_only_as_compatibility_fixture=True,
+            notes=["v6 is a compatibility fixture; it did not pass the new criteria."],
+        ),
+        "PilotLeftoverInventory": live_defense.PilotLeftoverInventory(
+            active_grants=1,
+            active_channels=0,
+            leftover_controls=0,
+            pending_execute_jobs=0,
+            details=["active grant cgr_fixture"],
+        ),
+        "PilotEnablement": live_defense.PilotEnablement(
+            application=live_defense.ConnectedApplication(
+                id=APP,
+                project_id=PRJ,
+                name="payments-lite staging",
+                environment=live_defense.StagingEnvironment.owned_test,
+                ingest_configured=False,
+                verification=live_defense.ApplicationVerification.unverified,
+                rl_gated_pilot=False,
+                created_by=USR,
+                created_at=T0,
+            ),
+            enabled=False,
+            leftover=live_defense.PilotLeftoverInventory(
+                active_grants=1,
+                active_channels=0,
+                leftover_controls=0,
+                pending_execute_jobs=0,
+            ),
+            fail_closed=True,
+            reason="Existing controls must be removed and verified before enabling.",
+        ),
+        "RlReadinessAssessment": live_defense.RlReadinessAssessment(
+            generated_at=T0,
+            schema_version="0.20.0",
+            origin_main_sha="74a0a3c202fec943e78c8ca03b0c0ba445639c7a",
+            categories=[
+                live_defense.RlCategoryResult(
+                    category=live_defense.RlEvidenceCategory.A_frozen_scenarios,
+                    letter="A",
+                    title="Frozen evaluation scenarios",
+                    status=live_defense.EvidenceCheckStatus.blocked,
+                    summary="No RL-owner-approved frozen scenario set for this gate.",
+                )
+            ],
+            evaluation_plan=live_defense.RlEvaluationPlan(
+                metrics=[
+                    live_defense.RlEvaluationMetricSpec(
+                        name="compromise",
+                        description="Unauthorized access remaining after the candidate acts.",
+                    )
+                ]
+            ),
+            serving_contract=live_defense.PolicyServingOutput(),
+            hosted_inference=live_defense.HostedInferenceReadinessReport(
+                config=live_defense.HostedInferenceReadinessConfig(),
+                approved_checkpoint_present=False,
+                v6_used_only_as_compatibility_fixture=True,
+            ),
+            ready=False,
+            verdict=live_defense.PilotVerdict.infrastructure_ready_rl_blocked,
+            infrastructure_complete=True,
         ),
         "ComponentNode": live_defense.ComponentNode(
             id=APP, label="payments-lite staging", kind=live_defense.ComponentNodeKind.application
@@ -653,6 +748,28 @@ def build() -> dict[str, BaseModel]:
             name=assessment.AgentName.probe,
             reason="AuthorizedScope is not active",
             capability_class=live_defense.AgentCapabilityClass.disruptive_scoped,
+        ),
+        "AgentExecutionRecord": live_defense.AgentExecutionRecord(
+            provider_mode="fake",
+            model_id="claude-haiku-5-5",
+            cost_usd=0.01,
+            latency_ms=1200,
+            llm_turns=4,
+            tool_call_count=3,
+            started_at=T0,
+            ended_at=T0,
+            typed_output=True,
+            hypothesis_count=1,
+            execution_integrity=live_defense.ExecutionIntegrity.checked,
+        ),
+        "ProviderAttempt": live_defense.ProviderAttempt(
+            id="att_fixture_1",
+            idempotency_key="fr-provider:fri_fixture:1",
+            status=live_defense.ProviderAttemptState.settled,
+            reserved_at=T0,
+            sent_at=T0,
+            settled_at=T0,
+            effect_key="provider:att_fixture_1",
         ),
         "FirstResponderDecision": live_defense.FirstResponderDecision(
             id=FRD,

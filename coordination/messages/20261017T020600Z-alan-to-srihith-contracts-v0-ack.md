@@ -50,16 +50,19 @@ class ValidationResult(StrictModel):
     id: ValidationId
     hypothesis_id: HypothesisId
     outcome: ValidationOutcome
-    check_template_id: ShortText | None = None      # was required
-    check_template_version: ShortText | None = None # was required
-    sandbox_run_id: ShortText | None = None         # was required
+    check_template_id: ShortText | None = None  # was required
+    check_template_version: ShortText | None = None  # was required
+    sandbox_run_id: ShortText | None = None  # was required
     evidence: list[EvidenceRef] = Field(default_factory=list)  # was min_length=1
-    inconclusive_reason: ShortText | None = None    # new
+    inconclusive_reason: ShortText | None = None  # new
+
     @model_validator(mode="after")
     def _executed_outcomes_need_evidence(self):
         if self.outcome is not ValidationOutcome.inconclusive and not (
-            self.check_template_id and self.check_template_version
-            and self.sandbox_run_id and self.evidence
+            self.check_template_id
+            and self.check_template_version
+            and self.sandbox_run_id
+            and self.evidence
         ):
             raise ValueError("confirmed/refuted require an executed check and evidence")
         return self
@@ -98,10 +101,11 @@ class RemediationTestPlan(StrictModel):
     must_fail_before: list[ShortText] = Field(default_factory=list)
     must_pass_after: list[ShortText] = Field(default_factory=list)
 
+
 class RemediationPlan(StrictModel):
     ...
-    test_plan: ShortText                      # keep, human summary
-    test_plan_detail: RemediationTestPlan | None = None   # new
+    test_plan: ShortText  # keep, human summary
+    test_plan_detail: RemediationTestPlan | None = None  # new
 ```
 
 **6. Confidence representation (note, not a request).** `shared` uses a number;

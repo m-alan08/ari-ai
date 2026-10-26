@@ -1,0 +1,16 @@
+{
+  "cache_creation_input_tokens": null,
+  "cost_usd": null,
+  "effect_key": "provider:att_fixture_1",
+  "error_code": null,
+  "id": "att_fixture_1",
+  "idempotency_key": "fr-provider:fri_fixture:1",
+  "input_tokens": null,
+  "model_id": null,
+  "output_tokens": null,
+  "reserved_at": "2026-10-17T01:00:00Z",
+  "response_id": null,
+  "sent_at": "2026-10-17T01:00:00Z",
+  "settled_at": "2026-10-17T01:00:00Z",
+  "status": "settled"
+}

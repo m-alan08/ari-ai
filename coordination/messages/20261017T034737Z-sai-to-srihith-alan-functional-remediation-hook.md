@@ -16,9 +16,13 @@
   # before entering AWAITING_APPROVAL (alongside the security remediation approvals):
   review_api.request_functional_approvals(host)
   # on resume, in REMEDIATION, before/next to Patch:
-  for out in review_api.repair_approved_functional_findings(host, repo_id=host.repo_id, source=RepoSource(binding.local_path, subdir=sub)):
+  for out in review_api.repair_approved_functional_findings(
+      host, repo_id=host.repo_id, source=RepoSource(binding.local_path, subdir=sub)
+  ):
       if out.patch:  # hand to Verify exactly like a Patch-agent candidate
-          verify(out.patch, tests_added=out.patch.tests_added)   # protected_tests = all tests + generated
+          verify(
+              out.patch, tests_added=out.patch.tests_added
+          )  # protected_tests = all tests + generated
   ```
   Verify inputs for these candidates: the diff artifact (`patch.diff_artifact_id`), `tests_added` (the generated test paths, sources via `load_test_sources(host, finding)`, sha256-checked), and the baseline (`existing@pristine` in the replay artifact `out.test_report_artifact_id`).
 - Breaking change? migration/test impact: none (new functions).

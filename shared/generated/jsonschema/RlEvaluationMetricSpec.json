@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "description": "One required metric. Numeric thresholds stay unset until RL-owner approval.",
+  "properties": {
+    "description": {
+      "maxLength": 500,
+      "title": "Description",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 500,
+      "title": "Name",
+      "type": "string"
+    },
+    "threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Null until the RL owner approves a threshold. Never invented.",
+      "title": "Threshold"
+    },
+    "threshold_status": {
+      "const": "pending_rl_owner_approval",
+      "default": "pending_rl_owner_approval",
+      "title": "Threshold Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "description"
+  ],
+  "title": "RlEvaluationMetricSpec",
+  "type": "object"
+}

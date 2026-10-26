@@ -20,6 +20,12 @@
       "maxLength": 500,
       "title": "Name",
       "type": "string"
+    },
+    "rl_gated_pilot": {
+      "default": false,
+      "description": "Register already in server-enforced shadow-only mode.",
+      "title": "Rl Gated Pilot",
+      "type": "boolean"
     }
   },
   "required": [

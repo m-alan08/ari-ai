@@ -200,6 +200,9 @@ def schedule(
         _record_schedule_ignore(conn, repo, delivery, change, reason, actor)
         return {"ignored": reason}
 
+    if repo["disconnected_at"] is not None:
+        return ignored("repository disconnected")
+
     if not repo["automatic_assessments"]:
         return ignored("skipped: repository automatic assessments disabled")
     reason = reviewer_ignore_reason(conn, repo, payload, change)
@@ -444,6 +447,8 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
         )
     if repo["installation_id"] != p["installation_id"]:
         return policy_exit(p, "repository installation changed")
+    if repo["disconnected_at"] is not None:
+        return policy_exit(p, "repository disconnected")
     try:
         commit = github_client().commit(repo["installation_id"], repo["full_name"], p["sha"])
     except httpx.HTTPStatusError as exc:

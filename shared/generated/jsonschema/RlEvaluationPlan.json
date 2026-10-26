@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "RlEvaluationMetricSpec": {
+      "additionalProperties": false,
+      "description": "One required metric. Numeric thresholds stay unset until RL-owner approval.",
+      "properties": {
+        "description": {
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 500,
+          "title": "Name",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null until the RL owner approves a threshold. Never invented.",
+          "title": "Threshold"
+        },
+        "threshold_status": {
+          "const": "pending_rl_owner_approval",
+          "default": "pending_rl_owner_approval",
+          "title": "Threshold Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "title": "RlEvaluationMetricSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Required evaluation dimensions. Pass-by-total-reward is forbidden.",
+  "properties": {
+    "abstention_required": {
+      "const": true,
+      "default": true,
+      "title": "Abstention Required",
+      "type": "boolean"
+    },
+    "baselines": {
+      "items": {
+        "enum": [
+          "rules",
+          "fixed_block",
+          "v6"
+        ],
+        "type": "string"
+      },
+      "title": "Baselines",
+      "type": "array"
+    },
+    "frozen_scenarios_required": {
+      "const": true,
+      "default": true,
+      "title": "Frozen Scenarios Required",
+      "type": "boolean"
+    },
+    "holdout_required": {
+      "const": true,
+      "default": true,
+      "title": "Holdout Required",
+      "type": "boolean"
+    },
+    "independent_seeds_required": {
+      "const": true,
+      "default": true,
+      "title": "Independent Seeds Required",
+      "type": "boolean"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/RlEvaluationMetricSpec"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "pass_by_total_reward": {
+      "const": false,
+      "default": false,
+      "title": "Pass By Total Reward",
+      "type": "boolean"
+    },
+    "per_scenario_required": {
+      "const": true,
+      "default": true,
+      "title": "Per Scenario Required",
+      "type": "boolean"
+    },
+    "provenance_required": {
+      "const": true,
+      "default": true,
+      "title": "Provenance Required",
+      "type": "boolean"
+    },
+    "threshold_owner": {
+      "const": "rl_owner",
+      "default": "rl_owner",
+      "title": "Threshold Owner",
+      "type": "string"
+    },
+    "thresholds_invented": {
+      "const": false,
+      "default": false,
+      "title": "Thresholds Invented",
+      "type": "boolean"
+    },
+    "uncertainty_required": {
+      "const": true,
+      "default": true,
+      "title": "Uncertainty Required",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "metrics"
+  ],
+  "title": "RlEvaluationPlan",
+  "type": "object"
+}

@@ -6,7 +6,7 @@
   "budget_usd_remaining": null,
   "cancel_reason": null,
   "cancelled": false,
-  "caveat": "Deterministic first-responder decision. LLM prose is never proof of a confirmed threat. RL recommendations are not executed defense. AUTO-EXECUTE does not exist.",
+  "caveat": "Deterministic first-responder decision. LLM prose is never proof of a confirmed threat. An executed investigative agent is not independent verification. RL recommendations are not executed defense. AUTO-EXECUTE does not exist.",
   "confirmation": "unverified",
   "correlation": {
     "application_id": "app_01JFIXTURE0000000000000APP",
@@ -28,7 +28,7 @@
   "live_policy_decision_id": "lpd_01JFIXTURE0000000000000LPD",
   "llm_prose_is_not_confirmation": true,
   "loop_count": 0,
-  "orchestrator_version": "7a.1.1",
+  "orchestrator_version": "7c.1.0",
   "outcome_label": null,
   "predicted_probability": null,
   "project_id": "prj_01JFIXTURE0000000000000PRJ",

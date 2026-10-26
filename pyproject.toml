@@ -47,6 +47,9 @@ markers = [
   "live_llm: real Anthropic provider call; requires RUN_LIVE_LLM_EVAL=1 and a key",
   "db: needs PostgreSQL",
   "owasp_llm(category): evidence for an OWASP LLM Top 10 control",
+  "live_defense_e2e: Live Defense owned-staging end-to-end scenario",
+  "live_defense_smoke: fast subset of the Live Defense e2e suite",
+  "live_defense_fault: failure-injection Live Defense e2e scenario",
 ]
 
 [tool.ruff]

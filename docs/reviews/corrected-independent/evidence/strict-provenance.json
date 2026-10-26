@@ -1,0 +1,20 @@
+{
+  "backend/tests/live_defense_e2e/test_rc2_independent.py": {
+    "byte_identical_to_previous_audit": true,
+    "ast_identical": true,
+    "sha256": "d206509a24584401ba68ae3202cb0e389705aa6da85e34d3b3e0d803ebc41de1",
+    "skip_xfail_attributes": []
+  },
+  "backend/tests/live_defense_e2e/test_independent_integration.py": {
+    "byte_identical_to_previous_audit": true,
+    "ast_identical": true,
+    "sha256": "d6ce293b749b7403b89cb4dadc6dfe1bd97e32dce374020738b002d52127d4b9",
+    "skip_xfail_attributes": []
+  },
+  "backend/tests/live_defense_e2e/test_exec_reliability_compat.py": {
+    "byte_identical_to_previous_audit": true,
+    "ast_identical": true,
+    "sha256": "6977d8dc649701ccdaa5f4e5ebec2d273cc10fc3904ad091ab7d1f9062932f4b",
+    "skip_xfail_attributes": []
+  }
+}

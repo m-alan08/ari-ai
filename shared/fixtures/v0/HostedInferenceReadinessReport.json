@@ -1,0 +1,22 @@
+{
+  "approved_checkpoint_present": false,
+  "config": {
+    "abstention_on_assumption_failure": true,
+    "approved_checkpoint_sha256": null,
+    "auto_serve_newer_research_checkpoints": false,
+    "auto_serve_unapproved": false,
+    "compatibility_fixture_sha256": null,
+    "fallback_producer": "abstention",
+    "inference_timeout_ms": null,
+    "isolation": "Worker process only; untrusted target code stays in the sandbox; no outbound network by default.",
+    "refuse_on_hash_mismatch": true,
+    "refuse_on_tamper": true,
+    "restart_on_timeout": null,
+    "v6_claimed_to_pass_new_criteria": false
+  },
+  "notes": [
+    "v6 is a compatibility fixture; it did not pass the new criteria."
+  ],
+  "v6_passed_new_criteria": false,
+  "v6_used_only_as_compatibility_fixture": true
+}

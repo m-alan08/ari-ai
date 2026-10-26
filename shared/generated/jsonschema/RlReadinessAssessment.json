@@ -1,0 +1,848 @@
+{
+  "$defs": {
+    "ActionScore": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "noop",
+            "raise_monitoring",
+            "rate_limit",
+            "isolate",
+            "request_reassessment",
+            "escalate_to_human",
+            "block_principal",
+            "block_principal_long",
+            "block_top_principal_long"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "enum": [
+                "gateway",
+                "api",
+                "auth",
+                "payments",
+                "db"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Node"
+        },
+        "q_value": {
+          "title": "Q Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "action",
+        "node",
+        "q_value"
+      ],
+      "title": "ActionScore",
+      "type": "object"
+    },
+    "EvidenceCheckStatus": {
+      "description": "Dashboard values. Computed by the backend, never a frontend flag.",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "NOT VERIFIED"
+      ],
+      "title": "EvidenceCheckStatus",
+      "type": "string"
+    },
+    "HostedInferenceReadinessConfig": {
+      "additionalProperties": false,
+      "description": "Declarative requirements for a future approved checkpoint. Does not serve one.",
+      "properties": {
+        "abstention_on_assumption_failure": {
+          "const": true,
+          "default": true,
+          "title": "Abstention On Assumption Failure",
+          "type": "boolean"
+        },
+        "approved_checkpoint_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved Checkpoint Sha256"
+        },
+        "auto_serve_newer_research_checkpoints": {
+          "const": false,
+          "default": false,
+          "title": "Auto Serve Newer Research Checkpoints",
+          "type": "boolean"
+        },
+        "auto_serve_unapproved": {
+          "const": false,
+          "default": false,
+          "title": "Auto Serve Unapproved",
+          "type": "boolean"
+        },
+        "compatibility_fixture_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Frozen v6 hash used only in compatibility tests, not as an approved policy.",
+          "title": "Compatibility Fixture Sha256"
+        },
+        "fallback_producer": {
+          "default": "abstention",
+          "enum": [
+            "rules",
+            "abstention"
+          ],
+          "title": "Fallback Producer",
+          "type": "string"
+        },
+        "inference_timeout_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unset until the RL owner approves a timeout.",
+          "title": "Inference Timeout Ms"
+        },
+        "isolation": {
+          "default": "Worker process only; untrusted target code stays in the sandbox; no outbound network by default.",
+          "maxLength": 500,
+          "title": "Isolation",
+          "type": "string"
+        },
+        "refuse_on_hash_mismatch": {
+          "const": true,
+          "default": true,
+          "title": "Refuse On Hash Mismatch",
+          "type": "boolean"
+        },
+        "refuse_on_tamper": {
+          "const": true,
+          "default": true,
+          "title": "Refuse On Tamper",
+          "type": "boolean"
+        },
+        "restart_on_timeout": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restart On Timeout"
+        },
+        "v6_claimed_to_pass_new_criteria": {
+          "const": false,
+          "default": false,
+          "title": "V6 Claimed To Pass New Criteria",
+          "type": "boolean"
+        }
+      },
+      "title": "HostedInferenceReadinessConfig",
+      "type": "object"
+    },
+    "HostedInferenceReadinessReport": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_checkpoint_present": {
+          "title": "Approved Checkpoint Present",
+          "type": "boolean"
+        },
+        "config": {
+          "$ref": "#/$defs/HostedInferenceReadinessConfig"
+        },
+        "notes": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "v6_passed_new_criteria": {
+          "const": false,
+          "default": false,
+          "title": "V6 Passed New Criteria",
+          "type": "boolean"
+        },
+        "v6_used_only_as_compatibility_fixture": {
+          "title": "V6 Used Only As Compatibility Fixture",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "config",
+        "approved_checkpoint_present",
+        "v6_used_only_as_compatibility_fixture"
+      ],
+      "title": "HostedInferenceReadinessReport",
+      "type": "object"
+    },
+    "InferenceStatus": {
+      "description": "Whether frozen v6 inference ran. Q-values exist only when ``ran``.",
+      "enum": [
+        "ran",
+        "skipped_quiet_window",
+        "skipped_incomplete",
+        "skipped_stale",
+        "skipped_source",
+        "skipped_unavailable",
+        "skipped_schema",
+        "skipped_mask",
+        "skipped_authorization",
+        "skipped_target"
+      ],
+      "title": "InferenceStatus",
+      "type": "string"
+    },
+    "PilotVerdict": {
+      "enum": [
+        "INFRASTRUCTURE READY \u2014 RL BLOCKED",
+        "RL VALIDATED \u2014 PILOT READY FOR OWNER APPROVAL",
+        "PILOT APPROVED"
+      ],
+      "title": "PilotVerdict",
+      "type": "string"
+    },
+    "PolicyServingOutput": {
+      "additionalProperties": false,
+      "description": "Stable serving contract for a future approved policy. Missing fields stay missing.",
+      "properties": {
+        "abstention_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abstention Reason"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "enum": [
+                "noop",
+                "raise_monitoring",
+                "rate_limit",
+                "isolate",
+                "request_reassessment",
+                "escalate_to_human",
+                "block_principal",
+                "block_principal_long",
+                "block_top_principal_long"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action"
+        },
+        "action_mask_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action Mask Valid"
+        },
+        "auto_served_unapproved_checkpoint": {
+          "const": false,
+          "default": false,
+          "title": "Auto Served Unapproved Checkpoint",
+          "type": "boolean"
+        },
+        "checkpoint_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpoint Sha256"
+        },
+        "eval_bundle_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Eval Bundle Sha256"
+        },
+        "feature_mapping_note": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feature Mapping Note"
+        },
+        "feature_schema_ok": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Feature Schema Ok"
+        },
+        "freshness_ok": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshness Ok"
+        },
+        "inference_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InferenceStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "node": {
+          "anyOf": [
+            {
+              "enum": [
+                "gateway",
+                "api",
+                "auth",
+                "payments",
+                "db"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node"
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation"
+        },
+        "observation_complete": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation Complete"
+        },
+        "observation_dim": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation Dim"
+        },
+        "policy_version": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Version"
+        },
+        "principal_targets": {
+          "anyOf": [
+            {
+              "items": {
+                "description": "Pseudonymous principal reference chosen by the reporter (e.g. an HMAC of its user id under a key the platform never sees); never an email or raw id",
+                "pattern": "^prn_[A-Za-z0-9_-]{4,64}$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Principal Targets"
+        },
+        "q_margin": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Q Margin"
+        },
+        "q_values_are_not_probabilities": {
+          "const": true,
+          "default": true,
+          "title": "Q Values Are Not Probabilities",
+          "type": "boolean"
+        },
+        "top_actions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ActionScore"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Top Actions"
+        },
+        "trained_commit_sha": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trained Commit Sha"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        }
+      },
+      "title": "PolicyServingOutput",
+      "type": "object"
+    },
+    "RlCategoryResult": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/RlEvidenceCategory"
+        },
+        "evidence_notes": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "title": "Evidence Notes",
+          "type": "array"
+        },
+        "letter": {
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "H",
+            "I",
+            "J"
+          ],
+          "title": "Letter",
+          "type": "string"
+        },
+        "mandatory": {
+          "default": true,
+          "title": "Mandatory",
+          "type": "boolean"
+        },
+        "open_pr_is_not_readiness": {
+          "const": true,
+          "default": true,
+          "title": "Open Pr Is Not Readiness",
+          "type": "boolean"
+        },
+        "research_docs_are_not_readiness": {
+          "const": true,
+          "default": true,
+          "title": "Research Docs Are Not Readiness",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/EvidenceCheckStatus"
+        },
+        "summary": {
+          "maxLength": 500,
+          "title": "Summary",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "title": "Title",
+          "type": "string"
+        },
+        "unit_tests_are_not_readiness": {
+          "const": true,
+          "default": true,
+          "title": "Unit Tests Are Not Readiness",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "category",
+        "letter",
+        "title",
+        "status",
+        "summary"
+      ],
+      "title": "RlCategoryResult",
+      "type": "object"
+    },
+    "RlEvaluationMetricSpec": {
+      "additionalProperties": false,
+      "description": "One required metric. Numeric thresholds stay unset until RL-owner approval.",
+      "properties": {
+        "description": {
+          "maxLength": 500,
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 500,
+          "title": "Name",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null until the RL owner approves a threshold. Never invented.",
+          "title": "Threshold"
+        },
+        "threshold_status": {
+          "const": "pending_rl_owner_approval",
+          "default": "pending_rl_owner_approval",
+          "title": "Threshold Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ],
+      "title": "RlEvaluationMetricSpec",
+      "type": "object"
+    },
+    "RlEvaluationPlan": {
+      "additionalProperties": false,
+      "description": "Required evaluation dimensions. Pass-by-total-reward is forbidden.",
+      "properties": {
+        "abstention_required": {
+          "const": true,
+          "default": true,
+          "title": "Abstention Required",
+          "type": "boolean"
+        },
+        "baselines": {
+          "items": {
+            "enum": [
+              "rules",
+              "fixed_block",
+              "v6"
+            ],
+            "type": "string"
+          },
+          "title": "Baselines",
+          "type": "array"
+        },
+        "frozen_scenarios_required": {
+          "const": true,
+          "default": true,
+          "title": "Frozen Scenarios Required",
+          "type": "boolean"
+        },
+        "holdout_required": {
+          "const": true,
+          "default": true,
+          "title": "Holdout Required",
+          "type": "boolean"
+        },
+        "independent_seeds_required": {
+          "const": true,
+          "default": true,
+          "title": "Independent Seeds Required",
+          "type": "boolean"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/RlEvaluationMetricSpec"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "pass_by_total_reward": {
+          "const": false,
+          "default": false,
+          "title": "Pass By Total Reward",
+          "type": "boolean"
+        },
+        "per_scenario_required": {
+          "const": true,
+          "default": true,
+          "title": "Per Scenario Required",
+          "type": "boolean"
+        },
+        "provenance_required": {
+          "const": true,
+          "default": true,
+          "title": "Provenance Required",
+          "type": "boolean"
+        },
+        "threshold_owner": {
+          "const": "rl_owner",
+          "default": "rl_owner",
+          "title": "Threshold Owner",
+          "type": "string"
+        },
+        "thresholds_invented": {
+          "const": false,
+          "default": false,
+          "title": "Thresholds Invented",
+          "type": "boolean"
+        },
+        "uncertainty_required": {
+          "const": true,
+          "default": true,
+          "title": "Uncertainty Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metrics"
+      ],
+      "title": "RlEvaluationPlan",
+      "type": "object"
+    },
+    "RlEvidenceCategory": {
+      "description": "Mandatory evidence categories for the RL-gated pilot. Letters A\u2013J.",
+      "enum": [
+        "A_frozen_scenarios",
+        "B_holdout",
+        "C_independent_seeds",
+        "D_baselines",
+        "E_safety_metrics",
+        "F_per_scenario",
+        "G_abstention",
+        "H_uncertainty",
+        "I_provenance",
+        "J_hosted_serving"
+      ],
+      "title": "RlEvidenceCategory",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Machine-readable RL-gated pilot assessment. ready is backend-computed.",
+  "properties": {
+    "categories": {
+      "items": {
+        "$ref": "#/$defs/RlCategoryResult"
+      },
+      "title": "Categories",
+      "type": "array"
+    },
+    "caveat": {
+      "default": "Phase 6 CONDITIONAL GO is rules-based shadow only. The RL-gated pilot stays blocked until RL-owner evidence exists. Open PRs, unit tests, and research docs are not model readiness. Q-values are not probabilities.",
+      "maxLength": 500,
+      "title": "Caveat",
+      "type": "string"
+    },
+    "customer_infra_provisioned": {
+      "const": false,
+      "default": false,
+      "title": "Customer Infra Provisioned",
+      "type": "boolean"
+    },
+    "evaluation_plan": {
+      "$ref": "#/$defs/RlEvaluationPlan"
+    },
+    "gated_application_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gated Application Count",
+      "type": "integer"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "hosted_inference": {
+      "$ref": "#/$defs/HostedInferenceReadinessReport"
+    },
+    "infrastructure_complete": {
+      "title": "Infrastructure Complete",
+      "type": "boolean"
+    },
+    "origin_main_sha": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Origin Main Sha"
+    },
+    "owner_pilot_authorization": {
+      "const": false,
+      "default": false,
+      "title": "Owner Pilot Authorization",
+      "type": "boolean"
+    },
+    "phase6_verdict": {
+      "default": "CONDITIONAL GO (rules-based shadow). Distinct from the RL-gated pilot.",
+      "maxLength": 500,
+      "title": "Phase6 Verdict",
+      "type": "string"
+    },
+    "phase7_started": {
+      "const": false,
+      "default": false,
+      "title": "Phase7 Started",
+      "type": "boolean"
+    },
+    "ready": {
+      "title": "Ready",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "maxLength": 500,
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "serving_contract": {
+      "$ref": "#/$defs/PolicyServingOutput"
+    },
+    "verdict": {
+      "$ref": "#/$defs/PilotVerdict"
+    }
+  },
+  "required": [
+    "generated_at",
+    "schema_version",
+    "categories",
+    "evaluation_plan",
+    "serving_contract",
+    "hosted_inference",
+    "ready",
+    "verdict",
+    "infrastructure_complete"
+  ],
+  "title": "RlReadinessAssessment",
+  "type": "object"
+}

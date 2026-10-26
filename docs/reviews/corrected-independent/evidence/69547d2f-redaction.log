@@ -1,0 +1,38 @@
+..F........................                                              [100%]
+=================================== FAILURES ===================================
+_____ test_code_redaction_scrubs_quoted_values_and_high_confidence_secrets _____
+
+    def test_code_redaction_scrubs_quoted_values_and_high_confidence_secrets() -> None:
+        github_token = "ghp_" + "a" * 20
+        aws_key = "AKIA" + "A" * 16
+        stripe_key = "sk_live_" + "x" * 24
+        jwt = "eyJhbGci.eyJzdWI.sig"
+        dsn = "postgresql://" + "u:p@h/db"
+        diff = (
+            "--- a/example.py\n"
+            "+++ b/example.py\n"
+            "@@ -1,6 +1,6 @@\n"
+            '+password = "hunter2"\n'
+            "+client_secret = 'quoted value'\n"
+            f'+github_value = "{github_token}"\n'
+            f'+aws_value = "{aws_key}"\n'
+            f'+stripe_value = "{stripe_key}"\n'
+            f'+jwt_value = "{jwt}"\n'
+            f'+dsn_value = "{dsn}"\n'
+        )
+    
+        redacted = redact_code(diff)
+    
+        assert '+password = "[REDACTED:kv]"' in redacted
+        assert "+client_secret = '[REDACTED:kv]'" in redacted
+        assert "[REDACTED:github_token]" in redacted
+        assert "[REDACTED:aws_key]" in redacted
+        assert "[REDACTED:stripe_key]" in redacted
+        assert "[REDACTED:jwt]" in redacted
+>       assert "[REDACTED:dsn_credentials]" in redacted
+E       assert '[REDACTED:dsn_credentials]' in '--- a/example.py\n+++ b/example.py\n@@ -1,6 +1,6 @@\n+password = "[REDACTED:kv]"\n+client_secret = \'[REDACTED:kv]\'\...CTED:stripe_key]"\n+jwt_value = "[REDACTED:jwt]"\n+dsn_value = "postgresql://[REDACTED:[REDACTED:uri_password]@h/db"\n'
+
+backend/tests/test_redact_code.py:77: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_redact_code.py::test_code_redaction_scrubs_quoted_values_and_high_confidence_secrets
+1 failed, 26 passed in 0.71s

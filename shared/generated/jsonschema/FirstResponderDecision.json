@@ -295,7 +295,7 @@
       "type": "boolean"
     },
     "caveat": {
-      "default": "Deterministic first-responder decision. LLM prose is never proof of a confirmed threat. RL recommendations are not executed defense. AUTO-EXECUTE does not exist.",
+      "default": "Deterministic first-responder decision. LLM prose is never proof of a confirmed threat. An executed investigative agent is not independent verification. RL recommendations are not executed defense. AUTO-EXECUTE does not exist.",
       "maxLength": 500,
       "title": "Caveat",
       "type": "string"
@@ -384,7 +384,7 @@
       "type": "integer"
     },
     "orchestrator_version": {
-      "default": "7a.1.1",
+      "default": "7c.1.0",
       "maxLength": 500,
       "title": "Orchestrator Version",
       "type": "string"

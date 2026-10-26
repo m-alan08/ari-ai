@@ -1,0 +1,177 @@
+name: live-defense-e2e
+
+# Workstream 2: Live Defense owned-staging end-to-end suite
+# (backend/tests/live_defense_e2e). Real HTTP routes, real PostgreSQL, the real
+# durable job queue and the real security_agents runtime; the model is scripted
+# (FakeLLM / fault injectors) — never a real Anthropic call on this workflow.
+# The live-provider test is opt-in and manual-only (see `live` job + Makefile
+# target `e2e-ld-live`).
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "shared/**"
+      - "monitoring/**"
+      - "security-agents/**"
+      - "examples/payments-lite/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/live-defense-e2e.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "shared/**"
+      - "monitoring/**"
+      - "security-agents/**"
+      - "examples/payments-lite/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/live-defense-e2e.yml"
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Suite to run: smoke | full | fault"
+        required: true
+        default: "full"
+        type: choice
+        options: [smoke, full, fault]
+
+permissions:
+  contents: read
+
+env:
+  TEST_DATABASE_URL: postgresql+psycopg://ci:ci-only@localhost:5432/postgres
+  UV_PYTHON: "3.12"
+
+jobs:
+  smoke:
+    # Fast deterministic subset (scenarios A + B) on every relevant PR/push.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.tier == 'smoke'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv (pinned)
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Smoke tier (scenarios A-B)
+        run: ~/.local/bin/uv run pytest -q -m live_defense_smoke backend/tests/live_defense_e2e
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-defense-e2e-smoke
+          path: test-results/live-defense-e2e/
+          if-no-files-found: ignore
+
+  full:
+    # Complete deterministic suite (scenarios A-H).
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.tier == 'full'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv (pinned)
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Full suite (scenarios A-H)
+        run: ~/.local/bin/uv run pytest -q -m live_defense_e2e backend/tests/live_defense_e2e
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-defense-e2e-full
+          path: test-results/live-defense-e2e/
+          if-no-files-found: ignore
+
+  fault:
+    # Failure-injection suite (scenarios D, E, F). Runs on PRs and on demand.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.tier == 'fault'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv (pinned)
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Failure-injection tier (scenarios D-F)
+        run: ~/.local/bin/uv run pytest -q -m live_defense_fault backend/tests/live_defense_e2e
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-defense-e2e-fault
+          path: test-results/live-defense-e2e/
+          if-no-files-found: ignore
+
+  # OPT-IN live-provider check. Manual-only, requires the explicitly authorized
+  # HACKATL_LIVE_ANTHROPIC_API_KEY repository secret. Real Anthropic spend is
+  # capped by the first-responder per-step budget (FIRST_RESPONDER_MAX_USD).
+  # Nothing in the deterministic jobs above ever calls the real API.
+  live:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.tier == 'smoke' && vars.RUN_LIVE_LLM_E2E == '1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: live-llm-eval
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      RUN_LIVE_LLM_EVAL: "1"
+      HACKATL_LIVE_ANTHROPIC_API_KEY: ${{ secrets.HACKATL_LIVE_ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv (pinned)
+        run: python3 -m pip install --user "uv==0.11.28"
+      - name: Install workspace
+        run: ~/.local/bin/uv sync --frozen
+      - name: Live-provider check (real Anthropic calls; costs money)
+        run: ~/.local/bin/uv run pytest -q -m "live_llm and live_defense_e2e" backend/tests/live_defense_e2e -s
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: live-defense-e2e-live
+          path: test-results/live-defense-e2e/
+          if-no-files-found: ignore

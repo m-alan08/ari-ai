@@ -214,7 +214,7 @@ function Scoreboard({ bundle }: { bundle: DefenseLabBundle }) {
     .map(metric => ({ metric, cells: scoreboard(bundle, metric) }))
     .filter(m => !m.cells.every(c => c.value === null));
   return (
-    <section aria-labelledby="score-title" data-testid="lab-scoreboard" className="paper py-14 md:py-20">
+    <section aria-labelledby="score-title" data-testid="lab-scoreboard" className="py-14 md:py-20">
       <p className="lab-eyebrow">01 — The numbers</p>
       <h2 id="score-title" className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">Who defends best?</h2>
       <p className="mt-2 max-w-3xl text-sm text-muted">

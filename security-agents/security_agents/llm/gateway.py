@@ -81,9 +81,25 @@ class ProviderGateway:
         return self.provider.complete(request)
 
     def cost_usd(self, model: str, usage: LLMUsage) -> float:
+        try:
+            from backend.llm import cost_usd as backend_cost
+        except ImportError:
+            backend_cost = None
+        if backend_cost is not None:
+            return backend_cost(
+                model,
+                {
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "cache_read_input_tokens": usage.cache_read_input_tokens,
+                    "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
+                },
+            )
         base = model.split(":", 1)[-1]
         pin, pout = PRICING_PER_MTOK.get(base, _FALLBACK_PRICE)
-        return (usage.input_tokens * pin + usage.output_tokens * pout) / 1_000_000
+        cache_read = getattr(usage, "cache_read_input_tokens", 0) * pin * 0.1
+        cache_write = getattr(usage, "cache_creation_input_tokens", 0) * pin * 1.25
+        return (usage.input_tokens * pin + usage.output_tokens * pout + cache_read + cache_write) / 1_000_000
 
 
 def live_gateway_from_env() -> ProviderGateway:

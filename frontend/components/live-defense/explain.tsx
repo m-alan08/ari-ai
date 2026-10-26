@@ -29,7 +29,7 @@ export function Explainability({
 }) {
   if (mode === 'layout-preview') return <PreviewExplain />;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-6">
       <Panel title="Why a stored recommendation looks the way it does" actions={<SourceTag mode="live" />}>
         <SimulationCaveat />
         <p className="mt-3 text-sm text-muted">
@@ -189,7 +189,7 @@ function PreviewExplain() {
   const rec = PREVIEW_RECOMMENDATIONS[0];
   if (!rec) return <Empty>No sample recommendation fixture.</Empty>;
   return (
-    <div className="flex flex-col gap-4" data-testid="live-defense-preview-explain">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="live-defense-preview-explain">
       <Panel title="Sample explainability chrome" actions={<SourceTag mode="layout-preview" />}>
         <SimulationCaveat text={rec.caveat} />
         <p className="mt-3 text-sm text-ink">{actionInWords(rec.action, rec.node)}</p>

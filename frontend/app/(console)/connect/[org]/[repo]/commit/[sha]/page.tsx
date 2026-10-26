@@ -78,10 +78,10 @@ function SelectedCommit({ org, name, sha, repo, onConnected }: {
     <nav aria-label="Breadcrumb" className="mb-6 flex flex-wrap items-center gap-2 text-sm text-white/65">
       <Link href="/connect">Organizations</Link><span aria-hidden="true">/</span><Link href={`/connect/${encodeURIComponent(org)}`}>{org}</Link><span aria-hidden="true">/</span><Link href={base}>{name}</Link><span aria-hidden="true">/</span><span>{fullSha.slice(0, 7)}</span>
     </nav>
-    <header className="workspace-heading commit-heading mb-6">
-      <p className="workspace-eyebrow">{repo.full_name} / {fullSha.slice(0, 7)}</p>
+    <header className="mb-6 border-b border-line pb-6">
+      <p className="label-mono text-muted">{repo.full_name} / {fullSha.slice(0, 7)}</p>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-        <h1 className="max-w-2xl text-3xl font-semibold">{title}</h1>
+        <h1 className="max-w-[22ch] text-3xl font-semibold">{title}</h1>
         {data && <VerdictChip verdict={data.verdict} />}
       </div>
       <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-white/60">

@@ -50,7 +50,7 @@ test('Live Defense Phase 4: authorize owned-test control, verify, rollback', asy
     await page.reload();
     const text = await page.locator('[data-testid^="live-defense-control-"]').first().innerText().catch(() => '');
     return text;
-  }, { timeout: 20_000 }).toMatch(/verified/i);
+  }, { timeout: 20_000 }).toMatch(/verified/);
   const controlCard = page.locator('[data-testid^="live-defense-control-"]').first();
   await expect(controlCard).toContainText('OWNED TEST ENVIRONMENT');
   await expect(controlCard).toContainText('HTTP 200 is not effectiveness');
@@ -61,6 +61,6 @@ test('Live Defense Phase 4: authorize owned-test control, verify, rollback', asy
   await expect.poll(async () => {
     await page.reload();
     return page.locator('[data-testid^="live-defense-control-"]').first().innerText();
-  }, { timeout: 20_000 }).toMatch(/rolled back|verifying|executing|verified/i);
+  }, { timeout: 20_000 }).toMatch(/rolled back|verifying|executing|verified/);
   await evidenceShot(page, 'live-defense-phase4-controls');
 });

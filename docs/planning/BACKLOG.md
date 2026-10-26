@@ -68,6 +68,8 @@ Refine the landing headline with tighter two-line rhythm, a stronger cream first
 
 Add staggered proof-card/footer entrances and subtle button, workflow-chip, process-evidence and footer-link motion. Reduce hero ants from 10–34 to 6–16. Honor reduced motion; preserve existing scroll traversal. Branch `feat/adam/landing-motion`; validation in PR.
 
+C-landing brief completed on `feat/adam/landing-motion` (2026-10-26): warm transform-driven hero motion, continuous ember atmosphere, eased problem chapter, translucent walkthrough/pricing surfaces, and reduced-motion fallbacks. Verification: lint, typecheck, build, 98 unit-test files / 418 tests, and 10 landing E2E tests passed.
+
 Simplify project navigation to Code review and 7 agents. Move settings, scopes, approvals and other records into More; lead with run/replay and starting a check; disclose findings, repositories and progress on demand. Keep all routes and approval requirements. Branch `feat/adam/project-simplify`; validation in PR.
 
 Keep organization/repository/commit navigation scoped to the selected repository and SHA. Real commit runs stay inline in a two-tab reviewer/seven-agent workspace with demo-style agent rail and recorded replay; no redirect to shared project history. Resolve the repository’s actual project, search older run pages, reject mismatched results and retain scoped remediation approvals. Optional narrated quick reads are explicitly requested and separate from executed records. Branch `fix/adam/commit-workspace`; validation in PR.

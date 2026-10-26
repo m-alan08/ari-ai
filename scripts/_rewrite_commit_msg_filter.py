@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """stdin -> stdout commit message filter for scripts/rewrite_ai_commit_authors.sh."""
+
 from __future__ import annotations
 
 import re

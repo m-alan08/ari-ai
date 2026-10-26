@@ -14,7 +14,7 @@ export function DemoMarker({ className = '' }: { className?: string }) {
   );
 }
 
-const AVATAR_TONES = ['var(--signal)', 'var(--signal-deep)', 'var(--surface-3)', 'var(--line-3)', 'var(--warn)', 'var(--info)'];
+const AVATAR_TONES = ['#c2452d', '#8f2f1e', '#2b1d19', '#6b5752', '#a35a00', '#1d5fa8'];
 
 export function Avatar({ login, size = 28 }: { login: string; size?: number }) {
   const tone = AVATAR_TONES[parseInt(demoSha(login).slice(0, 2), 16) % AVATAR_TONES.length];
@@ -73,7 +73,7 @@ export function DemoDiff({ file, comments = [], label }: { file: DiffFile; comme
         <span className="flex min-w-0 items-center gap-2 font-mono text-xs text-white/85">
           {label && <span className="demo-chip demo-chip-info">{label}</span>}<span className="truncate">{file.path}</span>
         </span>
-        <span className="font-mono text-xs"><span className="text-ok">+{file.additions}</span> <span className="text-bad">−{file.deletions}</span></span>
+        <span className="font-mono text-xs"><span className="text-[#6fd39b]">+{file.additions}</span> <span className="text-[#ff8a75]">−{file.deletions}</span></span>
       </figcaption>
       <div className="overflow-x-auto">
         {file.hunks.map((hunk, h) => (

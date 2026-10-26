@@ -190,7 +190,10 @@ def cancel_first_responder_jobs(conn: Connection, project_id: str) -> int:
         conn.execute(
             sa.select(jobs.c.id, jobs.c.payload).where(
                 jobs.c.kind.in_(FIRST_RESPONDER_JOB_KINDS),
-                jobs.c.status.in_(("queued", "running")),
+                # waiting jobs must not survive OFF; recovery_required jobs keep their
+                # state and effect evidence — cancel_requested blocks a retry
+                # resolution — while the job itself is never resurrected.
+                jobs.c.status.in_(("queued", "waiting", "running", "recovery_required")),
             )
         )
         .mappings()

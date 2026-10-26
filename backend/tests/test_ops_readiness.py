@@ -141,7 +141,7 @@ def test_diagnostics_reports_migrations_and_workers(client_factory) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["migrations"]["pending"] == []
-    assert body["migrations"]["expected_head"] == "0017"
+    assert body["migrations"]["expected_head"] == "0019"
     assert body["jobs"]["queued"] == 0 and set(body["jobs"]) >= {"queued", "running"}
     assert any(w["worker_id"] == "host:w-diag" for w in body["worker_rows"])
     assert body["capabilities"]["github"]["verified"]["verified"] is False  # no app creds

@@ -50,3 +50,8 @@ tab. Those mean the install is no longer recommendation-only.
 
 Readiness evidence and the integration audit:
 [LIVE_DEFENSE_PHASE6_READINESS.md](LIVE_DEFENSE_PHASE6_READINESS.md).
+
+RL-gated pilot (separate gate; currently **INFRASTRUCTURE READY — RL BLOCKED**):
+[LIVE_DEFENSE_PHASE6_5_RL_GATED_PILOT.md](LIVE_DEFENSE_PHASE6_5_RL_GATED_PILOT.md).
+First-company staging package (not an activation):
+[LIVE_DEFENSE_FIRST_COMPANY_STAGING.md](LIVE_DEFENSE_FIRST_COMPANY_STAGING.md).

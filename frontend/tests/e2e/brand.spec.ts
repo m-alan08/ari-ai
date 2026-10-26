@@ -21,8 +21,8 @@ async function screenshot(page: Page, name: string) {
 }
 
 async function settledHero(page: Page) {
-  await expect(page.locator('.hero-full')).toBeVisible();
-  await expect(page.locator('#hero-title')).toHaveText(/Ship fast\.\s*Know what you shipped\./);
+  await expect(page.locator('.hero-stage h1')).toBeVisible();
+  await expect.poll(() => page.locator('.hero-stage .hero-in').evaluateAll(elements => elements.every(element => Number(getComputedStyle(element).opacity) >= 0.99))).toBe(true);
 }
 
 async function settledHeader(page: Page) {
@@ -59,13 +59,13 @@ test('supplied logo loads on sign-in, scrolled header and projects on desktop/mo
   await signIn(page, 'e2e-alice');
   await page.goto('/'); // sign-in happens on a console page; the hero is the public home
   await settledHero(page);
+  await expect(page.locator('.hero-stage [data-testid="ari-logo"]')).toHaveCount(0);
   await screenshot(page, 'desktop-hero');
   await page.evaluate(() => window.scrollTo(0, 120));
   await settledHeader(page);
   await screenshot(page, 'desktop-scrolled-header');
-  const desktopProjectsLink = page.locator('.hero-full').getByRole('link', { name: 'Go to projects', exact: true });
-  await expect(desktopProjectsLink).toHaveAttribute('href', '/projects');
-  await desktopProjectsLink.click();
+  await page.getByRole('link', { name: 'Projects', exact: true }).click();
+  // Projects opens the connected-organization drill-down at /connect.
   await expect(page).toHaveURL(/\/connect$/);
   await loadedMark(page, 'header [data-testid="ari-logo"]');
   await expect(page.getByRole('heading', { name: 'Organizations', exact: true })).toBeVisible();
@@ -74,6 +74,7 @@ test('supplied logo loads on sign-in, scrolled header and projects on desktop/mo
   await page.getByRole('link', { name: 'ARI home', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await settledHero(page);
+  await expect(page.locator('.hero-stage [data-testid="ari-logo"]')).toHaveCount(0);
   await screenshot(page, 'mobile-hero');
   await page.evaluate(() => window.scrollTo(0, 120));
   await settledHeader(page);
@@ -81,19 +82,32 @@ test('supplied logo loads on sign-in, scrolled header and projects on desktop/mo
   expect(headerMark!.x).toBeGreaterThanOrEqual(0);
   expect(headerMark!.x + headerMark!.width).toBeLessThanOrEqual(390);
   await screenshot(page, 'mobile-scrolled-header');
-  const mobileProjectsLink = page.locator('.hero-full').getByRole('link', { name: 'Go to projects', exact: true });
-  await expect(mobileProjectsLink).toHaveAttribute('href', '/projects');
-  await mobileProjectsLink.click();
-  await expect(page).toHaveURL(/\/connect$/);
-  await expect(page.getByRole('heading', { name: 'Organizations', exact: true })).toBeVisible();
   await expect(page.locator('nextjs-portal')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test('public landing shows the settled headline without an intro overlay', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/');
-  await settledHero(page);
-  await expect(page.locator('.intro')).toHaveCount(0);
-  await expect(page.getByTestId('signal-field')).toHaveAttribute('data-s', 'commit trace flag check patch verify');
+test('intro uses the supplied mark and exits; reduced motion skips it', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  // Exercise the real intro rather than the normal automation skip.
+  await context.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
+  const page = await context.newPage();
+  try {
+    await signIn(page, 'e2e-alice');
+    await page.goto('/'); // the intro plays on the public home page
+    await loadedMark(page, '.intro [data-testid="ari-logo"]');
+    await expect.poll(() => page.locator('.intro-mark').evaluate(element => Number(getComputedStyle(element).opacity))).toBe(1);
+    await screenshot(page, 'desktop-intro');
+    await expect(page.locator('.intro')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem('ari-intro-played'))).toBe('1');
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('.intro')).toHaveCount(0);
+    await page.evaluate(() => sessionStorage.removeItem('ari-intro-played'));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await settledHero(page);
+    await expect(page.locator('.intro')).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
 });

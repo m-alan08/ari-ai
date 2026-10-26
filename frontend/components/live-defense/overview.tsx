@@ -115,8 +115,8 @@ function LiveOverviewRecords({
     shadowCount: decisionItems.length,
   });
   return (
-    <div className="flex flex-col gap-4">
-      <p className="rounded-xl border border-line bg-panel p-5 text-sm text-ink" data-testid="live-defense-summary">{copy}</p>
+    <div className="flex min-w-0 flex-col gap-6">
+      <p className="min-w-0 rounded-xl border border-line bg-panel p-5 sm:p-6 text-sm text-ink" data-testid="live-defense-summary">{copy}</p>
       {project && reloadProject && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel px-5 py-4">
           <DefenseSwitch project={project} onChange={() => reloadProject()} />
@@ -194,7 +194,7 @@ function LiveOverviewRecords({
                         <div className="flex flex-wrap items-center gap-2">
                           <Tag tone="accent">{event.source}</Tag>
                           <Tag>{event.type.replaceAll('_', ' ')}</Tag>
-                          <Tag tone={event.simulated ? 'warn' : 'info'}>{provenanceLabel(event)}</Tag>
+                          <Tag tone={event.simulated || event.test_event ? 'warn' : 'info'}>{provenanceLabel(event)}</Tag>
                           <Badge view={EVENT_STATUS[event.status]} />
                           <span className="text-xs text-muted">received <Time iso={event.received_at} /></span>
                         </div>
@@ -223,7 +223,7 @@ function LiveOverviewRecords({
                   <ul className="flex flex-col gap-2">
                     {openItems.slice(0, 6).map(item => (
                       <li key={item.id}>
-                        <Link href={liveDefenseHref(projectId, 'incidents') + `/${item.id}`} className="block rounded-md border border-line bg-panel-2 p-2.5 text-sm text-ink hover:bg-white">
+                        <Link href={liveDefenseHref(projectId, 'incidents') + `/${item.id}`} className="block rounded-md border border-line bg-panel-2 p-2.5 text-sm text-ink hover:bg-panel">
                           <span className="font-medium">{item.title}</span>
                           <span className="mt-1 flex flex-wrap gap-1 text-xs text-muted">
                             {item.simulated && <Tag tone="warn">Synthetic</Tag>}
@@ -325,8 +325,8 @@ function LiveOverviewRecords({
 
 function PreviewOverview({ projectId }: { projectId: string | null }) {
   return (
-    <div className="flex flex-col gap-4" data-testid="live-defense-preview-overview">
-      <p className="rounded-xl border border-line bg-panel p-5 text-sm text-ink">
+    <div className="flex min-w-0 flex-col gap-6" data-testid="live-defense-preview-overview">
+      <p className="min-w-0 rounded-xl border border-line bg-panel p-5 sm:p-6 text-sm text-ink">
         Sample layout only. Counts, map states and Q-values below are fixtures. They are not telemetry and not a loaded policy.
       </p>
       <DefenseMap

@@ -1,0 +1,14 @@
+{
+  "category": "A_frozen_scenarios",
+  "evidence_notes": [
+    "Open or merged research PRs are not scenario approval."
+  ],
+  "letter": "A",
+  "mandatory": true,
+  "open_pr_is_not_readiness": true,
+  "research_docs_are_not_readiness": true,
+  "status": "BLOCKED",
+  "summary": "No RL-owner-approved frozen scenario set for this gate.",
+  "title": "Frozen evaluation scenarios",
+  "unit_tests_are_not_readiness": true
+}
