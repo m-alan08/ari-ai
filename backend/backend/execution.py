@@ -301,6 +301,46 @@ def stuck_jobs(
     ]
 
 
+_ASSESSMENT_PARKED = ("COMPLETED", "FAILED", "CANCELLED", "BUDGET_EXHAUSTED", "AWAITING_APPROVAL")
+
+
+def stuck_assessments(
+    conn: Connection, older_than_s: int | None = None, limit: int = 200
+) -> list[dict[str, Any]]:
+    """Non-terminal assessments idle for ``older_than_s`` with no live ``run_assessment`` job.
+
+    AWAITING_APPROVAL is a human gate, not stuck; a queued/running/waiting run job means the
+    queue still owns the run (its own stuck reasons are reported by :func:`stuck_jobs`)."""
+    from backend.db import assessments
+
+    age = int(older_than_s if older_than_s is not None else get_settings().stuck_assessment_s)
+    live_job = (
+        sa.select(jobs.c.id)
+        .where(
+            jobs.c.kind == "run_assessment",
+            jobs.c.status.in_(("queued", "running", "waiting")),
+            jobs.c.payload["assessment_id"].astext == assessments.c.id,
+        )
+        .exists()
+    )
+    rows = conn.execute(
+        sa.select(
+            assessments.c.id,
+            assessments.c.project_id,
+            assessments.c.state,
+            sa.extract("epoch", sa.func.now() - assessments.c.updated_at).label("idle_s"),
+        )
+        .where(
+            assessments.c.state.not_in(_ASSESSMENT_PARKED),
+            assessments.c.updated_at < sa.func.now() - timedelta(seconds=age),
+            ~live_job,
+        )
+        .order_by(assessments.c.updated_at)
+        .limit(limit)
+    ).mappings()
+    return [{**dict(r), "idle_s": round(float(r["idle_s"] or 0), 1)} for r in rows]
+
+
 # --- operational metrics -----------------------------------------------------------
 
 
