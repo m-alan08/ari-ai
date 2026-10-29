@@ -113,6 +113,7 @@ function Walkthrough({
   const currentQuestion = questionOverride ?? resumeSetupQuestion(progress);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [runError, setRunError] = useState<unknown>(null);
   // Finished setup opens on the completed view; it is never asked again (Back to setup reopens it).
   const [finished, setFinished] = useState(initial.progress.complete);
   const [startedAssessmentId, setStartedAssessmentId] = useState<string | null>(null);
@@ -226,17 +227,23 @@ function Walkthrough({
   });
   const approveScope = (id: string) => act('scope', async () => { await api().approveScope(id); reload(); });
 
-  const startAssessment = () => act('run', async () => {
+  const startAssessment = async () => {
     if (scope.kind !== 'active') return;
+    setBusy('run');
+    setRunError(null);
+    try { await launchAssessment(scope.scope.id); } catch (err) { setRunError(err); } finally { setBusy(null); }
+  };
+
+  const launchAssessment = async (scopeId: string) => {
     const signature = `${project.id}|${repo.id}`;
     const assessment = await api().startAssessment(
       project.id,
-      { scope_id: scope.scope.id, repo_id: repo.id, commit_sha: null, snapshot_id: null, budget: null },
+      { scope_id: scopeId, repo_id: repo.id, commit_sha: null, snapshot_id: null, budget: null },
       runKeys.keyFor(signature),
     );
     runKeys.done();
     setStartedAssessmentId(assessment.id);
-  });
+  };
 
   const finishSetup = async () => {
     const completed = { ...progress, answers: { ...progress.answers, reviewStart: true }, complete: true };
@@ -390,8 +397,18 @@ function Walkthrough({
                   {hasRun && <p className="mt-4 text-sm"><Link className="font-semibold text-brand" href={`/projects/${project.id}/commits?repo=${encodeURIComponent(repo.id)}#assessments`}>See your reviews</Link></p>}
                   <div className="mt-5 flex flex-wrap items-center gap-3">
                     <Button variant="primary" disabled={busy !== null || !authorized} title={authorized ? undefined : 'Approve sandbox testing first'} onClick={() => void startAssessment()}>{busy === 'run' ? 'Starting…' : hasRun ? 'Start another assessment' : 'Start first assessment'}</Button>
-                    <span className="text-xs text-muted">Starting is optional; you can finish setup if a start fails.</span>
+                    <span className="text-xs text-muted">{authorized ? 'Starting is optional; you can finish setup if a start fails.' : 'Approve sandbox testing in question 6 to start an assessment.'}</span>
                   </div>
+                  {runError !== null && (
+                    <div className="mt-3 flex flex-col gap-2" data-testid="setup-start-failed">
+                      <ErrorState error={runError} onRetry={() => void startAssessment()} context="The first assessment did not start" />
+                      <p className="text-sm text-muted">
+                        Your setup choices are saved. You can retry, re-check GitHub access from{' '}
+                        <Link className="font-semibold text-brand" href="/connect">Organizations → Refresh from GitHub</Link>, or finish setup and start a review later from{' '}
+                        <Link className="font-semibold text-brand" href={`/projects/${project.id}/commits?repo=${encodeURIComponent(repo.id)}#start-assessment`}>Commits</Link>.
+                      </p>
+                    </div>
+                  )}
                   {startedAssessmentId && <p role="status" className="mt-3 text-sm text-ok">Assessment started. <Link className="font-semibold text-brand" href={`/projects/${project.id}/assessments/${startedAssessmentId}?repo=${encodeURIComponent(repo.id)}`}>Open assessment</Link></p>}
                 </>
               )}

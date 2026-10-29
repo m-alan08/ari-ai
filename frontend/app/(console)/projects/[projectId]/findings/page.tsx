@@ -21,6 +21,7 @@ const TABS = [
 export default function FindingsPage() {
   const { project, selectedRepo } = useProject();
   const findings = useResource(selectedRepo ? `findings:${project.id}:${selectedRepo.id}` : null, s => api().findings(project.id, { signal: s, repoId: selectedRepo!.id }));
+  const assessments = useResource(selectedRepo ? `findings-assessments:${project.id}:${selectedRepo.id}` : null, s => api().assessments(project.id, { signal: s, repoId: selectedRepo!.id }));
   const [tab, setTab] = useState<FindingGroup>('open');
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -40,6 +41,16 @@ export default function FindingsPage() {
           const repoItems = page.items;
           const counts = findingGroupCounts(repoItems);
           const items = repoItems.filter(f => findingGroup(f.status) === tab);
+          if (repoItems.length === 0 && assessments.status === 'ready' && assessments.data.items.length === 0) {
+            return (
+              <div data-testid="findings-no-review">
+                <Empty>Ari has not reviewed {selectedRepo.full_name} yet, so there are no findings. Findings appear here after the first review finishes.</Empty>
+                <div className="mt-3 flex justify-center">
+                  <Link className="inline-flex items-center rounded-lg bg-brand px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-deep" href={`/projects/${project.id}/commits?repo=${encodeURIComponent(selectedRepo.id)}#start-assessment`}>Run a review</Link>
+                </div>
+              </div>
+            );
+          }
           if (items.length === 0 && tab === 'open' && counts.open === 0 && counts.hypothesis + counts.fixed + counts.closed > 0) {
             return (
               <>

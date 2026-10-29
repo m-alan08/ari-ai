@@ -273,6 +273,38 @@ def get_project(project_id: str, request: Request) -> Project:
         )
 
 
+@router.get("/projects/{project_id}/delivery-authority")
+def get_delivery_authority(project_id: str, request: Request) -> dict[str, Any]:
+    """What fix delivery does right now, decided as the delivery job decides it. A configured
+    mode takes effect only while the owner who authorized it is still an owner, and this
+    deployment may turn direct commits into pull requests. Read-only; changes nothing."""
+    from backend.delivery import authority
+
+    with transaction() as conn:
+        require_project(conn, _user(conn, request), project_id)
+        s = project_settings(conn, project_id)
+        granted = authority(conn, project_id)
+    direct_allowed = get_settings().auto_delivery_allowed
+    if s.delivery_mode is DeliveryMode.manual:
+        state = "manual"
+    elif not s.delivery_authorized_by:
+        state = "inactive"
+    elif granted is None:
+        state = "revoked"
+    else:
+        state = "active"
+    effective = granted[0] if granted else DeliveryMode.manual
+    if effective is DeliveryMode.auto and not direct_allowed:
+        effective = DeliveryMode.pull_request
+    return {
+        "configured_mode": s.delivery_mode.value,
+        "effective_mode": effective.value,
+        "state": state,
+        "authorized_by": s.delivery_authorized_by,
+        "direct_commits_allowed": direct_allowed,
+    }
+
+
 def _check_budgets(settings: ProjectSettings, before: ProjectSettings) -> None:
     """A budget the caller changes may not exceed the operator's per-assessment caps
     (NFR-07). Unchanged ones (e.g. the defaults under a lowered cap) are clamped on use."""

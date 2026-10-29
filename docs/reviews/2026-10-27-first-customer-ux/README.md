@@ -1,0 +1,27 @@
+# First-customer UX audit (2026-10-27)
+
+Perspective: a first-time engineering/security team that has just installed the Ari GitHub App.
+Method: walked the real stack (`frontend/tests/e2e/stack_manual.py`: FastAPI + PostgreSQL + worker + Next, dev login `e2e-alice`) from the landing page through connect, setup, first assessment, findings, approvals and an invalid project URL. Frontend-only changes; no backend, authorization, migration or shared-contract edits.
+
+## The five most consequential problems
+
+| # | Problem (before) | Why it matters to a first customer | Change |
+|---|---|---|---|
+| 1 | Errors spoke HTTP, not next steps. `Request failed (503)` / `Not found` with only a Retry button; a deleted or inaccessible project was a dead end. | Recovering from GitHub permission or outage failures was guesswork. | `describeError()` returns a `recovery` line keyed by status and error code (session ended, missing access, GitHub/subsystem outage, rate limit, scope or approval needed, conflict). `ErrorState` renders it as "What to do" and adds **Back to projects** for 403/404. |
+| 2 | Starting the first assessment in Setup could fail (`SUBSYSTEM_UNAVAILABLE: could not read the latest commit from GitHub`) and the error appeared at the top of the page, away from the button, with no recovery path. The disabled start explained itself only in a hover tooltip. | The first review is the moment of truth; a silent dead end loses the customer. | The failure renders under the start button with Retry, a GitHub access check (Organizations → Refresh from GitHub) and the Commits fallback, and says the setup choices are saved. A disabled start says "Approve sandbox testing in question 6". |
+| 3 | The approval inbox showed raw IDs (`usr_…`, "remediation approval"), disabled **Approve** on your own request with no reason, and the empty inbox said only "No approvals requested." | Approval requirements and execution boundaries are Ari's core safety promise; they were invisible. | Plain subject names (Sandbox testing scope / Candidate fix / Pull request for a verified fix), "you" instead of your user ID, a visible two-person note on your own request, and a delivery note that reflects the project's actual fix-delivery mode: with **Ask me first** Ari asks here before building a fix; with **Open a pull request** or **Commit to the default branch** it says candidate fixes are approved automatically on the authorizing owner's behalf, and auto-approved rows read "Approved automatically on your behalf" rather than "Decided by you" (Codex review follow-up). |
+| 4 | Before the first review, Findings said "No open findings in this list." (reads like a clean result) and Analytics showed two competing CTAs ("Run a review" → Commits and "Run your first check →" → Setup). | A team could believe the repo was clean when nothing had run, and was unsure which button to press. | Findings detects "no review has run" (no assessments for the repository) and says so with **Run a review**; the duplicate Analytics link is removed. |
+| 5 | `/connect` showed a 7-step stepper (Readiness, Review behavior, Testing scope, Fix delivery, Review & start) that did not match Setup's 8 questions or names. | Two progress models for one journey made it unclear how much was left. | The stepper shows the actual journey: Connect GitHub → Choose repository → Set up the repository → Run the first review. Setup keeps its detailed 8-question list. |
+
+Reviewed and left alone (already adequate): landing explanation of what Ari does; GitHub App permission list and revoke path on `/connect`; repository switcher with "Disconnected (history only)"; locked tabs during setup; shared loading/stale states.
+
+## First-customer walkthrough
+
+1. **Understand Ari** — landing page: "Find the flaw. Prove the fix." Seven agents; a repair counts only when independent, executed tests agree. Sign in with GitHub.
+2. **Connect a repository** — Projects → choose an organization → choose a repository. The page lists exactly what the GitHub App can read/write and how to revoke it. The stepper shows four steps.
+3. **Set up** — eight saved questions: readiness, PR-comment strictness, when reviews run, PR comments, monitoring, sandbox testing approval (expires in 30 days), fix delivery (pull request / ask me first), review & start.
+4. **Run the first review** — "Start first assessment" on question 8 (or later from Commits → Start an assessment). If it fails, the error says what to do and setup can still finish.
+5. **Read findings** — Findings groups Open / Hypotheses (unvalidated) / Fixed (independently verified) / Refuted; before any review it says none has run.
+6. **Review repairs and approvals** — Approvals lists each decision with what it will and will not do. The note at the top says who decides for this project: with **Ask me first** a candidate fix needs a second project member; with **Open a pull request** candidate fixes are approved automatically on the authorizing owner's behalf and the verified fix arrives as a PR for you to merge; with **Commit to the default branch** Ari pushes with no human check. Ari never merges or deploys.
+7. **Multiple repositories** — the Repository switcher in the project header; disconnected repositories stay readable as history.
+8. **When something breaks** — every error shows the request ID and a "What to do" line; missing or inaccessible projects link back to Projects.
