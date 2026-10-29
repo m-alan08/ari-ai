@@ -57,8 +57,23 @@ _CODE_KV_PATTERN = re.compile(
     + _KV_KEY
     + r"['\"](?:\s*\])?\s*[:=]\s*"  # quoted mapping key/subscript: {"name": "..."}
     + r"))"
-    + r"(?P<literal>'(?:\\.|[^'\\\n])+'|\"(?:\\.|[^\"\\\n])+\")"
+    + r"(?P<literal>(?P<string_prefix>[rRbBfFuU]{0,2})(?P<body>"
+    + r"'''(?:(?!''').)+'''|\"\"\"(?:(?!\"\"\").)+\"\"\""  # single-line triple-quoted
+    + r"|'(?:\\.|[^'\\\n])+'|\"(?:\\.|[^\"\\\n])+\"))"
 )
+# Unquoted ``key: value`` (YAML) and ``KEY=value`` (dotenv) values. Only applied to lines
+# of a diff whose file header says the file is YAML or dotenv: in source code the same
+# shapes are expressions (``password: str = ...``, ``api_key=os.environ[...]``).
+# Values that reference another setting (``${VAR}``), YAML tags/anchors/aliases, block
+# scalar markers and flow collections are not literal secrets and are left alone.
+_UNQUOTED_VALUE = r"(?P<value>(?![$&*!|>{\['\"#])\S+(?:[ \t]+(?!#)\S+)*)"
+_YAML_KV_PATTERN = re.compile(
+    r"(?i)^(?P<prefix>\s*(?:-\s+)?" + _KV_KEY + r"\s*:\s+)" + _UNQUOTED_VALUE
+)
+_DOTENV_KV_PATTERN = re.compile(
+    r"(?i)^(?P<prefix>\s*(?:export\s+)?" + _KV_KEY + r"\s*=\s*)" + _UNQUOTED_VALUE
+)
+_DIFF_FILE_HEADER = re.compile(r"^(?:\+\+\+ (?:b/)?(?P<plus>\S+)|diff --git a/\S+ b/(?P<git>\S+))")
 # Free-text-only matcher: catches credential-looking ``key=value`` fragments
 # ``_KV_PATTERN`` misses (hyphenated spellings like ``api-key``/``access-token``).
 # Deliberately excluded from ``_HIGH_CONFIDENCE_PATTERNS``/``redact_code``: in
@@ -89,19 +104,47 @@ def redact_text(text: str) -> str:
     return text
 
 
+def _file_format(path: str) -> str | None:
+    name = path.rsplit("/", 1)[-1].lower()
+    if name.endswith((".yml", ".yaml")):
+        return "yaml"
+    if name == ".env" or name.startswith(".env.") or name.endswith(".env"):
+        return "dotenv"
+    return None
+
+
 def redact_code(text: str) -> str:
-    """Redact source and diffs without rewriting unquoted code expressions."""
+    """Redact source and diffs without rewriting unquoted code expressions.
+
+    Quoted literals (including r/b/f-prefixed and single-line triple-quoted ones) under a
+    credential-like name are redacted everywhere. Unquoted YAML/dotenv values are redacted
+    only inside a diff section whose ``+++``/``diff --git`` header names such a file."""
     for pattern, replacement in _HIGH_CONFIDENCE_PATTERNS:
         text = pattern.sub(replacement, text)
 
     def redact_quoted_value(match: re.Match[str]) -> str:
-        literal = match.group("literal")
-        quote = literal[0]
-        return f"{match.group('prefix')}{quote}[REDACTED:kv]{quote}"
+        body = match.group("body")
+        quote = body[:3] if body[:3] in ("'''", '"""') else body[0]
+        return f"{match.group('prefix')}{match.group('string_prefix')}{quote}[REDACTED:kv]{quote}"
 
-    return "".join(
-        _CODE_KV_PATTERN.sub(redact_quoted_value, line) for line in text.splitlines(keepends=True)
-    )
+    def redact_unquoted_value(match: re.Match[str]) -> str:
+        return f"{match.group('prefix')}[REDACTED:kv]"
+
+    out: list[str] = []
+    file_format: str | None = None
+    for line in text.splitlines(keepends=True):
+        header = _DIFF_FILE_HEADER.match(line)
+        if header is not None:
+            file_format = _file_format(header.group("plus") or header.group("git"))
+            out.append(line)
+            continue
+        line = _CODE_KV_PATTERN.sub(redact_quoted_value, line)
+        if file_format is not None and line[:1] in ("+", "-", " "):
+            marker, content = line[:1], line[1:]
+            kv = _YAML_KV_PATTERN if file_format == "yaml" else _DOTENV_KV_PATTERN
+            line = marker + kv.sub(redact_unquoted_value, content, count=1)
+        out.append(line)
+    return "".join(out)
 
 
 def find_high_confidence_secret(text: str) -> str | None:
