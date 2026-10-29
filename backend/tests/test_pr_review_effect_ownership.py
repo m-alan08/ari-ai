@@ -75,18 +75,26 @@ def test_due_legacy_retry_cannot_preempt_a_newer_in_flight_review(automatic, mon
     monkeypatch.setattr("backend.auto_commits.GitHubApp", GitHub)
     first = threading.Thread(target=worker.run_one, args=("worker-a", ["post_pr_review"]))
     first.start()
+    second_ran: list[str | None] = []
+    second = threading.Thread(
+        target=lambda: second_ran.append(worker.run_one("worker-b", ["post_pr_review"]))
+    )
     try:
         assert started.wait(30)
         assert row(new_id)["status"] == "running"
         assert row(new_id)["effect_state"] == "in_flight"
         make_due("post_pr_review")  # the older legacy retry becomes due meanwhile
-        assert worker.run_one("worker-b", ["post_pr_review"]) == legacy_id
+        second.start()
+        second.join(2)  # it defers at once, or waits on the repository write lease (#694)
         assert len(calls) == 1, "the older job posted while the newer job owned the review"
-        assert row(legacy_id)["status"] == "queued"
-        assert row(legacy_id)["effect_state"] is None
+        if not second.is_alive():
+            assert second_ran == [legacy_id]
+            assert row(legacy_id)["status"] == "queued"
+            assert row(legacy_id)["effect_state"] is None
     finally:
         release.set()
         first.join(30)
+        second.join(30)
     assert row(new_id)["status"] == "succeeded"
     make_due("post_pr_review")
     worker.drain(kinds=["post_pr_review"])
