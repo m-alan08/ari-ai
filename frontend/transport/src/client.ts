@@ -151,6 +151,17 @@ export class ApiClient {
     });
     return { items, next_cursor: record.next_cursor as string | null };
   }
+  /** What fix delivery does right now, as the server decides it (authorizer still an owner, deployment gate). */
+  async deliveryAuthority(projectId: string, options?: RequestOptions): Promise<DeliveryAuthority> {
+    const r = object(await this.request(`/projects/${segment(projectId)}/delivery-authority`, RAW, options), 'delivery authority');
+    const modes = ['manual', 'pull_request', 'auto'];
+    if (!modes.includes(r.configured_mode as string) || !modes.includes(r.effective_mode as string)
+      || !['manual', 'inactive', 'active', 'revoked'].includes(r.state as string)
+      || !(r.authorized_by === null || typeof r.authorized_by === 'string') || typeof r.direct_commits_allowed !== 'boolean') {
+      throw new ProtocolError('Invalid delivery authority');
+    }
+    return r as unknown as DeliveryAuthority;
+  }
   project(id: string, options?: RequestOptions): Promise<C.Project> {
     return this.request(`/projects/${segment(id)}`, 'Project', options) as Promise<C.Project>;
   }
@@ -642,4 +653,13 @@ export async function readJson(response: Response, maxBytes = 8 * 1024 * 1024): 
     if (error instanceof ProtocolError || (error instanceof Error && error.name === 'AbortError')) throw error;
     throw new ProtocolError('Invalid JSON response');
   } finally { reader.releaseLock(); }
+}
+
+/** ``state``: ``inactive`` = no owner authorization recorded; ``revoked`` = the authorizer is no longer an owner. */
+export interface DeliveryAuthority {
+  configured_mode: C.DeliveryMode;
+  effective_mode: C.DeliveryMode;
+  state: 'manual' | 'inactive' | 'active' | 'revoked';
+  authorized_by: string | null;
+  direct_commits_allowed: boolean;
 }

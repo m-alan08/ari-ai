@@ -82,13 +82,19 @@ export function ErrorState({ error, onRetry, context }: { error: unknown; onRetr
     <div role="alert" data-testid="error-state" className="rounded-md border border-bad/40 bg-bad/5 p-3 text-sm shadow-sm hover:shadow-md transition-shadow duration-300">
       <p className="font-semibold text-bad"><span aria-hidden="true">× </span>{context ? `${context}: ` : ''}{e.title}</p>
       <p className="mt-1 text-muted">{e.detail}</p>
+      {e.recovery && <p className="mt-1 text-ink" data-testid="error-recovery"><span className="font-semibold">What to do: </span>{e.recovery}</p>}
       {(e.code || e.requestId) && (
         <p className="mt-1 font-mono text-xs text-faint">
           {e.code && <>code {e.code}</>}{e.requestId && <> · request {e.requestId}</>}
         </p>
       )}
       {e.kind === 'protocol' && <ContractSkewHint />}
-      {onRetry && <Button className="mt-2" onClick={onRetry}>Retry</Button>}
+      {(onRetry || e.status === 403 || e.status === 404) && (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          {onRetry && <Button onClick={onRetry}>Retry</Button>}
+          {(e.status === 403 || e.status === 404) && <Link className="text-sm font-semibold text-brand hover:underline" href="/connect">Back to projects</Link>}
+        </div>
+      )}
     </div>
   );
 }

@@ -81,11 +81,6 @@ export default function ProjectOverview() {
                             </>
                           )}
                         </section>
-                        {analytics.checksRun === 0 && (
-                          <p className="text-sm">
-                            <Link className="font-medium text-brand hover:underline" href={`/projects/${project.id}/setup?repo=${encodeURIComponent(selectedRepo.id)}`}>Run your first check →</Link>
-                          </p>
-                        )}
                         <Panel title="Repository activity">
                           <div data-testid="analytics-stats" className="grid grid-cols-2 sm:grid-cols-4">
                             <StatCell label="Commits checked" value={analytics.commitsChecked} />

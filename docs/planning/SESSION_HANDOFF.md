@@ -3,6 +3,15 @@
 Append-only. Newest entry at the top. Every development session (human or agent)
 adds an entry before ending.
 
+### 2026-10-27 — Devin (agent, Alan) — first-customer UX audit
+- Did: Audited the first-customer journey on the real manual stack and fixed five frontend UX problems: actionable `ErrorState` recovery (`describeError().recovery`, Back to projects on 403/404), inline first-assessment failure recovery in Setup, plain-language approvals with a visible two-person note and a delivery-mode-aware note (Codex NO-GO follow-up: the inbox no longer promises a human decision when `pull_request`/`auto` delivery pre-approves remediation on the owner's behalf; auto-approved rows are labelled automatic), a "no review has run" Findings state (duplicate Analytics CTA removed), and a four-step connect stepper. Audit and walkthrough: `docs/reviews/2026-10-27-first-customer-ux/README.md`.
+- State of the code: Branch `devin/1793142972-first-customer-ux` off upstream main `c03a5501`; frontend only (no backend, authz, migration or shared-contract changes).
+- Commands run and results: `npm run lint`, `npm run typecheck`, `npx vitest run` (480 passed); `stack.py tests/e2e/first-customer.spec.ts tests/e2e/journey.spec.ts tests/e2e/pages.spec.ts` — 15 passed.
+- Decisions made (ADR links): Recovery copy lives in `describeError` so every `ErrorState` gets it; screenshots stay out of the repo.
+- Assumptions / open questions (RQ links): The manual stack cannot start a real assessment (fake GitHub returns 503), so finding/repair screens were not re-audited visually.
+- Next steps: Review the PR.
+- Warnings for the next session: `pages.spec.ts` :102/:265/:335 need `journey.spec.ts` data in the same run.
+
 ### 2026-10-27 — Devin (agent, Adam) — wildcard per-commit assessment routing
 - Did: Routed non-empty author configuration, including `*`, through per-commit scheduling; added wildcard push and unlisted-author regressions.
 - State of the code: Branch `fix/adam/per-commit-wildcard`; ready to commit and push.
@@ -2789,3 +2798,5 @@ Exact b6d5108b6f0678a6af9546f60d28508716cc4982: 194 pass/0 fail/0 skip, exit0, s
 - Lint passed (zero errors; one existing unused-variable warning at `first-responder.tsx:173`), typecheck passed, and unit tests passed (99 files / 418 tests). The E2E stack's production build passed. Targeted pages/tab-band E2E passed 2/2, covering every project route at 1440/1024/390/320 plus the scroll captures and Live Defense 320px width.
 - The broader `pages.spec.ts` attempt without a preceding journey run passed 4/9 tests. After fixing the in-scope sticky-position override, the two header/tab-band tests passed. The other failures were: a missing seeded commit row, an unavailable `hardened` finding option, and a missing `findings-mobile-list` test id. These were not validated against the base branch and are not claimed as pre-existing.
 - Baseline scroll screenshots and metrics: `/home/ubuntu/shots/console-polish/scroll-fix-before/`; after screenshots: `/home/ubuntu/shots/console-polish/scroll-fix-after/`. The baseline 1440px scroll-50 image was clamped to scrollY 0; the 1440px scroll-300 and both 390px scroll captures reached their requested offsets.
+
+- #696 Codex round 2 (2026-10-29): approvals copy claimed automatic approval whenever the saved mode was PR/auto, even with `delivery_authorized_by` null. It now reads the new read-only `GET /projects/{id}/delivery-authority`, which reuses `delivery.authority()` and the `auto_delivery_allowed` gate. Tests: `backend/tests/test_delivery_authority_view.py`; `frontend/tests/unit/first-customer-ux.test.tsx` covers the inactive, revoked, active, deployment-gated, loading and error states.

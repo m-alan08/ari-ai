@@ -46,6 +46,7 @@ Honesty rules enforced in code: backend offline → "Backend unreachable"; a res
 that fails the shared JSON Schema → "Backend response rejected" (never rendered);
 non-`live` `provider_mode` runs are labelled "Not a live-provider run"; fixture mode
 exists only behind `NEXT_PUBLIC_DEMO_FIXTURES=1` and shows a permanent DEMO DATA banner.
+Every `ErrorState` adds a "What to do" line derived from the HTTP status and error code (`describeError().recovery` in `lib/api.ts`), and 403/404 errors link back to `/connect`; the request ID stays visible for support.
 
 ## Plain-language layer (UX clarity)
 
@@ -213,3 +214,5 @@ Keep organization/repository/commit navigation scoped to the selected repository
 
 
 Connected repo/commit pages expose a per-repository Automatic runs switch. ON shows background-run status; OFF exposes manual Run. The backend schedules independently of browser visits. Quick reads use Haiku 5.5 only. See backend README and issue #380 for prerequisites and quotas.
+
+- Approvals: the fix-delivery note reads `GET /projects/{id}/delivery-authority` (`state`: manual / inactive / active / revoked, plus `effective_mode`) and shows nothing about automatic approval until it has loaded.

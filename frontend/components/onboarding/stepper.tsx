@@ -6,11 +6,8 @@ import type { ReactNode } from 'react';
 const STEPS = [
   'Connect GitHub',
   'Choose repository',
-  'Readiness',
-  'Review behavior',
-  'Testing scope',
-  'Fix delivery',
-  'Review & start',
+  'Set up the repository',
+  'Run the first review',
 ] as const;
 
 type StepState = 'done' | 'current' | 'upcoming';
@@ -58,9 +55,9 @@ export function SetupSteps({
     <nav aria-label="Setup steps" className="lg:sticky lg:top-24 lg:self-start">
       <ol className="hidden space-y-1 lg:block">{STEPS.map((_, i) => renderStep(i + 1))}</ol>
       <div className="lg:hidden">
-        <p className="font-mono text-xs text-muted">Step {current} of 7 · {label}</p>
-        <div role="progressbar" aria-label={`Step ${current} of 7`} aria-valuemin={1} aria-valuemax={7} aria-valuenow={current} className="mt-2 h-px bg-panel-2">
-          <span className="block h-px bg-brand" style={{ width: `${(current / 7) * 100}%` }} />
+        <p className="font-mono text-xs text-muted">Step {current} of {STEPS.length} · {label}</p>
+        <div role="progressbar" aria-label={`Step ${current} of ${STEPS.length}`} aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={current} className="mt-2 h-px bg-panel-2">
+          <span className="block h-px bg-brand" style={{ width: `${(current / STEPS.length) * 100}%` }} />
         </div>
       </div>
     </nav>
