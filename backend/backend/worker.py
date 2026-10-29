@@ -26,6 +26,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy import exc as sa_exc
+from sqlalchemy.engine import Connection
 
 from backend import alerts, execution, jobs
 from backend.db import transaction
@@ -89,16 +90,23 @@ class JobContext:
             raise JobCancelled(f"{self.job.id}: lease lost")
 
     @contextmanager
-    def effect(self, key: str) -> Iterator[None]:
+    def effect(
+        self, key: str, *, reserve: Callable[[Connection], None] | None = None
+    ) -> Iterator[None]:
         """Guard one external side effect (adapter call, remote write).
 
         The intent is committed before the body runs. If the worker then dies or the
         body raises, the job becomes ``recovery_required`` instead of being re-run, so
         an effect with an uncertain outcome is never replayed automatically. Raise
         ``EffectNotApplied`` from the body when the effect definitely did not happen.
+
+        ``reserve`` runs in the same transaction that records the intent, so an
+        ownership check made there and the in-flight mark commit atomically.
         """
         self.check_cancelled()
         with transaction() as conn:
+            if reserve is not None:
+                reserve(conn)  # may raise; then no intent is recorded and nothing runs
             if not jobs.begin_effect(conn, self.job.id, self.owner, key):
                 raise JobCancelled(f"{self.job.id}: lease, cancellation or deadline blocks effect")
         try:
