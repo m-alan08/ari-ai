@@ -13,15 +13,53 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 
 results: list[tuple[str, str, str]] = []
+
+# Every gate that must produce a row before --strict can sign off. A gate that never
+# ran (e.g. --no-http, an exception, a future refactor) is a missing-evidence FAIL,
+# not a silent pass.
+REQUIRED_GATES: tuple[str, ...] = (
+    "CI success",
+    "secrets and configuration",
+    "migration compatibility",
+    "health check",
+    "readiness + job queue availability",
+    "authentication required",
+    "worker/job-queue visibility",
+    "first-responder OFF by default",
+    "stuck assessments/jobs",
+    "failed jobs (24h)",
+    "recommendation-only posture",
+    "emergency-stop endpoint",
+    "cancellation endpoint",
+    "first-responder OFF (database)",
+    "backup and recovery",
+    "backup readable",
+    "rollback readiness",
+    "read-only pilot scope",
+    "CI bound to candidate SHA",
+    "deployed candidate identity",
+)
+
+# CI jobs that must have run and succeeded on the exact candidate commit before --strict signs
+# off. Named explicitly: a check that never reported is missing evidence, not a pass.
+REQUIRED_CHECKS: tuple[str, ...] = (
+    "backend-tests",
+    "static-and-unit",
+    "review-tests",
+    "secagents-tests",
+    "gitleaks",
+)
 
 
 def report(status: str, name: str, evidence: str) -> None:
@@ -52,7 +90,20 @@ def req_status(url: str, method: str = "GET") -> tuple[int, dict]:
         return e.code, {}
 
 
-def check_ci() -> None:
+def check_ci(
+    strict: bool = False,
+    allow_skipped: tuple[str, ...] = (),
+    expected_sha: str | None = None,
+    required: tuple[str, ...] = REQUIRED_CHECKS,
+) -> None:
+    """Every CI check must have run and succeeded.
+
+    A skipped check (SKIPPED/NEUTRAL/no conclusion) is not evidence: gitleaks, audit or
+    the regression gates being skipped must block sign-off, so they are reported by name
+    and count as SKIP (blocking under --strict). Opt-in jobs an operator consciously
+    accepts as skipped are named with --allow-skipped-check. An empty rollup means
+    GitHub reported no checks at all and is a FAIL, never "0 checks green".
+    """
     gh = subprocess.run(["which", "gh"], capture_output=True)
     if gh.returncode != 0:
         report("SKIP", "CI success", "gh CLI not installed; confirm checks on the PR page")
@@ -62,7 +113,7 @@ def check_ci() -> None:
         report("SKIP", "CI success", "gh not authenticated; confirm checks on the PR page")
         return
     pr = subprocess.run(
-        ["gh", "pr", "view", "--json", "statusCheckRollup,number"],
+        ["gh", "pr", "view", "--json", "statusCheckRollup,number,headRefOid"],
         capture_output=True,
         text=True,
         cwd=REPO,
@@ -70,25 +121,128 @@ def check_ci() -> None:
     if pr.returncode != 0:
         report("SKIP", "CI success", pr.stderr.strip()[:200] or "no PR for this branch")
         return
-    checks = json.loads(pr.stdout)["statusCheckRollup"]
-    bad = [
-        c
-        for c in checks
-        if c.get("conclusion") not in ("SUCCESS", None, "SKIPPED")
-        or c.get("status") not in ("COMPLETED", "SUCCESS")
+    data = json.loads(pr.stdout)
+    checks = data.get("statusCheckRollup") or []
+    if not checks:
+        report("FAIL", "CI success", "GitHub reported no checks for this PR")
+        return
+
+    def name(c: dict[str, Any]) -> str:
+        return str(c.get("name") or c.get("context") or "?")
+
+    def names(cs: list[dict[str, Any]]) -> str:
+        return ", ".join(sorted(name(c) for c in cs)[:8])
+
+    for c in checks:  # StatusContext rows carry state/context instead of status/conclusion/name
+        if "state" in c and "status" not in c:
+            state = str(c.get("state") or "").upper()
+            c["status"] = "COMPLETED" if state in ("SUCCESS", "FAILURE", "ERROR") else "PENDING"
+            c["conclusion"] = state
+    completed = [c for c in checks if c.get("status") in ("COMPLETED", "SUCCESS")]
+    pending = [c for c in checks if c not in completed]
+    failed = [
+        c for c in completed if c.get("conclusion") not in ("SUCCESS", "SKIPPED", "NEUTRAL", None)
     ]
-    pending = [c for c in checks if c.get("status") not in ("COMPLETED", "SUCCESS")]
-    if bad:
-        report(
-            "FAIL",
-            "CI success",
-            f"{len(bad)} failing/pending checks: "
-            + ", ".join(c.get("name", "?") for c in (bad or pending)[:5]),
-        )
+    skipped = [c for c in completed if c.get("conclusion") != "SUCCESS" and c not in failed]
+    allowed = [c for c in skipped if name(c) in allow_skipped]
+    unexplained = [c for c in skipped if c not in allowed]
+    if failed:
+        report("FAIL", "CI success", f"{len(failed)} failing checks: {names(failed)}")
     elif pending:
-        report("WARN", "CI success", f"{len(pending)} checks still pending")
+        report("WARN", "CI success", f"{len(pending)} checks still pending: {names(pending)}")
+    elif unexplained:
+        report(
+            "SKIP" if strict else "WARN",
+            "CI success",
+            f"{len(unexplained)} checks skipped, not evidence: {names(unexplained)}",
+        )
     else:
-        report("PASS", "CI success", f"all {len(checks)} checks green")
+        detail = f"all {len(checks) - len(allowed)} checks green"
+        if allowed:
+            detail += f"; allow-listed skipped: {names(allowed)}"
+        report("PASS", "CI success", detail)
+    if expected_sha:
+        check_ci_binding(expected_sha, data.get("headRefOid"), required)
+
+
+def _gh_json(args: list[str]) -> Any:
+    r = subprocess.run(["gh", *args], capture_output=True, text=True, cwd=REPO)
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr.strip()[:200] or f"gh {args[0]} failed")
+    return json.loads(r.stdout or "null")
+
+
+def check_ci_binding(expected_sha: str, head: str | None, required: tuple[str, ...]) -> None:
+    """Every required check ran and succeeded on ``expected_sha`` itself, and the PR head was
+    that commit before and after the results were read. Results for another SHA (an older
+    push, a rerun on a moved head) are not evidence for this candidate."""
+    gate = "CI bound to candidate SHA"
+    expected = expected_sha.lower()
+    if str(head or "").lower() != expected:
+        report(
+            "FAIL", gate, f"PR head {str(head or '?')[:12]} is not the candidate {expected[:12]}"
+        )
+        return
+    try:
+        base = f"repos/{{owner}}/{{repo}}/commits/{expected}"
+        runs = (_gh_json(["api", f"{base}/check-runs?per_page=100"]) or {}).get("check_runs") or []
+        combined = _gh_json(["api", f"{base}/status"]) or {}
+    except (RuntimeError, ValueError) as e:
+        report("FAIL", gate, f"could not read results for {expected[:12]}: {e}")
+        return
+    rows: list[dict[str, Any]] = [*runs]
+    for st in combined.get("statuses") or []:  # StatusContext rows: context/state
+        state = str(st.get("state") or "").lower()
+        rows.append(
+            {
+                "name": st.get("context"),
+                "head_sha": combined.get("sha"),
+                "status": "completed" if state in ("success", "failure", "error") else "pending",
+                "conclusion": state,
+                "completed_at": st.get("updated_at"),
+            }
+        )
+    problems: list[str] = []
+    for name in required:
+        mine = [r for r in rows if r.get("name") == name]
+        bound = [r for r in mine if str(r.get("head_sha") or "").lower() == expected]
+        if not mine:
+            problems.append(f"{name}: missing")
+            continue
+        if not bound:
+            problems.append(f"{name}: results only for another SHA")
+            continue
+        latest = max(bound, key=lambda r: str(r.get("completed_at") or r.get("started_at") or ""))
+        if str(latest.get("status") or "").lower() != "completed":
+            problems.append(f"{name}: pending")
+        elif str(latest.get("conclusion") or "").lower() != "success":
+            problems.append(f"{name}: {str(latest.get('conclusion') or 'no conclusion').lower()}")
+    try:
+        after = (_gh_json(["pr", "view", "--json", "headRefOid"]) or {}).get("headRefOid")
+    except (RuntimeError, ValueError):
+        after = None
+    if str(after or "").lower() != expected:
+        problems.append(f"PR head moved to {str(after or '?')[:12]} during verification")
+    if problems:
+        report("FAIL", gate, "; ".join(problems[:10]))
+    else:
+        report("PASS", gate, f"{len(required)} required checks succeeded on {expected[:12]}")
+
+
+def check_identity(base: str, expected_sha: str | None) -> None:
+    """The deployment answering at ``base`` is the candidate that was verified."""
+    gate = "deployed candidate identity"
+    if not expected_sha:
+        report("SKIP", gate, "no --expected-sha; the deployment is not bound to a candidate")
+        return
+    code, body = get_json(f"{base}/healthz")
+    deployed = str(body.get("git_sha") or "").lower()
+    if code != 200 or not deployed:
+        report("FAIL", gate, f"/healthz -> {code} without git_sha (set DEPLOYED_GIT_SHA)")
+    elif deployed != expected_sha.lower():
+        report("FAIL", gate, f"deployed {deployed[:12]} is not the candidate {expected_sha[:12]}")
+    else:
+        report("PASS", gate, f"deployed git_sha {deployed[:12]} is the candidate")
 
 
 def check_config() -> None:
@@ -163,10 +317,39 @@ def check_http(base: str, ops_token: str | None) -> None:
                 "first-responder OFF by default",
                 f"default=off; projects with non-default mode: {n}",
             )
+            check_monitoring(body)
         else:
             report("FAIL", "worker/job-queue visibility", f"ops status -> {code}")
     else:
         report("WARN", "worker/job-queue visibility", "no --ops-token; ops surface unchecked")
+
+
+def check_monitoring(body: dict) -> None:
+    """Stuck work and the recommendation-only posture, from GET /api/v1/ops/status."""
+    stuck = body.get("stuck")
+    if stuck is None:
+        report("FAIL", "stuck assessments/jobs", "ops status has no 'stuck' section (old build)")
+    else:
+        n_jobs, n_asm = stuck.get("jobs", "?"), stuck.get("assessments", "?")
+        report(
+            "PASS" if n_jobs == 0 and n_asm == 0 else "FAIL",
+            "stuck assessments/jobs",
+            f"stuck jobs={n_jobs} {stuck.get('jobs_by_reason', {})}; stuck assessments={n_asm}",
+        )
+    failed = body.get("failed_jobs_24h") or {}
+    report(
+        "PASS" if not failed else "WARN",
+        "failed jobs (24h)",
+        f"{failed or 'none'}; inspect with `python -m backend.execution stuck`",
+    )
+    pilot = body.get("pilot") or {}
+    if body.get("app_env") == "staging":
+        safe = (
+            pilot.get("recommendation_only") is True and pilot.get("auto_delivery_allowed") is False
+        )
+        report("PASS" if safe else "FAIL", "recommendation-only posture", str(pilot or "missing"))
+    else:
+        report("SKIP", "recommendation-only posture", f"APP_ENV={body.get('app_env')}")
 
 
 def check_controls(base: str) -> None:
@@ -298,13 +481,45 @@ def main() -> int:
     p.add_argument("--backup-dir", default="backups")
     p.add_argument("--max-backup-age-h", type=float, default=30.0)
     p.add_argument("--no-http", action="store_true", help="config+DB checks only")
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="WARN/SKIP also fail: every gate must carry PASS evidence (pilot sign-off)",
+    )
+    p.add_argument(
+        "--allow-skipped-check",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="CI check that may be SKIPPED without blocking (opt-in jobs such as 'live')",
+    )
+    p.add_argument(
+        "--expected-sha",
+        default=None,
+        help="full commit SHA of the candidate: CI results and the deployment must match it",
+    )
+    p.add_argument(
+        "--require-check",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help=f"CI check required on the candidate SHA (default: {', '.join(REQUIRED_CHECKS)})",
+    )
     args = p.parse_args()
     base = args.base_url.rstrip("/")
+    if args.expected_sha is not None and not re.fullmatch(r"[0-9a-fA-F]{40}", args.expected_sha):
+        p.error("--expected-sha must be a full 40-character commit SHA")
 
-    check_ci()
+    check_ci(
+        strict=args.strict,
+        allow_skipped=tuple(args.allow_skipped_check),
+        expected_sha=args.expected_sha,
+        required=tuple(args.require_check or REQUIRED_CHECKS),
+    )
     check_config()
     check_migrations()
     if not args.no_http:
+        check_identity(base, args.expected_sha)
         check_http(base, args.ops_token)
         check_controls(base)
     check_first_responder_db()
@@ -312,7 +527,17 @@ def main() -> int:
     check_rollback()
     check_pilot_scope()
 
-    fails = sum(1 for s, *_ in results if s == "FAIL")
+    return finalize(strict=args.strict)
+
+
+def finalize(strict: bool) -> int:
+    if strict:
+        seen = {name for _, name, _ in results}
+        for gate in REQUIRED_GATES:
+            if gate not in seen:
+                report("FAIL", gate, "gate produced no evidence (did not run)")
+    blocking = ("FAIL", "WARN", "SKIP") if strict else ("FAIL",)
+    fails = sum(1 for s, *_ in results if s in blocking)
     print("---")
     print(f"release check: {len(results)} checks, {fails} failed")
     return 1 if fails else 0

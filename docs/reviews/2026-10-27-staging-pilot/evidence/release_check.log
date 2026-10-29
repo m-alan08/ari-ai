@@ -1,0 +1,23 @@
+[WARN] CI success: 6 checks skipped, not evidence: CodeRabbit, independent-codex, live, pin, publish, strict-regressions
+[WARN] config: SESSION_SECRET is unset (declared in .env.example for signed payloads): SESSION_SECRET is unset (declared in .env.example for signed payloads)
+[WARN] config: API_BASE_URL is not https (http: API_BASE_URL is not https (http://127.0.0.1:41071)
+[WARN] config: FRONTEND_ORIGIN is not https (http: FRONTEND_ORIGIN is not https (http://127.0.0.1:3000)
+[PASS] secrets and configuration: APP_ENV=staging, no blocking errors
+[PASS] migration compatibility: at head ['0021']
+[PASS] health check: /healthz -> 200 ok
+[PASS] readiness + job queue availability: /readyz ready (db=True queue=True)
+[PASS] authentication required: unauthenticated /api/v1/projects -> 401
+[PASS] worker/job-queue visibility: ops status ok; queue counts {'succeeded': 3, 'failed': 1}
+[PASS] first-responder OFF by default: default=off; projects with non-default mode: 0
+[PASS] stuck assessments/jobs: stuck jobs=0 {}; stuck assessments=0
+[WARN] failed jobs (24h): {'failed': 1}; inspect with `python -m backend.execution stuck`
+[PASS] recommendation-only posture: {'recommendation_only': True, 'auto_delivery_allowed': False, 'projects_not_manual_delivery': 0}
+[PASS] emergency-stop endpoint: mounted (unauthenticated request rejected)
+[PASS] cancellation endpoint: mounted (unauthenticated request rejected)
+[PASS] first-responder OFF (database): no project has a non-off stored mode
+[PASS] backup and recovery: hackatl-20261028T050115Z.dump (0.0h old)
+[PASS] backup readable: pg_restore --list ok on hackatl-20261028T050115Z.dump
+[PASS] rollback readiness: restore script + runbook present; deployed-from sha c561d0e3
+[PASS] read-only pilot scope: APP_ENV=staging, dev login off, feature_flags=none
+---
+release check: 21 checks, 0 failed

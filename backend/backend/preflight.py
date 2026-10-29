@@ -92,6 +92,9 @@ def validate_config(s: Settings, *, worker: bool = False) -> PreflightResult:
         if not getattr(s, name).startswith("https://"):
             r.warnings.append(f"{name.upper()} is not https ({getattr(s, name)})")
 
+    if env == "staging":
+        _staging_isolation(s, r)
+
     if worker:
         if not s.rl_checkpoint_path:
             r.errors.append("RL_CHECKPOINT_PATH is required for workers outside dev/test")
@@ -100,6 +103,26 @@ def validate_config(s: Settings, *, worker: bool = False) -> PreflightResult:
         if not s.rl_topology_path:
             r.errors.append("RL_TOPOLOGY_PATH is required for workers outside dev/test")
     return r
+
+
+def _staging_isolation(s: Settings, r: PreflightResult) -> None:
+    """A staging pilot must not share production endpoints and must stay recommendation-only."""
+    targets = {
+        "API_BASE_URL": s.api_base_url,
+        "FRONTEND_ORIGIN": s.frontend_origin,
+        "DATABASE_URL": s.database_url,
+        "MIGRATION_DATABASE_URL": s.migration_database_url or "",
+    }
+    for host in s.production_host_list():
+        for name, value in targets.items():
+            if host in value.lower():
+                r.errors.append(f"{name} points at production host {host} in staging")
+    if not s.recommendation_only:
+        r.errors.append("PILOT_RECOMMENDATION_ONLY=false must never reach staging")
+    if s.allow_auto_delivery:
+        r.errors.append("ALLOW_AUTO_DELIVERY=true must never reach staging")
+    if not _secret_value(s.ops_token):
+        r.errors.append("OPS_TOKEN is required in staging (stuck-work monitoring)")
 
 
 @dataclass

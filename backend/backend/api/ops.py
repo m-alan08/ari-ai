@@ -17,6 +17,7 @@ from __future__ import annotations
 import hmac
 import logging
 import secrets
+from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -24,9 +25,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from backend import maintenance
+from backend import execution, maintenance
 from backend.api.deps import ApiError
-from backend.db import first_responder_modes, get_engine, jobs
+from backend.db import first_responder_modes, get_engine, jobs, projects
 from backend.llm import llm_mode
 from backend.preflight import migration_status
 from backend.settings import get_settings
@@ -37,6 +38,7 @@ router = APIRouter()
 log = logging.getLogger("backend.api.ops")
 
 _HEADER = "X-Ops-Token"
+_FAILED_STATUSES = ("failed", "dead", "timed_out", "recovery_required")
 
 
 def _require_ops_header(request: Request) -> None:
@@ -87,7 +89,10 @@ def _queue_snapshot(conn: sa.Connection) -> dict:
     ).scalar()
     now = conn.execute(sa.select(sa.func.now())).scalar()
     workers = [
-        {"owner": row["lease_owner"], "last_heartbeat": row["last_heartbeat"].isoformat()}
+        {
+            "owner": row["lease_owner"],
+            "last_heartbeat": hb.isoformat() if (hb := row["last_heartbeat"]) else None,
+        }
         for row in conn.execute(
             sa.select(jobs.c.lease_owner, sa.func.max(jobs.c.heartbeat_at).label("last_heartbeat"))
             .where(jobs.c.status == "running", jobs.c.lease_owner.is_not(None))
@@ -109,6 +114,47 @@ def _queue_snapshot(conn: sa.Connection) -> dict:
     }
 
 
+def _monitoring_snapshot(conn: sa.Connection) -> dict[str, Any]:
+    """Stuck jobs/assessments, recent failures and the delivery posture, for paging."""
+    s = get_settings()
+    stuck = execution.stuck_jobs(conn, limit=50)
+    stuck_asm = execution.stuck_assessments(conn, limit=50)
+    by_reason: dict[str, int] = {}
+    for row in stuck:
+        by_reason[str(row["reason"])] = by_reason.get(str(row["reason"]), 0) + 1
+    failed_24h: dict[str, int] = dict(
+        conn.execute(
+            sa.select(jobs.c.status, sa.func.count())
+            .where(
+                jobs.c.status.in_(_FAILED_STATUSES),
+                jobs.c.updated_at > sa.func.now() - timedelta(hours=24),
+            )
+            .group_by(jobs.c.status)
+        ).all()
+    )
+    not_manual = sum(
+        1
+        for doc in conn.execute(sa.select(projects.c.settings)).scalars()
+        if (doc or {}).get("delivery_mode", "pull_request") != "manual"
+    )
+    return {
+        "stuck": {
+            "jobs": len(stuck),
+            "jobs_by_reason": by_reason,
+            "job_ids": [row["id"] for row in stuck[:20]],
+            "assessments": len(stuck_asm),
+            "assessment_ids": [row["id"] for row in stuck_asm[:20]],
+            "assessment_threshold_s": s.stuck_assessment_s,
+        },
+        "failed_jobs_24h": failed_24h,
+        "pilot": {
+            "recommendation_only": s.recommendation_only,
+            "auto_delivery_allowed": s.auto_delivery_allowed,
+            "projects_not_manual_delivery": not_manual,
+        },
+    }
+
+
 @router.get("/ops/status")
 def ops_status(request: Request) -> JSONResponse:
     _require_ops_header(request)
@@ -118,6 +164,7 @@ def ops_status(request: Request) -> JSONResponse:
     with get_engine().begin() as conn:
         mig = migration_status(conn)
         queue = _queue_snapshot(conn)
+        monitoring = _monitoring_snapshot(conn)
         non_off = conn.execute(
             sa.select(sa.func.count())
             .select_from(first_responder_modes)
@@ -138,6 +185,7 @@ def ops_status(request: Request) -> JSONResponse:
             "default_mode": "off",
             "projects_with_non_default_mode": non_off,
         },
+        **monitoring,
         "alerting_configured": bool(s.alert_webhook_url),
         "feature_flags": sorted(s.flags()),
     }
