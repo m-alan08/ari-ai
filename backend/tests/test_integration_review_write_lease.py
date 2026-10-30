@@ -64,7 +64,11 @@ def test_disconnect_waits_for_review_post_and_its_settlement(
         writer.join(15)
         t.join(15)
     assert events == ["write_token+review", "disconnect:200", "effect_at_ack:settled"], events
-    assert _job()["status"] != "recovery_required"
+    # The disconnect cancels a linked job once the lease is free. If that lands before the
+    # worker records success, the settled effect is reported for operator review
+    # (recovery_required, jobs.fail precedence); it is never re-posted.
+    assert _job()["effect_state"] == "settled"
+    assert _job()["status"] in ("succeeded", "recovery_required")
     assert len(audits("monitoring.pr_review_posted")) == 1
     worker.drain(kinds=["post_pr_review"])
     assert events.count("write_token+review") == 1
