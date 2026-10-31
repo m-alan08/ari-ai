@@ -30,6 +30,7 @@ from backend.api.deps import (
 )
 from backend.api.execution import job_project
 from backend.artifacts import ArtifactStore
+from backend.connection_guard import WriteInProgress, hold_github_writes
 from backend.db import (
     agent_runs,
     approvals,
@@ -643,6 +644,16 @@ def disconnect_repository(repo_id: str, request: Request) -> dict[str, Any]:
     with transaction() as conn:
         user = _user(conn, request)
         repo = _owner_repo(conn, user, repo_id)
+        # Wait for any GitHub write that already started (push, PR, review) and keep new
+        # ones out; once we commit, writers re-check and see the disconnect.
+        try:
+            hold_github_writes(conn, repo_id)
+        except WriteInProgress:
+            raise ApiError(
+                ErrorCode.CONFLICT_STATE,
+                "a GitHub write for this repository is still finishing; retry in a moment",
+                409,
+            ) from None
         # Canonical revocation-protocol lock order: repositories first, then
         # deploy_commit_mappings — finalizing callers lock in the same order via
         # services.repository_revocation_locked, so disconnect and a mid-flight

@@ -3,6 +3,24 @@
 Append-only. Newest entry at the top. Every development session (human or agent)
 adds an entry before ending.
 
+### 2026-10-29 — Devin (agent, Alan) — Codex review fixes on #694 (disconnect boundary + redaction)
+- Did: Moved the `installation_token(write=True)` mint in `delivery.py` and `recipes.py` inside `connection_guard.github_write`; extended `redact_code` (r/b/f prefixes, single-line triple quotes, YAML/dotenv values by diff file header).
+- State of the code: Branch `devin/1793142933-security-audit` (PR #694), not merged. Merge order #694 → #693 → #696 → #695.
+- Commands run and results: see PR #694 description (exact SHA, counts).
+- Decisions made (ADR links): Write-token minting counts as a GitHub write and takes the lease; the lease is never nested (separate blocks for mint, push, PR).
+- Assumptions / open questions (RQ links): None.
+- Next steps: Independent Codex re-review.
+- Warnings for the next session: `github_write` is not re-entrant (second lease on another connection would wait for itself); never nest it.
+
+### 2026-10-27 — Devin (agent, Alan) — security audit of main @ c03a5501
+- Did: Audited trust boundaries; fixed disconnect not stopping queued/in-flight `deliver_verified_patch` and `post_pr_review`; after Codex's NO-GO on #694 added `backend/connection_guard.py` (re-check `disconnected_at` + `installation_id` right before every GitHub write, incl. `propose_build_recipe`); report in `docs/reviews/2026-10-27-security-audit/REPORT.md`.
+- State of the code: Branch `devin/*-security-audit`; PR open, not merged.
+- Commands run and results: targeted pytest (delivery, auto-commits, PR review, build recipes, installation lifecycle, redaction, 11 security tests) — 179 + 2 suites passed (see PR); ruff, format, mypy clean.
+- Decisions made (ADR links): `repositories.disconnected_at` gates every GitHub write, not only job cancellation.
+- Assumptions / open questions (RQ links): None.
+- Next steps: P2 broader `redact_code` literal forms (see report).
+- Warnings for the next session: Jobs whose payload lacks `repo_id` are not cancelled by disconnect; any handler that writes to GitHub must wrap the write in `connection_guard.github_write(repo_id, installation_id)` (write lease + re-check); disconnect takes the same lease via `hold_github_writes`. #693 also edits `post_pr_review`; the 3-line guard insert there sits directly above `post_pull_request_review(...)`.
+
 ### 2026-10-27 — Devin (agent, Adam) — wildcard per-commit assessment routing
 - Did: Routed non-empty author configuration, including `*`, through per-commit scheduling; added wildcard push and unlisted-author regressions.
 - State of the code: Branch `fix/adam/per-commit-wildcard`; ready to commit and push.
@@ -2789,3 +2807,12 @@ Exact b6d5108b6f0678a6af9546f60d28508716cc4982: 194 pass/0 fail/0 skip, exit0, s
 - Lint passed (zero errors; one existing unused-variable warning at `first-responder.tsx:173`), typecheck passed, and unit tests passed (99 files / 418 tests). The E2E stack's production build passed. Targeted pages/tab-band E2E passed 2/2, covering every project route at 1440/1024/390/320 plus the scroll captures and Live Defense 320px width.
 - The broader `pages.spec.ts` attempt without a preceding journey run passed 4/9 tests. After fixing the in-scope sticky-position override, the two header/tab-band tests passed. The other failures were: a missing seeded commit row, an unavailable `hardened` finding option, and a missing `findings-mobile-list` test id. These were not validated against the base branch and are not claimed as pre-existing.
 - Baseline scroll screenshots and metrics: `/home/ubuntu/shots/console-polish/scroll-fix-before/`; after screenshots: `/home/ubuntu/shots/console-polish/scroll-fix-after/`. The baseline 1440px scroll-50 image was clamped to scrollY 0; the 1440px scroll-300 and both 390px scroll captures reached their requested offsets.
+
+### GitHub review pipeline reliability — 2026-10-27
+
+- Branch `devin/1793142966-review-pipeline-reliability` off upstream main `c03a5501`. Fixed seven confirmed defects (D1–D7) in `backend/backend/auto_commits.py` and `backend/backend/api/webhooks.py`. Each was reproduced first by a failing test in `backend/tests/test_review_pipeline_reliability.py`. No migration or SCHEMA_VERSION change.
+- Scorecard with verified and unverified paths: `docs/reviews/2026-10-27-review-pipeline-reliability/SCORECARD.md`.
+- D7 (`*[bot]` fnmatch) came from the release-journey session (devin-42c24a90). Its strict xfail `test_default_bot_exclusion_does_not_skip_human_logins` in `test_release_journey.py` should flip when this lands.
+- Codex independent review (NO-GO round) added D8–D10: review jobs carry `repo_id` and re-check revocation under the repository lock right before the POST; the POST runs in `JobContext.effect` so a lost response ends `recovery_required`; several PRs sharing a commit each get a review (`prreview:{assessment}:pr:{n}`); D11 a legacy `prreview:{assessment}` job and the per-PR job never both post (locked already-posted / in-flight check before the POST); D12 concurrent identical deliveries ack the winner's job; self-audit D13 (uncertain sibling review → skip, not defer forever; superseded by the round-2 atomic reservation below) and D14 (dead legacy review job no longer blocks the per-PR job; ordered PR fallback). Tests in `test_review_pipeline_reliability.py`; scorecard has a Self-audit section.
+- Codex round 2 (2026-10-29): (a) the lower-job-id tie-break let a due legacy retry preempt a newer in-flight per-PR job. Ownership is now reserved in the same transaction as the arbitration (`JobContext.effect(key, reserve=...)`), and any in-flight sibling wins. (b) Every `HTTPStatusError` was treated as `EffectNotApplied`. A 5xx is now reconciled through a hidden review marker (`GitHubApp.pull_request_review_has_marker`): found = posted, absent = retry, unknown = `recovery_required`. Regressions are in `backend/tests/test_pr_review_effect_ownership.py`; 5 of its 6 tests fail on the previous head 184b8c62. **Depends on #694**: the disconnect window around the POST is closed only by #694's `connection_guard.github_write` lease.
+- Open gaps: a disconnect committing while the review POST is on the wire (lock is released before the network call, per the revocation protocol); the stale global spend cap; the `redeliver.recover` sweep ignores dead GUIDs; GitHub was not exercised live.

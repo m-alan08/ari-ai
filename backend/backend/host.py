@@ -128,31 +128,55 @@ _STATUS_EDGES: dict[FindingStatus, frozenset[FindingStatus]] = {
 _ANYTIME = frozenset({_S.needs_recheck, _S.accepted_risk, _S.closed})
 
 
-def _enqueue_pr_review(conn: Connection, assessment: Assessment) -> None:
-    from backend import jobs
-
+def linked_pull_requests(conn: Connection, assessment: Assessment) -> list[int]:
+    """Every pull request the assessment's GitHub events were linked to, in link order."""
     request_id = assessment.reassessment_request_id
     if request_id is None:
-        return
+        return []
     request = conn.execute(
         sa.select(reassessment_requests.c.doc).where(reassessment_requests.c.id == request_id)
     ).scalar_one_or_none()
     if not request:
+        return []
+    event_ids = list(request.get("event_ids", []) or [])
+    docs = {
+        doc["id"]: doc
+        for doc in conn.execute(
+            sa.select(monitoring_events.c.doc).where(monitoring_events.c.id.in_(event_ids or [""]))
+        ).scalars()
+    }
+    linked: list[int] = []
+    for event_id in event_ids:
+        number = (docs.get(event_id) or {}).get("pr_number")
+        if number and int(number) not in linked:
+            linked.append(int(number))
+    return linked
+
+
+def _enqueue_pr_review(conn: Connection, assessment: Assessment) -> None:
+    """One review job per linked pull request. ``repo_id`` in the payload lets a
+    repository disconnect cancel queued and running review jobs. A job queued under the
+    older ``prreview:{assessment}`` key already covers the first linked PR."""
+    from backend import jobs
+    from backend.db import jobs as jobs_table
+
+    linked = linked_pull_requests(conn, assessment)
+    if not linked:
         return
-    event_docs = conn.execute(
-        sa.select(monitoring_events.c.doc).where(
-            monitoring_events.c.id.in_(request.get("event_ids", []) or [""])
+    legacy = conn.execute(
+        sa.select(jobs_table.c.status).where(jobs_table.c.dedupe_key == f"prreview:{assessment.id}")
+    ).scalar_one_or_none()
+    legacy_live = legacy is not None and legacy not in ("dead", "failed", "cancelled", "timed_out")
+    for pr_number in linked:
+        if legacy_live and pr_number == linked[0]:
+            continue
+        jobs.enqueue(
+            conn,
+            "post_pr_review",
+            {"assessment_id": assessment.id, "repo_id": assessment.repo_id, "pr_number": pr_number},
+            dedupe_key=f"prreview:{assessment.id}:pr:{pr_number}",
+            priority=80,
         )
-    ).scalars()
-    if not any(event.get("pr_number") for event in event_docs):
-        return
-    jobs.enqueue(
-        conn,
-        "post_pr_review",
-        {"assessment_id": assessment.id},
-        dedupe_key=f"prreview:{assessment.id}",
-        priority=80,
-    )
 
 
 def _emit(
