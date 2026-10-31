@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Connection
 
 from backend import audit, jobs
+from backend.connection_guard import RepositoryDetached, github_write
 from backend.db import (
     assessments,
     audit_events,
@@ -968,6 +969,8 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
             .mappings()
             .first()
         )
+        if repo is not None and repo["disconnected_at"] is not None:
+            return {"noop": "repository is disconnected"}
         if repo is None or not repo["installation_id"]:
             raise PermanentJobError(
                 ErrorCode.VALIDATION_FAILED, "connected GitHub installation is unavailable"
@@ -1037,30 +1040,48 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
                 effect_key=effect_key,
             )
 
-        # Arbitration and the in-flight mark commit in one transaction under the assessment
-        # row lock, so exactly one job owns the review before any POST is dispatched.
-        with ctx.effect(effect_key, reserve=reserve):
-            try:
-                client.post_pull_request_review(
-                    installation_id, repo_full_name, pr_number, body + marker
-                )
-            except httpx.HTTPStatusError as answer:
-                if answer.response.status_code < 500:
-                    raise EffectNotApplied() from answer  # GitHub refused before acting
-                # A 5xx can follow a review GitHub already created: look for this one's marker.
-                found = _review_marker_found(
-                    client, installation_id, repo_full_name, pr_number, marker
-                )
-                if found is None:
-                    raise  # outcome unknown: recovery_required, never replayed blindly
-                if not found:
-                    raise EffectNotApplied() from answer
-                log.warning(
-                    "pr review for %s #%d was created despite HTTP %d",
-                    assessment_id,
-                    pr_number,
-                    answer.response.status_code,
-                )
+        # The write lease (#694) is the one disconnect takes: held across the reservation and
+        # the POST, so once disconnect returns 200 no review request is on the wire or starts.
+        with github_write(str(assessment.repo_id), int(installation_id)):
+            # Arbitration and the in-flight mark commit in one transaction under the assessment
+            # row lock, so exactly one job owns the review before any POST is dispatched.
+            with ctx.effect(effect_key, reserve=reserve):
+                try:
+                    client.post_pull_request_review(
+                        installation_id, repo_full_name, pr_number, body + marker
+                    )
+                except httpx.HTTPStatusError as answer:
+                    if answer.response.status_code < 500:
+                        raise EffectNotApplied() from answer  # GitHub refused before acting
+                    # A 5xx can follow a review GitHub already created: look for this one's marker.
+                    found = _review_marker_found(
+                        client, installation_id, repo_full_name, pr_number, marker
+                    )
+                    if found is None:
+                        raise  # outcome unknown: recovery_required, never replayed blindly
+                    if not found:
+                        raise EffectNotApplied() from answer
+                    log.warning(
+                        "pr review for %s #%d was created despite HTTP %d",
+                        assessment_id,
+                        pr_number,
+                        answer.response.status_code,
+                    )
+    except RepositoryDetached as detached:
+        with transaction() as conn:
+            audit.record(
+                conn,
+                org_id=org_id,
+                project_id=project_id,
+                actor_type=ActorType.system,
+                actor_id="monitoring",
+                action="monitoring.pr_review_skipped",
+                subject_type="assessment",
+                subject_id=assessment_id,
+                details={"reason": detached.reason, "pr_number": pr_number},
+            )
+        log.info("pr review for %s skipped: %s", assessment_id, detached.reason)
+        return {"noop": detached.reason}
     except _RepositoryRevoked:
         with transaction() as conn:
             audit.record(
