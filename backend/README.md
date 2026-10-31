@@ -18,7 +18,8 @@ agents use. Owner: **Srihith**. Spec: [docs/13](../docs/13_BACKEND_API_DESIGN.md
 | Sessions (dev login + GitHub OAuth), CSRF, org authz, rate limits, idempotency | `api/` | implemented; OAuth exchange not exercised against real GitHub |
 | Projects, repos, scopes (approver ≠ requester), approvals, assessments, findings, patches, artifacts, audit | `api/routes.py` | implemented |
 | SSE with `Last-Event-ID` resume from the durable log | `api/routes.py` | implemented |
-| GitHub webhook: size bound, HMAC on raw body, delivery dedupe, redacted payload, enqueue | `api/webhooks.py` | implemented |
+| GitHub webhook: size bound, HMAC on raw body, delivery dedupe (redelivery reprocesses a dead/failed/timed-out/cancelled job), redacted payload, enqueue | `api/webhooks.py` | implemented |
+| Per-commit review: rate-limit deferral (bounded, no retry budget), last-attempt failures recorded as skipped events, PR linked to an already-assessed commit (one review per PR sharing the commit), no PR review after disconnect (locked re-check before the POST), lost review responses end `recovery_required` instead of a duplicate | `auto_commits.py` | implemented; failure injection in `tests/test_review_pipeline_reliability.py` |
 | GitHub repository picker | `api/github_repos.py`, `github.py` | sign-in snapshot plus live refresh for trusted personal installations; organization repositories still refresh at sign-in |
 | Monitoring pipeline (normalize → reviewer filters → impact/correlation → policy → reassessment) | `pipeline.py` + `monitoring/` | implemented; nonempty `GITHUB_AUTO_COMMIT_AUTHORS` selects the per-commit rollout path |
 | AssessmentHost gates (transitions, scope, approval, budget, cancel, Verify independence) | `host.py` | implemented |

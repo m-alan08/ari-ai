@@ -461,7 +461,21 @@ class HostSink(AssessmentSink):
             self.join_review()
         if self.result is not None and dst in (AssessmentState.COMPLETED, AssessmentState.AWAITING_APPROVAL):
             _store_standards_artifacts(self, self.result)
-        self.host.transition(_host_state(dst), note)
+        if (
+            dst is AssessmentState.FAILED
+            and self.result is not None
+            and self.result.error_code
+            and callable(getattr(self.host, "terminate", None))
+        ):
+            from shared.errors import ErrorCode as SharedErrorCode
+
+            self.host.terminate(
+                _host_state(dst),
+                SharedErrorCode(self.result.error_code.value),
+                self.result.error_detail or note or "Assessment failed",
+            )
+        else:
+            self.host.transition(_host_state(dst), note)
         if dst is AssessmentState.FUNCTIONAL_REVIEW:
             self._review = threading.Thread(target=self._run_review, name="functional-review", daemon=True)
             self._review.start()
@@ -830,34 +844,23 @@ class HostOrchestrator:
                 self._resume(existing, host)
                 return
             if not isinstance(claimed, dict):
-                raise PlatformError(
-                    ErrorCode.CONFLICT_STATE,
-                    f"cannot resume from {state}: paused orchestrator state was lost "
-                    "(worker restarted or another worker); start a new assessment",
-                )
-            self._resume_from_checkpoint(host, claimed, target)
-            return
-        checkpoint = _load_checkpoint(host)
-        if checkpoint is not None and state not in start_states:
-            claimed = _claim_checkpoint(host)
-            if not isinstance(claimed, dict):
-                raise PlatformError(
-                    ErrorCode.CONFLICT_STATE,
-                    f"cannot resume from {state}: paused orchestrator state was lost "
-                    "(worker restarted or another worker); start a new assessment",
-                )
-            self._resume_from_checkpoint(host, claimed, target)
-            return
-        if state not in start_states:
-            if checkpoint is None and _claim_checkpoint(host) is _CHECKPOINT_CLAIMED_ELSEWHERE:
+                state = self._restart_lost(host, state)
+                if state != "SCOPE_CHECK":
+                    return CLAIMED_ELSEWHERE if state == CLAIMED_ELSEWHERE else None
+            else:
+                self._resume_from_checkpoint(host, claimed, target)
+                return
+        elif state not in start_states or (
+            state == "SCOPE_CHECK"
+            and getattr(getattr(getattr(host, "_job_ctx", None), "job", None), "attempts", 1) > 1
+        ):
+            if _claim_checkpoint(host) is _CHECKPOINT_CLAIMED_ELSEWHERE:
                 # The approving worker already resumed in-process and moved the run on.
                 host.progress("approval resume already claimed by another worker")
                 return CLAIMED_ELSEWHERE
-            raise PlatformError(
-                ErrorCode.CONFLICT_STATE,
-                f"cannot resume from {state}: paused orchestrator state was lost "
-                "(worker restarted or another worker); start a new assessment",
-            )
+            state = self._restart_lost(host, state)
+            if state != "SCOPE_CHECK":
+                return CLAIMED_ELSEWHERE if state == CLAIMED_ELSEWHERE else None
 
         workdir = self._workdir(host)
         intel = self._build_intel(target, workdir, host)
@@ -870,6 +873,18 @@ class HostOrchestrator:
             self._resumable[host.assessment_id] = orchestrator
             _save_checkpoint(host, orchestrator, intel)
             host.progress("awaiting human remediation approval")
+
+    @staticmethod
+    def _restart_lost(host: AssessmentHostLike, state: str) -> str:
+        restart = getattr(host, "restart_lost_state", None)
+        if not callable(restart):
+            raise PlatformError(
+                ErrorCode.CONFLICT_STATE,
+                f"cannot resume from {state}: paused orchestrator state was lost "
+                "(worker restarted or another worker); start a new assessment",
+            )
+        outcome = restart(state)
+        return "SCOPE_CHECK" if outcome == "restart" else outcome
 
     def _resume_from_checkpoint(
         self, host: AssessmentHostLike, checkpoint: dict[str, Any], target: Path | None
@@ -930,6 +945,15 @@ class HostOrchestrator:
             cancelled=lambda: _cancelled(host),
             external_pending=lambda: _pending_remediation(host) or _has_approved_functional(host),
         )
+        usage = getattr(_val(host, "assessment"), "usage", None)
+        if usage is not None:
+            orchestrator.result.usage = Usage(
+                input_tokens=int(getattr(usage, "input_tokens", 0)),
+                output_tokens=int(getattr(usage, "output_tokens", 0)),
+                usd=float(getattr(usage, "usd", 0)),
+                sandbox_seconds=float(getattr(usage, "sandbox_seconds", 0)),
+            )
+            sink.sandbox_charged = orchestrator.result.usage.sandbox_seconds
         sink.result = orchestrator.result
         return orchestrator
 

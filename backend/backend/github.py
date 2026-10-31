@@ -151,6 +151,23 @@ class GitHubApp:
         )
         r.raise_for_status()
 
+    def pull_request_review_has_marker(
+        self, installation_id: int, full_name: str, number: int, marker: str
+    ) -> bool:
+        """Whether a review on the PR carries ``marker``; reconciles an ambiguous POST."""
+        for page in range(1, 11):  # 1000 reviews at most; beyond that the caller cannot tell
+            reviews = self._get(
+                installation_id,
+                f"/repos/{full_name}/pulls/{number}/reviews",
+                per_page=100,
+                page=page,
+            )
+            if any(marker in (review.get("body") or "") for review in reviews):
+                return True
+            if len(reviews) < 100:
+                return False
+        raise RuntimeError(f"too many reviews on {full_name}#{number} to reconcile")
+
     def _app_headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._app_jwt()}",

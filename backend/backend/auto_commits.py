@@ -15,6 +15,7 @@ from sqlalchemy.engine import Connection
 from backend import audit, jobs
 from backend.db import (
     assessments,
+    audit_events,
     findings,
     monitoring_events,
     projects,
@@ -33,7 +34,13 @@ from backend.services import (
     project_settings,
 )
 from backend.settings import get_settings
-from backend.worker import JobContext, PermanentJobError, handler
+from backend.worker import (
+    EffectNotApplied,
+    JobContext,
+    JobDeferred,
+    PermanentJobError,
+    handler,
+)
 from shared.assessment import Assessment, AssessmentState, AssessmentTrigger
 from shared.audit import ActorType
 from shared.base import utcnow
@@ -87,13 +94,15 @@ def per_commit_enabled() -> bool:
     return bool(_configured_authors())
 
 
-def _matches(patterns: list[str], value: str) -> bool:
+def _matches(patterns: list[str], value: str, *, literal_brackets: bool = False) -> bool:
     normalized = value.casefold()
-    return any(
-        fnmatch.fnmatchcase(normalized, pattern.casefold())
-        or (pattern.casefold() == "*[bot]" and normalized.endswith("[bot]"))
-        for pattern in patterns
-    )
+    for pattern in patterns:
+        pattern = pattern.casefold()
+        if literal_brackets:  # "*[bot]" means a "[bot]" suffix, not a b/o/t character class
+            pattern = pattern.replace("[", "[[]")
+        if fnmatch.fnmatchcase(normalized, pattern):
+            return True
+    return False
 
 
 def reviewer_ignore_reason(
@@ -121,9 +130,13 @@ def reviewer_ignore_reason(
     if reviewer.exclude_branches and _matches(reviewer.exclude_branches, branch):
         return "skipped: branch excluded by reviewer settings"
 
-    if reviewer.include_authors and not _matches(reviewer.include_authors, actor):
+    if reviewer.include_authors and not _matches(
+        reviewer.include_authors, actor, literal_brackets=True
+    ):
         return "skipped: author is outside reviewer settings"
-    if reviewer.exclude_authors and _matches(reviewer.exclude_authors, actor):
+    if reviewer.exclude_authors and _matches(
+        reviewer.exclude_authors, actor, literal_brackets=True
+    ):
         return "skipped: author excluded by reviewer settings"
     return None
 
@@ -255,26 +268,68 @@ def schedule(
         raise PermanentJobError(ErrorCode.VALIDATION_FAILED, "push contains an invalid commit SHA")
     queued = []
     for sha in dict.fromkeys(shas):
-        job_id, _ = jobs.enqueue(
-            conn,
-            "assess_github_commit",
-            {
-                "repo_id": repo["id"],
-                "sha": sha,
-                "sender": sender,
-                "installation_id": installation,
-                "payload_artifact_id": delivery["payload_artifact_id"],
-                "ref": change.ref,
-                "event_type": change.event,
-                "pr_number": change.pr_number,
-                "occurred_at": change.occurred_at.isoformat(),
-                "received_at": delivery["received_at"].isoformat(),
-            },
-            dedupe_key=f"github:commit:{repo['id']}:{sha}",
-            priority=60,
+        payload_doc = {
+            "repo_id": repo["id"],
+            "sha": sha,
+            "sender": sender,
+            "installation_id": installation,
+            "payload_artifact_id": delivery["payload_artifact_id"],
+            "ref": change.ref,
+            "event_type": change.event,
+            "pr_number": change.pr_number,
+            "occurred_at": change.occurred_at.isoformat(),
+            "received_at": delivery["received_at"].isoformat(),
+        }
+        key = f"github:commit:{repo['id']}:{sha}"
+        job_id, created = jobs.enqueue(
+            conn, "assess_github_commit", payload_doc, dedupe_key=key, priority=60
         )
+        if not created and change.pr_number:
+            # The push for this commit already owns the commit job; a PR-scoped job links the
+            # PR to that single assessment so its review comment is still delivered.
+            job_id, _ = jobs.enqueue(
+                conn,
+                "assess_github_commit",
+                payload_doc,
+                dedupe_key=f"{key}:pr:{change.pr_number}",
+                priority=60,
+            )
         queued.append(job_id)
     return {"commit_jobs": queued}
+
+
+# GitHub rate limits reset within an hour; deferral does not spend the retry budget, so
+# this bounds how long a commit (or review) may wait for GitHub before it is recorded.
+RATE_LIMIT_MAX_DEFERS = 24
+RATE_LIMIT_MAX_DELAY_S = 3600.0
+
+
+def _rate_limit_delay(exc: httpx.HTTPStatusError) -> float | None:
+    """Seconds until GitHub accepts requests again, or ``None`` when not rate limited."""
+    response = exc.response
+    headers = response.headers
+    limited = response.status_code == 429 or (
+        response.status_code == 403
+        and (
+            headers.get("x-ratelimit-remaining") == "0"
+            or "rate limit" in (response.text or "").lower()
+        )
+    )
+    if not limited:
+        return None
+    delay = 60.0
+    try:
+        if headers.get("retry-after"):
+            delay = float(headers["retry-after"])
+        elif headers.get("x-ratelimit-reset"):
+            delay = float(headers["x-ratelimit-reset"]) - utcnow().timestamp()
+    except ValueError:
+        pass
+    return min(max(delay, 1.0), RATE_LIMIT_MAX_DELAY_S)
+
+
+def _final_attempt(ctx: JobContext) -> bool:
+    return ctx.job.attempts - ctx.job.defer_count >= ctx.job.max_attempts
 
 
 def _permanent_failure(exc: httpx.HTTPStatusError) -> str | None:
@@ -290,6 +345,21 @@ def _permanent_failure(exc: httpx.HTTPStatusError) -> str | None:
             "GitHub denied the commit lookup — the installation was removed or permissions revoked"
         )
     return None
+
+
+def _exhausted_reason(ctx: JobContext, cause: str) -> str:
+    log.error(
+        "github commit lookup exhausted retries job=%s repo=%s sha=%s attempts=%d cause=%s",
+        ctx.job.id,
+        ctx.job.payload.get("repo_id"),
+        str(ctx.job.payload.get("sha"))[:12],
+        ctx.job.attempts - ctx.job.defer_count,
+        cause,
+    )
+    return (
+        f"GitHub commit lookup kept failing ({cause}) after "
+        f"{ctx.job.attempts - ctx.job.defer_count} attempts; start a manual review to retry"
+    )
 
 
 def policy_exit(
@@ -457,10 +527,26 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
     try:
         commit = github_client().commit(repo["installation_id"], repo["full_name"], p["sha"])
     except httpx.HTTPStatusError as exc:
+        delay = _rate_limit_delay(exc)
+        if delay is not None and ctx.job.defer_count < RATE_LIMIT_MAX_DEFERS:
+            log.warning(
+                "github rate limited commit lookup repo=%s sha=%s job=%s; deferring %.0fs",
+                repo["full_name"],
+                p["sha"][:12],
+                ctx.job.id,
+                delay,
+            )
+            raise JobDeferred(delay, "GitHub rate limit") from exc
         reason = _permanent_failure(exc)
+        if reason is None and _final_attempt(ctx):
+            reason = _exhausted_reason(ctx, f"HTTP {exc.response.status_code}")
         if reason is None:
             raise  # transient GitHub errors keep the normal retry path
         return policy_exit(p, reason)
+    except httpx.TransportError as exc:
+        if not _final_attempt(ctx):
+            raise
+        return policy_exit(p, _exhausted_reason(ctx, type(exc).__name__))
     if commit.get("sha") != p["sha"]:
         raise ValueError("GitHub returned a different commit")
     login = (commit.get("author") or {}).get("login", "").lower()
@@ -483,6 +569,8 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
         )
         if repo["installation_id"] != p["installation_id"]:
             return policy_exit(p, "repository installation changed", conn)
+        if repo["disconnected_at"] is not None:  # disconnect committed during the lookup
+            return policy_exit(p, "repository disconnected", conn)
         if not repo["automatic_assessments"]:
             return policy_exit(p, "repository automatic assessments disabled", conn)
         settings = project_settings(conn, repo["project_id"])
@@ -503,6 +591,8 @@ def assess_commit(ctx: JobContext) -> dict[str, Any]:
                 )
             ).scalar_one()
             rrq = ReassessmentRequest.model_validate(row)
+            if p.get("pr_number"):
+                _link_pull_request(conn, existing, rrq, int(p["pr_number"]))
             if rrq.assessment_id:
                 return {"assessment_id": rrq.assessment_id, "idempotent_replay": True}
             if rrq.status == ReassessmentStatus.skipped:
@@ -686,6 +776,156 @@ def _pr_review_body(
     return redact_text("\n".join(lines)), len(included)
 
 
+def _link_pull_request(
+    conn: Connection, event: Any, rrq: ReassessmentRequest, pr_number: int
+) -> None:
+    """Attach a PR to the commit's existing request so its one assessment is reviewed there.
+
+    The first PR is recorded on the commit's own event; every further PR sharing the
+    commit gets its own event under the same request, so each one receives a review."""
+    from backend.host import _enqueue_pr_review
+
+    linked = {
+        int(doc["pr_number"])
+        for doc in conn.execute(
+            sa.select(monitoring_events.c.doc).where(monitoring_events.c.id.in_(rrq.event_ids))
+        ).scalars()
+        if doc.get("pr_number")
+    }
+    if pr_number in linked:
+        return
+    if not event["doc"].get("pr_number"):
+        doc = {**event["doc"], "pr_number": pr_number}
+        conn.execute(
+            sa.update(monitoring_events)
+            .where(monitoring_events.c.id == event["id"])
+            .values(doc=doc)
+        )
+    else:
+        linked_event = MonitoringEvent.model_validate(
+            {
+                **event["doc"],
+                "id": new_id(IdPrefix.evt),
+                "type": EventType.pull_request.value,
+                "pr_number": pr_number,
+                "dedupe_key": f"{event['dedupe_key']}:pr:{pr_number}",
+            }
+        )
+        conn.execute(
+            pg_insert(monitoring_events)
+            .values(
+                id=linked_event.id,
+                project_id=linked_event.project_id,
+                repo_id=linked_event.repo_id,
+                dedupe_key=linked_event.dedupe_key,
+                status=linked_event.status.value,
+                doc=linked_event.model_dump(mode="json"),
+            )
+            .on_conflict_do_nothing(index_elements=["dedupe_key"])
+        )
+        updated = rrq.model_copy(update={"event_ids": [*rrq.event_ids, linked_event.id]})
+        conn.execute(
+            sa.update(reassessment_requests)
+            .where(reassessment_requests.c.id == rrq.id)
+            .values(doc=updated.model_dump(mode="json"))
+        )
+    log.info(
+        "linked pull request #%d to commit event=%s assessment=%s",
+        pr_number,
+        event["id"],
+        rrq.assessment_id,
+    )
+    if not rrq.assessment_id:
+        return
+    # Lock against the host's terminal transition: whichever commits second enqueues.
+    assessment_doc = conn.execute(
+        sa.select(assessments.c.doc).where(assessments.c.id == rrq.assessment_id).with_for_update()
+    ).scalar_one_or_none()
+    if assessment_doc is None:
+        return
+    assessment = Assessment.model_validate(assessment_doc)
+    if assessment.state in (AssessmentState.COMPLETED, AssessmentState.AWAITING_APPROVAL):
+        _enqueue_pr_review(conn, assessment)
+
+
+class _RepositoryRevoked(EffectNotApplied):
+    """The repository was disconnected (or its installation changed) before the POST."""
+
+
+class _AlreadyPosted(EffectNotApplied):
+    """Another job already delivered this review (or has it settled)."""
+
+
+class _ReviewInFlight(EffectNotApplied):
+    """Another job owns this review and is posting it right now; look again later."""
+
+
+class _ReviewUncertain(EffectNotApplied):
+    """Another job's POST of this review has an unknown outcome; an operator reconciles it."""
+
+
+def _review_already_delivered(
+    conn: Connection,
+    *,
+    job_id: str,
+    project_id: str,
+    assessment_id: str,
+    pr_number: int,
+    effect_key: str,
+) -> None:
+    """Serialized under the assessment row lock: skip when another job posted (or settled)
+    this review; yield to any job that already reserved it. Catches jobs that reach the
+    same review under different dedupe keys, e.g. one queued before per-PR keys existed."""
+    from backend.db import jobs as jobs_table
+
+    conn.execute(
+        sa.select(assessments.c.id).where(assessments.c.id == assessment_id).with_for_update()
+    )
+    posted = any(
+        (doc.get("details") or {}).get("pr_number") == pr_number
+        for doc in conn.execute(
+            sa.select(audit_events.c.doc).where(
+                audit_events.c.project_id == project_id,
+                audit_events.c.doc["action"].astext == "monitoring.pr_review_posted",
+                audit_events.c.doc["subject_id"].astext == assessment_id,
+            )
+        ).scalars()
+    )
+    siblings = (
+        conn.execute(
+            sa.select(jobs_table.c.id, jobs_table.c.status, jobs_table.c.effect_state).where(
+                jobs_table.c.kind == "post_pr_review",
+                jobs_table.c.id != job_id,
+                jobs_table.c.effect_key == effect_key,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    if posted or any(s["effect_state"] == "settled" for s in siblings):
+        raise _AlreadyPosted()
+    # Ownership goes to whichever job reserved the effect first, never to the older job:
+    # the caller commits its own in-flight mark in this same locked transaction.
+    in_flight = [s for s in siblings if s["effect_state"] == "in_flight"]
+    if any(s["status"] == "running" for s in in_flight):
+        raise _ReviewInFlight()
+    if in_flight:
+        raise _ReviewUncertain()
+
+
+def _review_marker_found(
+    client: Any, installation_id: int, full_name: str, pr_number: int, marker: str
+) -> bool | None:
+    """Whether GitHub holds the review carrying ``marker``; ``None`` when it cannot tell."""
+    try:
+        return bool(
+            client.pull_request_review_has_marker(installation_id, full_name, pr_number, marker)
+        )
+    except Exception:
+        log.warning("could not reconcile pr review on %s #%d", full_name, pr_number, exc_info=True)
+        return None
+
+
 @handler("post_pr_review")
 def post_pr_review(ctx: JobContext) -> dict[str, Any]:
     assessment_id = ctx.job.payload["assessment_id"]
@@ -710,17 +950,15 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
         ).scalar_one_or_none()
         if request_doc is None:
             return {"noop": "reassessment request not found"}
-        event_docs = (
-            conn.execute(
-                sa.select(monitoring_events.c.doc).where(
-                    monitoring_events.c.id.in_(request_doc.get("event_ids", []) or [""])
-                )
-            )
-            .scalars()
-            .all()
+        from backend.host import linked_pull_requests
+
+        # A job queued before per-PR keys carries no PR number: it covers the first linked PR,
+        # the same one _enqueue_pr_review leaves to it.
+        pr_number = int(
+            ctx.job.payload.get("pr_number")
+            or next(iter(linked_pull_requests(conn, assessment)), 0)
         )
-        pr_event = next((event for event in event_docs if event.get("pr_number")), None)
-        if pr_event is None:
+        if not pr_number:
             return {"noop": "assessment is not linked to a pull request"}
         settings = project_settings(conn, assessment.project_id)
         if not settings.review.comment_on_pull_requests:
@@ -734,6 +972,20 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
             raise PermanentJobError(
                 ErrorCode.VALIDATION_FAILED, "connected GitHub installation is unavailable"
             )
+        if repo["disconnected_at"] is not None:
+            audit.record(
+                conn,
+                org_id=project_org(conn, assessment.project_id),
+                project_id=assessment.project_id,
+                actor_type=ActorType.system,
+                actor_id="monitoring",
+                action="monitoring.pr_review_skipped",
+                subject_type="assessment",
+                subject_id=assessment_id,
+                details={"reason": "repository disconnected"},
+            )
+            log.info("pr review for %s skipped: repository disconnected", assessment_id)
+            return {"noop": "repository disconnected"}
         finding_docs = list(
             conn.execute(
                 sa.select(findings.c.doc)
@@ -747,17 +999,130 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
         body, finding_count = _pr_review_body(
             assessment_id, assessment.project_id, finding_docs, settings.review.strictness
         )
-        pr_number = int(pr_event["pr_number"])
         project_id = assessment.project_id
         repo_full_name = repo["full_name"]
         installation_id = repo["installation_id"]
         org_id = project_org(conn, project_id)
 
     ctx.check_cancelled()
+    client = github_client()
     try:
-        github_client().post_pull_request_review(installation_id, repo_full_name, pr_number, body)
-    except httpx.HTTPStatusError as exc:
+        # The effect guard makes a lost response ``recovery_required`` instead of a replay:
+        # GitHub may already have created the review, and only an operator can tell.
+        effect_key = f"prreview:{assessment_id}:pr:{pr_number}"
+        marker = f"\n\n<!-- ari-review:{effect_key} -->"
+
+        def reserve(conn: Connection) -> None:
+            # Same row lock as POST /repositories/{id}/disconnect, taken right before the
+            # network call: a disconnect that committed since the pre-check is seen, and
+            # one still holding the row is waited for. Released before the call itself;
+            # repository locks are never held across a provider request.
+            live = (
+                conn.execute(
+                    sa.select(repositories.c.disconnected_at, repositories.c.installation_id)
+                    .where(repositories.c.id == assessment.repo_id)
+                    .with_for_update()
+                )
+                .mappings()
+                .one()
+            )
+            if live["disconnected_at"] is not None or live["installation_id"] != installation_id:
+                raise _RepositoryRevoked()
+            _review_already_delivered(
+                conn,
+                job_id=ctx.job.id,
+                project_id=project_id,
+                assessment_id=assessment_id,
+                pr_number=pr_number,
+                effect_key=effect_key,
+            )
+
+        # Arbitration and the in-flight mark commit in one transaction under the assessment
+        # row lock, so exactly one job owns the review before any POST is dispatched.
+        with ctx.effect(effect_key, reserve=reserve):
+            try:
+                client.post_pull_request_review(
+                    installation_id, repo_full_name, pr_number, body + marker
+                )
+            except httpx.HTTPStatusError as answer:
+                if answer.response.status_code < 500:
+                    raise EffectNotApplied() from answer  # GitHub refused before acting
+                # A 5xx can follow a review GitHub already created: look for this one's marker.
+                found = _review_marker_found(
+                    client, installation_id, repo_full_name, pr_number, marker
+                )
+                if found is None:
+                    raise  # outcome unknown: recovery_required, never replayed blindly
+                if not found:
+                    raise EffectNotApplied() from answer
+                log.warning(
+                    "pr review for %s #%d was created despite HTTP %d",
+                    assessment_id,
+                    pr_number,
+                    answer.response.status_code,
+                )
+    except _RepositoryRevoked:
+        with transaction() as conn:
+            audit.record(
+                conn,
+                org_id=org_id,
+                project_id=project_id,
+                actor_type=ActorType.system,
+                actor_id="monitoring",
+                action="monitoring.pr_review_skipped",
+                subject_type="assessment",
+                subject_id=assessment_id,
+                details={"reason": "repository disconnected", "pr_number": pr_number},
+            )
+        log.info("pr review for %s skipped: repository disconnected before post", assessment_id)
+        return {"noop": "repository disconnected"}
+    except _AlreadyPosted:
+        with transaction() as conn:
+            audit.record(
+                conn,
+                org_id=org_id,
+                project_id=project_id,
+                actor_type=ActorType.system,
+                actor_id="monitoring",
+                action="monitoring.pr_review_skipped",
+                subject_type="assessment",
+                subject_id=assessment_id,
+                details={"reason": "review already posted", "pr_number": pr_number},
+            )
+        log.info("pr review for %s #%d skipped: already posted", assessment_id, pr_number)
+        return {"noop": "review already posted", "pr_number": pr_number}
+    except _ReviewUncertain:
+        with transaction() as conn:
+            audit.record(
+                conn,
+                org_id=org_id,
+                project_id=project_id,
+                actor_type=ActorType.system,
+                actor_id="monitoring",
+                action="monitoring.pr_review_skipped",
+                subject_type="assessment",
+                subject_id=assessment_id,
+                details={"reason": "another review attempt is uncertain", "pr_number": pr_number},
+            )
+        log.warning("pr review for %s #%d skipped: outcome uncertain", assessment_id, pr_number)
+        return {"noop": "another review attempt is uncertain", "pr_number": pr_number}
+    except _ReviewInFlight:
+        raise JobDeferred(15.0, "another job is posting this review") from None
+    except EffectNotApplied as guard:
+        exc = guard.__cause__
+        assert isinstance(exc, httpx.HTTPStatusError)
         status_code = exc.response.status_code
+        delay = _rate_limit_delay(exc)
+        if delay is not None:
+            if ctx.job.defer_count < RATE_LIMIT_MAX_DEFERS:
+                log.warning(
+                    "github rate limited pr review assessment=%s pr=%d; deferring %.0fs",
+                    assessment_id,
+                    pr_number,
+                    delay,
+                )
+                raise JobDeferred(delay, "GitHub rate limit") from exc
+            raise exc from None  # rate limited for too long: ordinary retry budget, then dead + alert
         if 400 <= status_code < 500:
             with transaction() as conn:
                 audit.record(
@@ -775,7 +1140,7 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
                 ErrorCode.VALIDATION_FAILED,
                 f"GitHub rejected PR review (HTTP {status_code})",
             ) from exc
-        raise
+        raise exc from None  # 5xx: GitHub answered, nothing was created; normal retry path
 
     with transaction() as conn:
         audit.record(

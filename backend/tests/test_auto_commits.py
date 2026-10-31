@@ -1404,7 +1404,9 @@ def test_impact_path_pull_request_posts_review_from_monitoring_event(
     AssessmentHost(assessment_id).transition(AssessmentState.COMPLETED, "test completion")
     with transaction() as conn:
         job = (
-            conn.execute(sa.select(jobs).where(jobs.c.dedupe_key == f"prreview:{assessment_id}"))
+            conn.execute(
+                sa.select(jobs).where(jobs.c.dedupe_key == f"prreview:{assessment_id}:pr:7")
+            )
             .mappings()
             .one()
         )
