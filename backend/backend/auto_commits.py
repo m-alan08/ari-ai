@@ -1057,10 +1057,11 @@ def post_pr_review(ctx: JobContext) -> dict[str, Any]:
                     found = _review_marker_found(
                         client, installation_id, repo_full_name, pr_number, marker
                     )
-                    if found is None:
-                        raise  # outcome unknown: recovery_required, never replayed blindly
                     if not found:
-                        raise EffectNotApplied() from answer
+                        # Absence right after a 5xx (or a failed lookup) does not prove GitHub
+                        # did not act: reads can lag the write. recovery_required, never
+                        # replayed blindly; an operator resolves it.
+                        raise
                     log.warning(
                         "pr review for %s #%d was created despite HTTP %d",
                         assessment_id,

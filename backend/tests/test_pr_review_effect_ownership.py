@@ -179,28 +179,31 @@ def test_http_500_with_unknown_outcome_requires_recovery(automatic, monkeypatch)
     assert not audits("monitoring.pr_review_posted")
 
 
-def test_http_500_confirmed_absent_on_github_is_retried(automatic, monkeypatch):
+def test_accepted_post_with_503_and_lagging_read_back_is_not_reposted(automatic, monkeypatch):
+    """Codex P2: GitHub accepts the review and answers 503; the immediate read-back does not
+    show it yet. Absence right after a 5xx does not prove non-application, so the job must
+    stay in recovery instead of retrying into a duplicate review."""
     _, bob, ids, _ = automatic
     seed_pr_assessment(ids, bob)
-    calls = []
+    accepted, lookups = [], []
 
     class GitHub:
-        def post_pull_request_review(self, *args):
-            calls.append(args)
-            if len(calls) == 1:
+        def post_pull_request_review(self, installation, repo, number, body):
+            accepted.append(body)  # GitHub stored it
+            if len(accepted) == 1:
                 raise http_error(503, method="POST")
 
-        def pull_request_review_has_marker(self, *args):
-            return False
+        def pull_request_review_has_marker(self, installation, repo, number, marker):
+            lookups.append(marker)
+            return len(lookups) > 1 and any(marker in body for body in accepted)  # read lag
 
     monkeypatch.setattr("backend.auto_commits.GitHubApp", GitHub)
     worker.drain(kinds=["post_pr_review"])
-    assert job("post_pr_review")["status"] == "queued"
     make_due("post_pr_review")
     worker.drain(kinds=["post_pr_review"])
-    assert len(calls) == 2
-    assert job("post_pr_review")["status"] == "succeeded"
-    assert len(audits("monitoring.pr_review_posted")) == 1
+    assert len(accepted) == 1, "a 5xx with an unconfirmed read-back was retried into a duplicate"
+    assert job("post_pr_review")["status"] == "recovery_required"
+    assert not audits("monitoring.pr_review_posted")
 
 
 def _app(pages):
