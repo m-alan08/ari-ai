@@ -11,8 +11,10 @@ scenarios exercise process/queue/checkpoint semantics without paid calls.
 
 Scenarios (each prints RESULT and appends to evidence.json):
   S1 graceful-drain:   SIGTERM mid-assessment → job completes, checkpoint saved
-  S2 hard-kill:        SIGKILL mid-assessment → re-claimed → honest FAILED, never
-                       fabricated success (CONFLICT_STATE, visible error)
+  S2 hard-kill:        SIGKILL mid-assessment → re-claimed → one automatic restart
+                       (audit row, usage carried) → approval pause; a second kill
+                       after that restart → honest FAILED (CONFLICT_STATE), never
+                       fabricated success
   S3 checkpoint-resume: approve S1's pending remediation on a FRESH worker →
                        resumes from checkpoint → COMPLETED, artifacts intact
   S4 exactly-once:     2 racing workers on N probe jobs → all succeed, attempts==1;
@@ -397,33 +399,116 @@ def main() -> int:
             },
         )
 
-        # ------------------------------------------------ S2 SIGKILL honest fail
+        # ------------------------------------- S2 SIGKILL: one restart, then honest fail
+        from backend.db import audit_events
+
+        def restart_events(aid: str) -> list[dict[str, Any]]:
+            with transaction() as conn:
+                return [
+                    (d or {}).get("data", {})
+                    for d in conn.execute(
+                        sa.select(assessment_events.c.doc)
+                        .where(assessment_events.c.assessment_id == aid)
+                        .where(assessment_events.c.doc["data"]["automatic_restart"].isnot(None))
+                        .order_by(assessment_events.c.seq)
+                    ).scalars()
+                ]
+
+        def recovery_audits(aid: str) -> list[dict[str, Any]]:
+            with transaction() as conn:
+                return [
+                    (d or {}).get("details", {})
+                    for d in conn.execute(
+                        sa.select(audit_events.c.doc)
+                        .where(
+                            audit_events.c.doc["action"].astext == "assessment.lost_worker_recovery"
+                        )
+                        .where(audit_events.c.doc["subject_id"].astext == aid)
+                        .order_by(audit_events.c.seq)
+                    ).scalars()
+                ]
+
+        def asm_doc(aid: str) -> dict[str, Any]:
+            with transaction() as conn:
+                return (
+                    conn.execute(
+                        sa.select(assessments.c.doc).where(assessments.c.id == aid)
+                    ).scalar_one_or_none()
+                    or {}
+                )
+
+        def hard_kill_mid_run(jid: str, aid: str, name: str) -> Proc:
+            wk = Proc(worker_env, name)
+            wk.start()
+            procs.append(wk)
+            _poll(lambda: job_running(jid), bool, timeout=60)
+            _poll(lambda: asm_state(aid), lambda s: s not in (None, "CREATED"), timeout=60)
+            wk.p.send_signal(signal.SIGKILL)
+            wk.p.wait(timeout=15)
+            return wk
+
+        # S2a: the first lost worker restarts the assessment once from SCOPE_CHECK with
+        # the lost segment's usage carried forward; it reaches the approval pause.
         aid2, jid2 = start_assessment()
-        w2 = Proc(worker_env, "w2")
-        w2.start()
-        procs.append(w2)
-        _poll(lambda: job_running(jid2), bool, timeout=60)
-        _poll(lambda: asm_state(aid2), lambda s: s not in (None, "CREATED"), timeout=60)
-        w2.p.send_signal(signal.SIGKILL)
-        w2.p.wait(timeout=15)
+        hard_kill_mid_run(jid2, aid2, "w2")
         w3 = Proc(worker_env, "w3")
         w3.start()
         procs.append(w3)
-        _poll(lambda: asm_state(aid2), lambda s: s == "FAILED", timeout=180)
-        j2 = job_row(jid2)
-        err2 = (j2 or {}).get("last_error") or {}
-        msg2 = err2 if isinstance(err2, str) else json.dumps(err2)
-        honest = "lost" in msg2 or "CONFLICT_STATE" in msg2 or "conflict" in msg2.lower()
+        _poll(lambda: asm_state(aid2), lambda s: s in ("AWAITING_APPROVAL", "FAILED"), timeout=180)
+        ev2, au2 = restart_events(aid2), recovery_audits(aid2)
+        sandbox2 = (asm_doc(aid2).get("usage") or {}).get("sandbox_seconds", 0)
         results.record(
-            "S2_hard_kill_honest_failure",
-            bool(asm_state(aid2) == "FAILED" and honest),
+            "S2a_hard_kill_restarts_once",
+            bool(
+                asm_state(aid2) == "AWAITING_APPROVAL"
+                and [e.get("automatic_restart") for e in ev2] == [True]
+                and [a.get("to") for a in au2] == ["SCOPE_CHECK"]
+                and sandbox2 >= ev2[0].get("estimated_sandbox_seconds", 0) > 0
+            ),
             {
                 "assessment_state": asm_state(aid2),
-                "job_status": (j2 or {}).get("status"),
-                "job_attempts": (j2 or {}).get("attempts"),
-                "job_error": msg2[:200],
+                "restart_events": ev2,
+                "recovery_audits": au2,
+                "carried_sandbox_seconds": sandbox2,
             },
         )
+        w3.stop()
+
+        # S2b: a second lost worker after the automatic restart ends honestly FAILED
+        # (CONFLICT_STATE, visible error), never a second restart or fabricated success.
+        aid2b, jid2b = start_assessment()
+        hard_kill_mid_run(jid2b, aid2b, "w2b")
+        w3b = Proc(worker_env, "w3b")
+        w3b.start()
+        procs.append(w3b)
+        _poll(lambda: restart_events(aid2b), bool, timeout=180)
+        w3b.p.send_signal(signal.SIGKILL)
+        w3b.p.wait(timeout=15)
+        state_at_second_kill = asm_state(aid2b)
+        w3c = Proc(worker_env, "w3c")
+        w3c.start()
+        procs.append(w3c)
+        _poll(lambda: asm_state(aid2b), lambda s: s in ("FAILED", "AWAITING_APPROVAL"), timeout=180)
+        err2 = asm_doc(aid2b).get("error") or {}
+        au2b = recovery_audits(aid2b)
+        results.record(
+            "S2b_second_hard_kill_honest_failure",
+            bool(
+                asm_state(aid2b) == "FAILED"
+                and err2.get("code") == "CONFLICT_STATE"
+                and [a.get("to") for a in au2b] == ["SCOPE_CHECK", "FAILED"]
+                and len(restart_events(aid2b)) == 2
+                and [e.get("automatic_restart") for e in restart_events(aid2b)] == [True, False]
+            ),
+            {
+                "state_at_second_kill": state_at_second_kill,
+                "assessment_state": asm_state(aid2b),
+                "error": err2,
+                "recovery_audits": au2b,
+                "job_status": (job_row(jid2b) or {}).get("status"),
+            },
+        )
+        w3c.stop()
 
         # ------------------------------------------------ S3 checkpoint resume
         apprs = alice.get(f"/projects/{pid}/approvals").raise_for_status().json()
@@ -463,7 +548,7 @@ def main() -> int:
         )
 
         # -------------------------------------- S7 safe retry after honest failure
-        # S2's assessment is terminally FAILED by design (CONFLICT_STATE). The safe
+        # S2b's assessment is terminally FAILED by design (CONFLICT_STATE). The safe
         # retry path is a NEW assessment on the same repo+scope: prove the system
         # still accepts work and reaches the approval pause after the kills above.
         aid7, jid7 = start_assessment()
@@ -479,7 +564,7 @@ def main() -> int:
             "S7_post_crash_new_assessment",
             bool(asm_state(aid7) == "AWAITING_APPROVAL"),
             {
-                "prior_failure_state": asm_state(aid2),
+                "prior_failure_state": asm_state(aid2b),
                 "new_assessment_state": asm_state(aid7),
                 "new_job_status": (job_row(jid7) or {}).get("status"),
                 "checkpoint_artifact": bool(checkpoint_artifact(aid7)),
