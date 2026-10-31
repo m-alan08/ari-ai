@@ -31,6 +31,7 @@ def _staging_settings(**over) -> Settings:
         # conftest exports AUTH_DEV_LOGIN_ENABLED=true for the whole test session;
         # staging settings being validated must override it explicitly.
         auth_dev_login_enabled=False,
+        ops_token="ops-test-token",  # type: ignore[arg-type]
     )
     base.update(over)
     return Settings(**base)  # type: ignore[arg-type]

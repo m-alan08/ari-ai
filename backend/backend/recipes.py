@@ -788,6 +788,8 @@ def gateway_or_none() -> Any | None:
 def propose_build_recipe(ctx: JobContext) -> dict[str, Any]:
     ctx.check_cancelled()
     s = get_settings()
+    if s.recommendation_only:  # proposing a recipe opens a PR on the customer repository
+        return {"status": "skipped", "reason": "recommendation-only pilot"}
     with transaction() as conn:
         repo = (
             conn.execute(

@@ -10,6 +10,9 @@
   arrives as a PR for the team.
 * ``manual``: nothing here acts; a human approves each remediation and nothing is pushed.
 
+``PILOT_RECOMMENDATION_ONLY`` (on by default in staging) overrides every mode: no
+approval is granted on an owner's behalf and ``push_patch`` refuses to write.
+
 Nothing is ever force-pushed, and a rejected, inconclusive or unverified patch never leaves
 the sandbox. Before delivery, the default-branch tip is checked so an already-applied fix is
 not delivered twice. A project that predates delivery modes has no recorded authorizer, so it
@@ -69,6 +72,8 @@ def authority(conn: Connection, project_id: str) -> tuple[DeliveryMode, str] | N
     demoted owner's standing authorization ends with their access."""
     from backend.api.deps import org_role
 
+    if get_settings().recommendation_only:
+        return None
     s = project_settings(conn, project_id)
     if s.delivery_mode is DeliveryMode.manual or not s.delivery_authorized_by:
         return None
@@ -173,6 +178,10 @@ def push_patch(
 
     ``require_tip``: the branch must still point at ``base_sha`` (a direct push to the default
     branch ships exactly the tested tree). Returns the new commit SHA."""
+    if get_settings().recommendation_only:
+        raise PermanentJobError(
+            ErrorCode.FORBIDDEN, "recommendation-only pilot: repository writes are disabled"
+        )
     if not FULL_NAME_RE.match(full_name):
         raise CheckoutError(f"invalid repository name {full_name!r}")
     if not BRANCH_RE.match(branch) or ".." in branch:

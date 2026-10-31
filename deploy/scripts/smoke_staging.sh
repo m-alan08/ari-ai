@@ -54,6 +54,14 @@ if [ -n "${OPS_TOKEN:-}" ]; then
   check "ops status 200" 200 "$(code -H "X-Ops-Token: $OPS_TOKEN" "$BASE/api/v1/ops/status")"
   check "ops status exposes queue" yes "$(echo "$OPS" | grep -q '"queue"' && echo yes || echo no)"
   check "ops migrations at head" 'true' "$(echo "$OPS" | python3 -c 'import json,sys;print(str(json.load(sys.stdin)["migrations"]["at_head"]).lower())' 2>/dev/null || echo parse-error)"
+  opsq() { echo "$OPS" | python3 -c "import json,sys;b=json.load(sys.stdin);print($1)" 2>/dev/null || echo parse-error; }
+  check "no stuck jobs" 0 "$(opsq 'b["stuck"]["jobs"]')"
+  check "no stuck assessments" 0 "$(opsq 'b["stuck"]["assessments"]')"
+  check "first-responder non-default modes" 0 "$(opsq 'b["first_responder"]["projects_with_non_default_mode"]')"
+  if [ "$(opsq 'b["app_env"]')" = "staging" ]; then
+    check "staging is recommendation-only" true "$(opsq 'str(b["pilot"]["recommendation_only"]).lower()')"
+    check "staging direct delivery disabled" false "$(opsq 'str(b["pilot"]["auto_delivery_allowed"]).lower()')"
+  fi
 else
   # Unset OPS_TOKEN must leave the surface closed (403 in dev, 404 in staging/prod).
   if [ "$OPS_CODE" = "403" ] || [ "$OPS_CODE" = "404" ]; then
