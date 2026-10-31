@@ -73,6 +73,27 @@ _YAML_KV_PATTERN = re.compile(
 _DOTENV_KV_PATTERN = re.compile(
     r"(?i)^(?P<prefix>\s*(?:export\s+)?" + _KV_KEY + r"\s*=\s*)" + _UNQUOTED_VALUE
 )
+# ``- KEY=value`` list entries (docker-compose ``environment:``) inside YAML.
+_YAML_LIST_ENV_PATTERN = re.compile(
+    r"(?i)^(?P<prefix>\s*-\s+" + _KV_KEY + r"\s*=\s*)" + _UNQUOTED_VALUE
+)
+# INI/cfg/conf/properties: dotted or dashed keys (``spring.datasource.password``), ``=`` or ``:``.
+_PROPERTIES_KV_PATTERN = re.compile(
+    r"(?i)^(?P<prefix>\s*(?:[\w\-]+[.\-])*" + _KV_KEY + r"\s*[=:]\s*)" + _UNQUOTED_VALUE
+)
+_DOCKERFILE_KV_PATTERN = re.compile(
+    r"(?i)^(?P<prefix>\s*(?:ENV|ARG)\s+" + _KV_KEY + r"(?:\s*=\s*|\s+))" + _UNQUOTED_VALUE
+)
+_XML_KV_PATTERN = re.compile(
+    r"(?i)(?P<prefix><(?P<tag>" + _KV_KEY + r")>)(?P<value>(?![$\s])[^<\n]+)(?=</(?P=tag)>)"
+)
+_UNQUOTED_KV_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "yaml": (_YAML_KV_PATTERN, _YAML_LIST_ENV_PATTERN),
+    "dotenv": (_DOTENV_KV_PATTERN,),
+    "properties": (_PROPERTIES_KV_PATTERN,),
+    "dockerfile": (_DOCKERFILE_KV_PATTERN,),
+    "xml": (_XML_KV_PATTERN,),
+}
 _DIFF_FILE_HEADER = re.compile(r"^(?:\+\+\+ (?:b/)?(?P<plus>\S+)|diff --git a/\S+ b/(?P<git>\S+))")
 # Free-text-only matcher: catches credential-looking ``key=value`` fragments
 # ``_KV_PATTERN`` misses (hyphenated spellings like ``api-key``/``access-token``).
@@ -108,8 +129,16 @@ def _file_format(path: str) -> str | None:
     name = path.rsplit("/", 1)[-1].lower()
     if name.endswith((".yml", ".yaml")):
         return "yaml"
-    if name == ".env" or name.startswith(".env.") or name.endswith(".env"):
+    if name in (".env", "env") or name.startswith(".env.") or name.endswith(".env"):
         return "dotenv"
+    if name.endswith((".sh", ".bash", ".zsh")):
+        return "dotenv"
+    if name.endswith((".ini", ".cfg", ".conf", ".properties")):
+        return "properties"
+    if name == "dockerfile" or name.startswith("dockerfile.") or name.endswith(".dockerfile"):
+        return "dockerfile"
+    if name.endswith(".xml"):
+        return "xml"
     return None
 
 
@@ -117,8 +146,9 @@ def redact_code(text: str) -> str:
     """Redact source and diffs without rewriting unquoted code expressions.
 
     Quoted literals (including r/b/f-prefixed and single-line triple-quoted ones) under a
-    credential-like name are redacted everywhere. Unquoted YAML/dotenv values are redacted
-    only inside a diff section whose ``+++``/``diff --git`` header names such a file."""
+    credential-like name are redacted everywhere. Unquoted values (YAML, dotenv/shell,
+    INI/properties, Dockerfile ENV/ARG, XML elements) are redacted only inside a diff section
+    whose ``+++``/``diff --git`` header names such a file."""
     for pattern, replacement in _HIGH_CONFIDENCE_PATTERNS:
         text = pattern.sub(replacement, text)
 
@@ -141,8 +171,9 @@ def redact_code(text: str) -> str:
         line = _CODE_KV_PATTERN.sub(redact_quoted_value, line)
         if file_format is not None and line[:1] in ("+", "-", " "):
             marker, content = line[:1], line[1:]
-            kv = _YAML_KV_PATTERN if file_format == "yaml" else _DOTENV_KV_PATTERN
-            line = marker + kv.sub(redact_unquoted_value, content, count=1)
+            for kv in _UNQUOTED_KV_PATTERNS[file_format]:
+                content = kv.sub(redact_unquoted_value, content, count=1)
+            line = marker + content
         out.append(line)
     return "".join(out)
 

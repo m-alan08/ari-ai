@@ -134,3 +134,53 @@ def test_sealed_diff_keeps_the_exact_verified_bytes(tmp_path: Path) -> None:
     assert PLACEHOLDER.encode() not in view_bytes
     assert sealed_bytes == diff.encode()
     assert sealed.sha256 == sha
+
+
+@pytest.mark.parametrize(
+    ("path", "line", "expected"),
+    [
+        ("config/app.ini", f"secret = {PLACEHOLDER}", "secret = [REDACTED:kv]"),
+        ("setup.cfg", f"password: {PLACEHOLDER}", "password: [REDACTED:kv]"),
+        (
+            "src/main/resources/application.properties",
+            f"spring.datasource.password={PLACEHOLDER}",
+            "spring.datasource.password=[REDACTED:kv]",
+        ),
+        ("etc/app.conf", f"auth-token = {PLACEHOLDER}", "auth-token = [REDACTED:kv]"),
+        (
+            "scripts/deploy.sh",
+            f"export GITHUB_TOKEN={PLACEHOLDER}",
+            "export GITHUB_TOKEN=[REDACTED:kv]",
+        ),
+        ("env", f"API_TOKEN={PLACEHOLDER}", "API_TOKEN=[REDACTED:kv]"),
+        ("Dockerfile", f"ENV API_KEY={PLACEHOLDER}", "ENV API_KEY=[REDACTED:kv]"),
+        ("Dockerfile.prod", f"ENV API_KEY {PLACEHOLDER}", "ENV API_KEY [REDACTED:kv]"),
+        ("docker/app.dockerfile", f"ARG NPM_TOKEN={PLACEHOLDER}", "ARG NPM_TOKEN=[REDACTED:kv]"),
+        (
+            "docker-compose.yml",
+            f"      - POSTGRES_PASSWORD={PLACEHOLDER}",
+            "      - POSTGRES_PASSWORD=[REDACTED:kv]",
+        ),
+        (
+            "conf/settings.xml",
+            f"  <password>{PLACEHOLDER}</password>",
+            "  <password>[REDACTED:kv]</password>",
+        ),
+    ],
+)
+def test_unquoted_values_in_config_shell_docker_and_xml_files_are_redacted(
+    path: str, line: str, expected: str
+) -> None:
+    assert redact_code(_diff(path, line)) == _diff(path, expected)
+
+
+def test_references_in_config_shell_docker_and_xml_files_are_left_alone() -> None:
+    for diff in (
+        _diff("application.properties", "db.password=${DB_PASSWORD}"),
+        _diff("deploy.sh", "export API_TOKEN=${VAULT_TOKEN}", "TOKEN=$(vault read -field=t x)"),
+        _diff("Dockerfile", "ENV API_KEY=${API_KEY}", "ARG NPM_TOKEN"),
+        _diff("docker-compose.yml", "      - DB_PASSWORD=${DB_PASSWORD}"),
+        _diff("settings.xml", "<password>${env.PW}</password>"),
+        _diff("app/main.py", "ENV API_KEY=value_is_code"),
+    ):
+        assert redact_code(diff) == diff
