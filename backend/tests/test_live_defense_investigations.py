@@ -289,19 +289,22 @@ def _set_job_status(conn, inv, status: str) -> None:
     conn.execute(sa.update(jobs).where(jobs.c.id == inv.job_id).values(status=status))
 
 
-# Upstream main's ck_jobs_status predates the execution-reliability states
-# ('waiting', 'timed_out', 'recovery_required'); the reliability branch widens
-# it in migration 0016. Tests widen it the same way, then restore it, so they
-# exercise the forward-compatible paths against the constraint that will exist
-# after that branch merges.
+# Migration 0018 widened ck_jobs_status to the execution-reliability states
+# ('waiting', 'timed_out', 'recovery_required'). The fixture makes sure the states
+# are accepted and restores whatever constraint the schema had afterwards, so it
+# never leaves a narrower constraint behind for the tests that run after it.
 @pytest.fixture
 def reliability_job_statuses():
-    old = "status in ('queued','running','succeeded','failed','cancelled','dead')"
     new = (
         "status in ('queued','waiting','running','succeeded','failed','cancelled','dead',"
         "'timed_out','recovery_required')"
     )
     with transaction() as conn:
+        original = conn.execute(
+            sa.text(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_jobs_status'"
+            )
+        ).scalar_one()
         conn.execute(sa.text("ALTER TABLE jobs DROP CONSTRAINT ck_jobs_status"))
         conn.execute(sa.text(f"ALTER TABLE jobs ADD CONSTRAINT ck_jobs_status CHECK ({new})"))
     try:
@@ -309,13 +312,7 @@ def reliability_job_statuses():
     finally:
         with transaction() as conn:
             conn.execute(sa.text("ALTER TABLE jobs DROP CONSTRAINT ck_jobs_status"))
-            conn.execute(
-                sa.text(
-                    "UPDATE jobs SET status='failed' "
-                    "WHERE status in ('waiting','timed_out','recovery_required')"
-                )
-            )
-            conn.execute(sa.text(f"ALTER TABLE jobs ADD CONSTRAINT ck_jobs_status CHECK ({old})"))
+            conn.execute(sa.text(f"ALTER TABLE jobs ADD CONSTRAINT ck_jobs_status {original}"))
 
 
 @pytest.mark.usefixtures("reliability_job_statuses")

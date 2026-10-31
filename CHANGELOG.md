@@ -6,6 +6,23 @@ All notable changes are documented here. Format follows
 
 ## [Unreleased]
 
+- Automatic GitHub review reliability:
+  - A pull request whose head commit was already queued or reviewed from its push now gets the review comment, still from a single assessment of that commit.
+  - PR review comments are no longer posted to a repository disconnected after the assessment finished; the skip is audited as `monitoring.pr_review_skipped`.
+  - GitHub rate limits (429, or 403 with `x-ratelimit-remaining: 0` / "rate limit") defer commit lookups and PR review posts until the reset instead of spending the retry budget; PR reviews are no longer dropped as permanent 4xx.
+  - A commit whose GitHub lookup keeps failing (5xx/network) is recorded as a skipped event with the cause after the last attempt instead of dying silently in the queue.
+  - Redelivering a GitHub webhook whose processing job is dead, failed, timed out or cancelled now reprocesses it; redelivery of a processed delivery stays a duplicate.
+  - The default `*[bot]` author exclusion matched any login ending in b, o or t (`bob`, `octo`, `matt`); author patterns now treat `[` literally.
+  - A repository disconnect now cancels queued PR review jobs, and a disconnect that lands between the review job's pre-check and the GitHub call is seen under the repository lock before posting.
+  - A GitHub review POST whose response is lost leaves the job `recovery_required` for an operator instead of being retried into a duplicate review.
+  - Several pull requests sharing one head commit each get their own review comment from the commit's single assessment.
+  - A review is posted once per pull request even when two review jobs reach it (one queued before this release, or concurrently); the duplicate is skipped and audited.
+  - Identical GitHub webhook deliveries arriving at the same moment are acknowledged with the job that owns the delivery.
+  - PR review ownership is reserved atomically: the duplicate check and the job's in-flight effect mark commit in one transaction under the assessment row lock (`JobContext.effect(reserve=...)`). A due retry of an older job no longer outranks a newer job whose POST is in flight; it waits, then skips once the review is posted. A sibling whose POST outcome is uncertain blocks every other job (audited skip) until an operator reconciles it.
+  - A 5xx answer to the review POST is no longer assumed to mean "not created". Each review carries a hidden `<!-- ari-review:{effect_key} -->` marker; the worker reads the PR's reviews back. Found: the review counts as posted. Confirmed absent: the job retries. Lookup failed: the job ends `recovery_required` and is never replayed blindly. 4xx and rate limits still count as not applied.
+  - Depends on #694: standalone, the review path still re-checks disconnect under the repository row lock, which is released before the network call. #694's per-repository write lease closes that window once both land.
+  - A dead, failed or cancelled legacy `prreview:{assessment}` job no longer prevents the per-PR review job; the legacy job's PR fallback uses the same ordered PR list as the per-PR enqueue.
+
 - Settings → Repositories manages every repository in the project from one place. Each row has an Automatic reviews ON/OFF switch, the derived automatic-review status, and Disconnect (with confirmation); disconnected rows show Reconnect. The header's automatic-review status links to it.
 - JavaScript/TypeScript repositories: code intelligence indexes `.js/.mjs/.cjs/.jsx/.ts/.tsx/.html` as text (Python is still the only language parsed into symbols), skips minified bundles, and keeps code ahead of bulk data when a repository exceeds the index size budget. Files over the budget are skipped with a recorded reason instead of failing the whole index. The reviewer reports defects in non-Python code as unvalidated hypotheses rather than writing pytest for them.
 - Wildcard auto-commit author configuration now keeps signed pushes on the per-commit assessment path.
