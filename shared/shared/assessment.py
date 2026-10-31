@@ -75,7 +75,9 @@ ALLOWED_TRANSITIONS: dict[AssessmentState, frozenset[AssessmentState]] = {
     state: (
         frozenset()
         if state in TERMINAL_STATES
-        else _FORWARD.get(state, frozenset()) | {S.FAILED, S.CANCELLED, S.BUDGET_EXHAUSTED}
+        else _FORWARD.get(state, frozenset())
+        | {S.FAILED, S.CANCELLED, S.BUDGET_EXHAUSTED}
+        | ({S.SCOPE_CHECK} if state not in (S.CREATED, S.SCOPE_CHECK) else set())
     )
     for state in AssessmentState
 }

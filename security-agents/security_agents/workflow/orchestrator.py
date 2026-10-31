@@ -519,9 +519,9 @@ class Orchestrator:
             if code is ErrorCode.CANCELLED
             else AssessmentState.FAILED
         )
-        self._goto(target, detail[:200])
         self.result.error_code = code
         self.result.error_detail = detail
+        self._goto(target, detail[:200])
         self._audit(
             "assessment.failed", "assessment", self.config.assessment_id, code=code.value, detail=detail[:300]
         )

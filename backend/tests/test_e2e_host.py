@@ -153,6 +153,22 @@ def test_verify_must_be_independent_of_patch(client_factory, settings_override) 
     assert "verify" in a["error"]["message"].lower()
 
 
+@pytest.mark.parametrize("message", ["index failed", ""])
+def test_failed_transition_always_records_error(client_factory, reference, message) -> None:
+    from backend.host import AssessmentHost
+    from shared.assessment import AssessmentState
+
+    alice, bob = client_factory("alice"), client_factory("bob")
+    _, asm_id = _start_from_webhook(alice, bob)
+    result = AssessmentHost(asm_id).transition(AssessmentState.FAILED, message)
+    assert result.error is not None
+    assert result.error.code.value == "INTERNAL"
+    assert result.error.message
+    assert alice.get(f"/api/v1/assessments/{asm_id}").json()["assessment"]["error"] == (
+        result.error.model_dump(mode="json")
+    )
+
+
 def test_budget_exhaustion_stops_the_run(client_factory, reference) -> None:
     alice, bob = client_factory("alice"), client_factory("bob")
     ids = setup_project(alice, bob)

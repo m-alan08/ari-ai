@@ -49,6 +49,7 @@ from backend.db import (
     authorized_scopes,
     finding_records,
     findings,
+    job_events,
     jobs,
     monitoring_events,
     patch_candidates,
@@ -57,6 +58,7 @@ from backend.db import (
     transaction,
     verification_results,
 )
+from backend.settings import get_settings
 from shared.assessment import (
     TERMINAL_STATES,
     AgentName,
@@ -236,6 +238,18 @@ class AssessmentHost:
             self.org_id: str = conn.execute(
                 sa.select(projects.c.org_id).where(projects.c.id == self.project_id)
             ).scalar_one()
+            recovered = conn.execute(
+                sa.select(assessment_events.c.seq)
+                .where(
+                    assessment_events.c.assessment_id == assessment_id,
+                    assessment_events.c.doc["data"]["automatic_restart"].astext == "true",
+                )
+                .limit(1)
+            ).first()
+            if recovered:
+                self._started_monotonic -= Assessment.model_validate(
+                    row["doc"]
+                ).usage.sandbox_seconds
 
     # ------------------------------------------------------------------ reads
     def intelligence_service(self, *, include_prefix: str = "") -> Any:
@@ -363,6 +377,11 @@ class AssessmentHost:
     # ------------------------------------------------------------- transitions
     def transition(self, target: AssessmentState, message: str = "") -> Assessment:
         self.check_cancelled()
+        if target is AssessmentState.SCOPE_CHECK and self.assessment.state not in (
+            AssessmentState.CREATED,
+            AssessmentState.SCOPE_CHECK,
+        ):
+            raise HostError(ErrorCode.CONFLICT_STATE, "restart requires lost-state recovery")
         if target not in TERMINAL_STATES:
             self.require_active_scope()
         if target is AssessmentState.REMEDIATION and not any(
@@ -373,6 +392,186 @@ class AssessmentHost:
                 ErrorCode.APPROVAL_REQUIRED, "REMEDIATION requires an approved remediation approval"
             )
         return self._set_state(target, message or f"state -> {target.value}")
+
+    def restart_lost_state(self, expected_state: str) -> str:
+        self.check_cancelled()
+        self.require_active_scope()
+        with transaction() as conn:
+            row = self._row(conn, lock=True)
+            a = Assessment.model_validate(row["doc"])
+            if a.state.value != expected_state:
+                return "claimed_elsewhere"
+            ctx_job = getattr(getattr(self._job_ctx, "job", None), "id", None)
+            if (
+                ctx_job
+                and conn.execute(
+                    sa.select(jobs.c.id)
+                    .where(
+                        jobs.c.kind == "run_assessment",
+                        jobs.c.payload["assessment_id"].astext == self.assessment_id,
+                        jobs.c.id != ctx_job,
+                        jobs.c.status == "running",
+                        sa.or_(
+                            jobs.c.lease_expires_at.is_(None), jobs.c.lease_expires_at > utcnow()
+                        ),
+                    )
+                    .limit(1)
+                ).first()
+            ):
+                return "claimed_elsewhere"
+            count = conn.execute(
+                sa.select(sa.func.count())
+                .select_from(assessment_events)
+                .where(
+                    assessment_events.c.assessment_id == self.assessment_id,
+                    assessment_events.c.doc["data"]["automatic_restart"].astext == "true",
+                )
+            ).scalar_one()
+            last = (
+                conn.execute(
+                    sa.select(assessment_events.c.created_at)
+                    .where(
+                        assessment_events.c.assessment_id == self.assessment_id,
+                        assessment_events.c.type == StreamEventType.state_changed.value,
+                    )
+                    .order_by(assessment_events.c.seq.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                or a.created_at
+            )
+            now = utcnow()
+            if a.state is AssessmentState.AWAITING_APPROVAL:
+                estimate = 0.0
+            else:
+                started = (
+                    conn.execute(
+                        sa.select(job_events.c.created_at)
+                        .join(jobs, job_events.c.job_id == jobs.c.id)
+                        .where(
+                            jobs.c.kind == "run_assessment",
+                            jobs.c.payload["assessment_id"].astext == self.assessment_id,
+                            job_events.c.to_status == "running",
+                            job_events.c.created_at <= last,
+                        )
+                        .order_by(job_events.c.created_at.desc(), job_events.c.seq.desc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+                    or last
+                )
+                estimate = min(
+                    max(0.0, (now - started).total_seconds()),
+                    max(0, get_settings().worker_lease_s),
+                )
+            usage = a.usage.model_copy(
+                update={"sandbox_seconds": a.usage.sandbox_seconds + estimate}
+            )
+            reason = "unsettled usage from lost worker estimated as upper bound"
+            budget = a.budget
+            exhausted = (
+                usage.input_tokens + usage.output_tokens >= budget.max_tokens
+                or usage.usd >= budget.max_usd
+                or usage.sandbox_seconds >= budget.max_wall_clock_s
+            )
+            if exhausted:
+                target = AssessmentState.BUDGET_EXHAUSTED
+                error = ErrorBody(
+                    code=ErrorCode.BUDGET_EXHAUSTED,
+                    message="Assessment budget exhausted during lost-worker recovery",
+                )
+            elif count:
+                target = AssessmentState.FAILED
+                error = ErrorBody(
+                    code=ErrorCode.CONFLICT_STATE,
+                    message="Automatic restart limit reached after lost worker state; start a new assessment",
+                )
+            else:
+                target = AssessmentState.SCOPE_CHECK
+                error = None
+            if target is not a.state and not can_transition(a.state, target):
+                raise HostError(
+                    ErrorCode.CONFLICT_STATE,
+                    f"illegal transition {a.state.value} -> {target.value}",
+                )
+            updated = a.model_copy(
+                update={
+                    "state": target,
+                    "usage": usage,
+                    "updated_at": now,
+                    "error": error,
+                    "completed_at": now if target in TERMINAL_STATES else None,
+                }
+            )
+            conn.execute(
+                sa.update(assessments)
+                .where(assessments.c.id == self.assessment_id)
+                .values(
+                    state=target.value,
+                    doc=updated.model_dump(mode="json"),
+                    updated_at=sa.func.now(),
+                )
+            )
+            _emit(
+                conn,
+                self.assessment_id,
+                StreamEventType.progress,
+                reason,
+                data={
+                    "estimated_sandbox_seconds": estimate,
+                    "automatic_restart": target is AssessmentState.SCOPE_CHECK,
+                },
+            )
+            audit.record(
+                conn,
+                org_id=self.org_id,
+                project_id=self.project_id,
+                actor_type=ActorType.system,
+                actor_id="orchestrator",
+                action="assessment.lost_worker_recovery",
+                subject_type="assessment",
+                subject_id=self.assessment_id,
+                details={
+                    "reason": reason,
+                    "estimated_sandbox_seconds": estimate,
+                    "from": a.state.value,
+                    "to": target.value,
+                },
+            )
+            message = error.message if error else "restarting after lost worker state"
+            if target is not a.state:
+                _emit(
+                    conn,
+                    self.assessment_id,
+                    StreamEventType.state_changed,
+                    message,
+                    state=target,
+                    data={
+                        "from": a.state.value,
+                        **({"error_code": error.code.value} if error else {}),
+                    },
+                )
+                audit.record(
+                    conn,
+                    org_id=self.org_id,
+                    project_id=self.project_id,
+                    actor_type=ActorType.system,
+                    actor_id="orchestrator",
+                    action="assessment.state_changed",
+                    subject_type="assessment",
+                    subject_id=self.assessment_id,
+                    details={"from": a.state.value, "to": target.value},
+                )
+            if error:
+                _emit(
+                    conn,
+                    self.assessment_id,
+                    StreamEventType.failed,
+                    message,
+                    state=target,
+                    data={"error_code": error.code.value},
+                )
+                return "terminal"
+            self._started_monotonic -= usage.sandbox_seconds
+            return "restart"
 
     def terminate(
         self, target: AssessmentState, code: ErrorCode | None, message: str
@@ -385,6 +584,13 @@ class AssessmentHost:
     def _set_state(
         self, target: AssessmentState, message: str, error: ErrorBody | None = None
     ) -> Assessment:
+        if target is AssessmentState.FAILED:
+            if error is None:
+                error = ErrorBody(
+                    code=ErrorCode.INTERNAL, message=message[:500].strip() or "Assessment failed"
+                )
+            elif not error.message.strip():
+                error = error.model_copy(update={"message": "Assessment failed"})
         with transaction() as conn:
             row = self._row(conn, lock=True)
             a = Assessment.model_validate(row["doc"])
@@ -534,6 +740,9 @@ class AssessmentHost:
                     "checkpoint_artifact_id": artifact_id,
                     "checkpoint_consumed": True,
                     "claimed_by_job": getattr(getattr(self._job_ctx, "job", None), "id", None),
+                    "claimed_attempt": getattr(
+                        getattr(self._job_ctx, "job", None), "attempts", None
+                    ),
                 },
             )
             return payload
@@ -549,11 +758,21 @@ class AssessmentHost:
         state = conn.execute(
             sa.select(assessments.c.state).where(assessments.c.id == self.assessment_id)
         ).scalar()
-        if state != AssessmentState.AWAITING_APPROVAL.value:
-            return True
         row = conn.execute(
-            sa.select(jobs.c.status, jobs.c.lease_expires_at).where(jobs.c.id == job_id)
+            sa.select(jobs.c.status, jobs.c.lease_expires_at, jobs.c.attempts).where(
+                jobs.c.id == job_id
+            )
         ).first()
+        if state != AssessmentState.AWAITING_APPROVAL.value:
+            current = getattr(self._job_ctx, "job", None)
+            if (
+                current
+                and current.id == job_id
+                and current.attempts > (data.get("claimed_attempt") or 1)
+            ):
+                return False
+            if row is not None and row.status == "succeeded":
+                return True
         return bool(
             row is not None
             and row.status == "running"
