@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 
 import sqlalchemy as sa
@@ -18,6 +19,7 @@ from fastapi.responses import JSONResponse
 from backend import jobs
 from backend.api.deps import ApiError
 from backend.artifacts import ArtifactStore
+from backend.db import jobs as jobs_table
 from backend.db import transaction, webhook_deliveries
 from backend.github import verify_signature
 from backend.settings import get_settings
@@ -28,6 +30,10 @@ from shared.evidence import ArtifactKind
 router = APIRouter(tags=["webhooks"])
 _DELIVERY = re.compile(r"^[A-Za-z0-9\-]{8,100}$")
 _EVENT = re.compile(r"^[a-z_]{2,60}$")
+# A redelivery of a delivery whose processing never succeeded must run again; otherwise
+# a dead-lettered push could never be recovered through GitHub's "Redeliver" button.
+_REPROCESS = ("dead", "failed", "timed_out", "cancelled")
+log = logging.getLogger(__name__)
 
 
 async def _read_bounded(request: Request, limit: int) -> bytes:
@@ -71,11 +77,36 @@ async def github_webhook(request: Request) -> JSONResponse:
     def _persist() -> WebhookAck:
         with transaction() as conn:
             existing = conn.execute(
-                sa.select(webhook_deliveries.c.job_id).where(
-                    webhook_deliveries.c.delivery_id == delivery
-                )
+                sa.select(webhook_deliveries.c.job_id)
+                .where(webhook_deliveries.c.delivery_id == delivery)
+                .with_for_update()
             ).first()
             if existing is not None:
+                status = conn.execute(
+                    sa.select(jobs_table.c.status).where(jobs_table.c.id == existing[0])
+                ).scalar_one_or_none()
+                if status in _REPROCESS:
+                    job_id, _ = jobs.enqueue(
+                        conn,
+                        "process_github_delivery",
+                        {"delivery_id": delivery},
+                        dedupe_key=f"gh:{delivery}:after:{existing[0]}",
+                        priority=50,
+                    )
+                    conn.execute(
+                        sa.update(webhook_deliveries)
+                        .where(webhook_deliveries.c.delivery_id == delivery)
+                        .values(job_id=job_id)
+                    )
+                    log.warning(
+                        "webhook redelivery %s reprocessed: previous job %s was %s",
+                        delivery,
+                        existing[0],
+                        status,
+                    )
+                    return WebhookAck(
+                        delivery_id=delivery, duplicate=False, accepted=True, job_id=job_id
+                    )
                 return WebhookAck(
                     delivery_id=delivery,
                     duplicate=True,
@@ -98,11 +129,17 @@ async def github_webhook(request: Request) -> JSONResponse:
                 .on_conflict_do_nothing()
                 .returning(webhook_deliveries.c.delivery_id)
             ).scalar()
-            if inserted is None:  # concurrent duplicate won the race
+            if inserted is None:  # a concurrent identical delivery won the race
+                winner = conn.execute(
+                    sa.select(webhook_deliveries.c.job_id).where(
+                        webhook_deliveries.c.delivery_id == delivery
+                    )
+                ).scalar_one_or_none()
                 return WebhookAck(
                     delivery_id=delivery,
                     duplicate=True,
                     accepted=False,
+                    job_id=winner,
                     reason="duplicate delivery",
                 )
             job_id, _ = jobs.enqueue(
