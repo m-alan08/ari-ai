@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "Sandbox build recipe drafted by Ari from this repository's code. The security",
+    "agents start `app_factory` inside an isolated microVM; Probe and Verify may only",
+    "name the identities, resources and routes below. Review before merging."
+  ],
+  "recipe_version": 1,
+  "kind": "python_asgi",
+  "app_factory": "deploy.sandbox_target:create_app",
+  "test_command": [
+    "-q",
+    "backend/tests"
+  ],
+  "test_roots": [
+    "backend/tests",
+    "shared/tests",
+    "monitoring/tests",
+    "code-review/tests"
+  ],
+  "sandbox": {
+    "apt": [
+      "postgresql"
+    ],
+    "pip": [
+      "alembic==1.20.0",
+      "anthropic==1.15.0",
+      "psycopg[binary]==3.3.6",
+      "pydantic-settings==2.16.0",
+      "pyjwt[crypto]==2.15.1",
+      "sqlalchemy==2.1.5",
+      "fastapi==0.115.0",
+      "httpx==0.27.2"
+    ],
+    "include": []
+  },
+  "identities": {
+    "alice": {
+      "auth_header": "Bearer sbx-alice-session-0001"
+    },
+    "bob": {
+      "auth_header": "Bearer sbx-bob-session-0001"
+    }
+  },
+  "resources": {
+    "project": {
+      "alice": {
+        "id": "prj_sbx_alice_0001"
+      },
+      "bob": {
+        "id": "prj_sbx_bob_0001"
+      }
+    }
+  },
+  "routes": [
+    {
+      "id": "project_detail",
+      "method": "GET",
+      "path_template": "/api/v1/projects/{project_id}",
+      "resource": "project"
+    },
+    {
+      "id": "project_repositories",
+      "method": "GET",
+      "path_template": "/api/v1/projects/{project_id}/repositories",
+      "resource": "project"
+    }
+  ]
+}
