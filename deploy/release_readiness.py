@@ -69,6 +69,7 @@ class Report:
     started_at: str = ""
     finished_at: str = ""
     git_sha: str = ""
+    expected_sha: str = ""
     mode: str = "local"
 
     def add(self, cid: str, name: str, status: str, evidence: str, t0: float) -> None:
@@ -92,7 +93,8 @@ class Report:
         lines = [
             f"# Pilot release-readiness report — {self.verdict}",
             "",
-            f"- Mode: `{self.mode}` · Commit: `{self.git_sha}`",
+            f"- Mode: `{self.mode}` · Commit: `{self.git_sha}`"
+            f" · Expected candidate: `{self.expected_sha or 'not bound'}`",
             f"- Started: {self.started_at} · Finished: {self.finished_at}",
             f"- {len(self.checks)} checks: {self.fails} FAIL, {len(warns)} WARN, "
             f"{sum(1 for c in self.checks if c.status == 'PASS')} PASS, "
@@ -130,6 +132,7 @@ class Report:
                     "verdict": self.verdict,
                     "mode": self.mode,
                     "git_sha": self.git_sha,
+                    "expected_sha": self.expected_sha,
                     "started_at": self.started_at,
                     "finished_at": self.finished_at,
                     "checks": [c.__dict__ for c in self.checks],
@@ -353,6 +356,13 @@ def _staging_env(tmp: Path, db_url: str, api_port: int, sink_port: int, ops_toke
     return env
 
 
+def _save_log(out_dir: Path, name: str, text: str) -> None:
+    """Full stdout of a gate next to the report, so the evidence is not just its last line."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    (out_dir / f"{name}-{stamp}.log").write_text(text or "")
+
+
 def run_local(report: Report, out_dir: Path, keep_db: bool, db_url_override: str | None) -> int:
     tmp = Path(tempfile.mkdtemp(prefix="ari-readiness-"))
     procs: list[Proc] = []
@@ -514,6 +524,7 @@ def run_local(report: Report, out_dir: Path, keep_db: bool, db_url_override: str
             timeout=120,
         )
         tail = smoke.stdout.strip().splitlines()[-1] if smoke.stdout else smoke.stderr[-200:]
+        _save_log(out_dir, "smoke", smoke.stdout)
         report.add(
             "http.smoke",
             "Staging smoke suite (real HTTP)",
@@ -877,6 +888,7 @@ def run_local(report: Report, out_dir: Path, keep_db: bool, db_url_override: str
             [
                 sys.executable,
                 "deploy/release_check.py",
+                *(["--expected-sha", report.expected_sha] if report.expected_sha else []),
                 "--base-url",
                 base,
                 "--ops-token",
@@ -888,6 +900,7 @@ def run_local(report: Report, out_dir: Path, keep_db: bool, db_url_override: str
             timeout=120,
         )
         rc_tail = rc_proc.stdout.strip().splitlines()[-1] if rc_proc.stdout else ""
+        _save_log(out_dir, "release-check", rc_proc.stdout)
         report.add(
             "release.check",
             "release_check.py release checklist",
@@ -996,6 +1009,7 @@ def run_remote(report: Report, base: str, ops_token: str | None, out_dir: Path) 
         [
             sys.executable,
             "deploy/release_check.py",
+            *(["--expected-sha", report.expected_sha] if report.expected_sha else []),
             "--base-url",
             base,
             "--ops-token",
@@ -1037,6 +1051,11 @@ def main() -> int:
         help="use this PostgreSQL instead of the embedded scratch server",
     )
     p.add_argument("--keep-db", action="store_true")
+    p.add_argument(
+        "--expected-sha",
+        default=None,
+        help="candidate commit the report vouches for; CI results and the deployment must match",
+    )
     args = p.parse_args()
 
     report = Report(
@@ -1044,6 +1063,10 @@ def main() -> int:
         mode="remote" if args.remote else "local",
     )
     report.git_sha = sh(["git", "rev-parse", "--short", "HEAD"]).stdout.strip()
+    report.expected_sha = (args.expected_sha or "").lower()
+    head = sh(["git", "rev-parse", "HEAD"]).stdout.strip().lower()
+    if report.expected_sha and not args.remote and head != report.expected_sha:
+        p.error(f"local HEAD {head[:12]} is not the expected candidate {report.expected_sha[:12]}")
     out_dir = Path(args.out)
 
     if args.remote:

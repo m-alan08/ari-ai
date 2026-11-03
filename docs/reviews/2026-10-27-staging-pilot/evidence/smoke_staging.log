@@ -1,0 +1,22 @@
+PASS healthz 200
+PASS readyz http status
+PASS readyz reports ready
+PASS x-request-id present
+PASS nosniff present
+PASS projects unauth -> 401
+PASS unauth POST rejected (422)
+PASS webhook without signature rejected
+PASS dev login unavailable (403)
+PASS foreign origin preflight rejected
+PASS ops status without token -> 403
+PASS ops status 200
+PASS ops status exposes queue
+PASS ops migrations at head
+PASS no stuck jobs
+PASS no stuck assessments
+PASS first-responder non-default modes
+PASS staging is recommendation-only
+PASS staging direct delivery disabled
+PASS openapi.json served-or-gated (404)
+---
+smoke: 20 passed, 0 failed (http://127.0.0.1:41071)

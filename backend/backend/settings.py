@@ -209,6 +209,15 @@ class Settings(BaseSettings):
     # means on only in development/test; pilot deployments stay on PR/manual delivery.
     allow_auto_delivery: bool | None = None
 
+    # Recommendation-only pilot: Ari reports findings and proposes patches but never
+    # approves on an owner's behalf, pushes, or opens pull requests. Unset means on in
+    # staging only; preflight refuses a staging boot that turns it off.
+    pilot_recommendation_only: bool | None = None
+    # Production hostnames a staging deployment must never point at (comma list).
+    production_hosts: str = "ari-ai-production-76d4.up.railway.app,ari-ai-lake.vercel.app"
+    # Non-terminal assessments untouched for this long are reported as stuck.
+    stuck_assessment_s: int = Field(default=3600, ge=60)
+
     @property
     def is_dev(self) -> bool:
         return self.app_env in ("development", "test")
@@ -216,6 +225,15 @@ class Settings(BaseSettings):
     @property
     def auto_delivery_allowed(self) -> bool:
         return self.is_dev if self.allow_auto_delivery is None else self.allow_auto_delivery
+
+    @property
+    def recommendation_only(self) -> bool:
+        if self.pilot_recommendation_only is None:
+            return self.app_env == "staging"
+        return self.pilot_recommendation_only
+
+    def production_host_list(self) -> list[str]:
+        return [h.strip().lower() for h in self.production_hosts.split(",") if h.strip()]
 
     @property
     def resolved_log_format(self) -> str:

@@ -3,6 +3,15 @@
 Append-only. Newest entry at the top. Every development session (human or agent)
 adds an entry before ending.
 
+### 2026-10-27 — Devin (agent, Alan) — staging pilot readiness (recommendation-only)
+- Did: Added `PILOT_RECOMMENDATION_ONLY` (default on in staging) enforced in `delivery.authority`, `push_patch` and `propose_build_recipe`; staging preflight isolation (production hosts, posture, `OPS_TOKEN`); `ops/status` `stuck` / `failed_jobs_24h` / `pilot`; `execution.stuck_assessments`; `release_check.py --strict` + monitoring gate; smoke checks; `docs/deploy/STAGING_PILOT_RUNBOOK.md`; GO/NO-GO report in `docs/reviews/2026-10-27-staging-pilot/`. Codex release-review fix: `release_check.py` CI gate FAILs on an empty check list and no longer counts SKIPPED/no-conclusion checks as green (`--allow-skipped-check NAME` for opt-in jobs), with regression tests in `test_staging_pilot.py`. Second pass: commit-status rollup rows are normalised, and strict sign-off FAILs any `REQUIRED_GATES` gate without a row (`release_check.finalize`).
+- State of the code: Branch `devin/*-staging-pilot-readiness` on upstream main `c03a5501`.
+- Commands run and results: see the GO/NO-GO report (full pytest, `make check`, mypy, local `release_readiness.py`).
+- Decisions made (ADR links): Recommendation-only is a deployment setting, not a project setting, so an owner cannot switch it on in the UI during the pilot. No migration, no `SCHEMA_VERSION` change.
+- Assumptions / open questions (RQ links): `PRODUCTION_HOSTS` default lists the known Railway/Vercel production hosts; confirm before the pilot.
+- Next steps: Staging deploy + remote gates by an operator with staging access (report lists the NO-GO items).
+- Warnings for the next session: Production defaults are unchanged (`recommendation_only` false outside staging).
+
 ### 2026-10-27 — Devin (agent, Adam) — wildcard per-commit assessment routing
 - Did: Routed non-empty author configuration, including `*`, through per-commit scheduling; added wildcard push and unlisted-author regressions.
 - State of the code: Branch `fix/adam/per-commit-wildcard`; ready to commit and push.
