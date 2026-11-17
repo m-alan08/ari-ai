@@ -149,7 +149,7 @@ export function ProblemScene() {
           ))}
         </div>
 
-        <p className="label-mono mt-10 text-faint">Illustration · not measured</p>
+        <p className="illustration-note mt-10">Illustration · not measured</p>
         <div className="relative mt-10" aria-hidden="true">
           <span className="label-mono absolute -top-8 left-0 rounded-md bg-night px-2 py-1 text-white" data-testid="problem-count">
             {count} of {TICKS} changes checked
@@ -228,7 +228,7 @@ export function HowItWorks() {
             <li key={card.label} className="story-card" data-active={active === n || undefined}>
               <span className="story-card-num" aria-hidden="true">{String(n + 1).padStart(2, '0')}</span>
               <div className="story-card-body">
-                <p className="label-mono mb-2 text-white/60">Illustration · not a recorded run</p>
+                <p className="illustration-note mb-3">Illustration · not a recorded run</p>
                 <div className="story-window" aria-hidden="true">
                   <p className="story-window-bar"><span>{card.file}</span><span>{BRAND_NAME}</span></p>
                   {card.lines.map(([kind, text, note]) => (
@@ -298,7 +298,7 @@ export function Walkthrough() {
           </ol>
         </div>
         <div>
-        <p className="label-mono mb-2 text-faint">Illustration · not a recorded run</p>
+        <p className="illustration-note mb-3">Illustration · not a recorded run</p>
         <div className="story-panel" data-step={step} aria-hidden="true">
           <svg viewBox="0 0 360 200" className="h-auto w-full">
             {ROWS.map(r => (

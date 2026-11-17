@@ -26,7 +26,7 @@ const plexMono = localFont({ src: [
 ], display: 'swap', variable: '--font-ibm-plex-mono' });
 
 export const metadata: Metadata = {
-  title: `${BRAND_NAME} Console`,
+  title: BRAND_NAME,
   description: 'Code intelligence, functional review, seven-agent security investigation and monitoring — backed by persisted evidence.',
   openGraph: {
     title: `${BRAND_NAME} — Find the flaw. Prove the fix.`,

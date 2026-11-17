@@ -2,6 +2,7 @@
 export const BRAND_NAME = 'ARI';
 export const BRAND_HEADLINE = 'FIND THE FLAW.';
 export const BRAND_HEADLINE_REST = 'PROVE THE FIX.';
+export const BRAND_TAGLINE_HEADLINE = 'Find the flaw. Prove the fix.';
 export const BRAND_TAGLINE = 'A repair counts only when independent, executed tests agree.';
 
 /** Original owner-supplied PNG (kept byte-for-byte). The favicon is the mark on an obsidian tile (app/icon.png). */

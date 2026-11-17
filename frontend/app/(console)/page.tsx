@@ -4,7 +4,7 @@ import { LandingFooter } from '@/components/landing-footer';
 
 import Link from 'next/link';
 import { useState, type CSSProperties } from 'react';
-import { BRAND_NAME } from '@/components/brand';
+import { BRAND_NAME, BRAND_TAGLINE_HEADLINE } from '@/components/brand';
 import { HowItWorks, ProblemScene, ProofStats, Walkthrough } from '@/components/story';
 import { HeroStage } from '@/components/hero';
 import { IntroLoader } from '@/components/intro-loader';
@@ -24,15 +24,19 @@ export default function HomePage() {
     <div className="home-deep marketing-atmosphere">
       <IntroLoader onReveal={() => setRevealed(true)} />
       <HeroStage className="hero-full px-6 pb-14 pt-36 md:px-12 md:pt-28" labelledBy="hero-title" play={revealed} liquid>
-        <div className="hero-center mx-auto w-full max-w-6xl text-center">
-          <h1 id="hero-title" className="hero-headline hero-ari display font-bold hero-in" style={i(0)}>
-            <span data-glow={BRAND_NAME} className="hero-line">{BRAND_NAME}</span>
+        <div className="hero-center hero-copy mx-auto w-full max-w-5xl text-center">
+          <p className="hero-eyebrow hero-in" style={i(0)} data-hero-eyebrow>Code review and repair, verified</p>
+          <h1 id="hero-title" className="hero-headline hero-title hero-in" style={i(1)}>
+            <span className="hero-line">{BRAND_TAGLINE_HEADLINE}</span>
           </h1>
-          <div className="hero-in mt-10 flex flex-wrap justify-center gap-3" style={i(1)}>
-            <Link href={START.href} className="group label-mono inline-flex h-11 items-center rounded-md bg-white px-4 text-night transition-colors duration-[250ms] hover:bg-brand hover:text-on-brand">
+          <p className="hero-subhead hero-in" style={i(2)} data-hero-subhead>
+            {BRAND_NAME} checks your code against what it was meant to do and proves each flaw with a failing test. A separate agent verifies the fix on a fresh checkout, and every fix ships as a pull request that a person merges.
+          </p>
+          <div className="hero-actions hero-in" style={i(3)}>
+            <Link href={START.href} className="group hero-cta hero-cta-primary">
               <RollText>{START.hero}</RollText>
             </Link>
-            <a href="#how" className="group label-mono inline-flex h-11 items-center rounded-md bg-white/10 px-4 text-white transition-colors duration-[250ms] hover:bg-white/20">
+            <a href="#how" className="group hero-cta hero-cta-secondary">
               <RollText>How It Works</RollText>
             </a>
           </div>

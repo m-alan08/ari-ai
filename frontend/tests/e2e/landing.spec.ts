@@ -48,13 +48,27 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 76
     page.on('pageerror', error => errors.push(error.message));
     await page.setViewportSize(viewport);
     await page.goto('/'); // public: no sign-in needed
-    await expect(page).toHaveTitle('ARI Console');
+    await expect(page).toHaveTitle('ARI');
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', 'ARI');
     await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', 'ARI — Find the flaw. Prove the fix.');
     const heading = page.getByRole('heading', { level: 1 });
-    await expect(heading).toHaveText('ARI');
-    await expect(page.locator('.hero-content p')).toHaveCount(0); // the hero is just the name
+    await expect(heading).toHaveText('Find the flaw. Prove the fix.');
+    await expect(heading).toHaveAccessibleName('Find the flaw. Prove the fix.');
+    await expect(page.getByRole('region', { name: 'Find the flaw. Prove the fix.', exact: true })).toBeVisible();
+    await expect(page.locator('[data-hero-eyebrow]')).toBeVisible();
+    await expect(page.locator('[data-hero-subhead]')).toContainText('failing test');
+    await expect(page.locator('[data-hero-subhead]')).toContainText('fresh checkout');
+    await expect(page.locator('[data-hero-subhead]')).toContainText('pull request');
+    const hero = page.locator('.hero-content');
+    for (const name of ['Go to projects', 'How It Works']) {
+      await expect(hero.getByRole('link', { name, exact: true })).toHaveCount(1);
+      await expect(hero.getByRole('link', { name, exact: true })).toHaveAccessibleName(name);
+    }
     await expectContrastAtLeastAA(page.getByRole('link', { name: 'Go to projects', exact: true }).first(), 'hero CTA');
+    await expectContrastAtLeastAA(hero.locator('.hero-cta-secondary .roll > span').first(), 'secondary hero CTA');
+    await expectContrastAtLeastAA(page.locator('[data-hero-subhead]'), 'hero subhead');
+    await expectContrastAtLeastAA(page.locator('[data-hero-eyebrow]'), 'hero eyebrow');
+    for (const note of await page.locator('.illustration-note').all()) await expectContrastAtLeastAA(note, 'illustration note');
     await expectContrastAtLeastAA(page.getByTestId('problem-count'), 'problem count');
     await expectContrastAtLeastAA(page.getByTestId('story-events-line'), 'events card line');
     await expectContrastAtLeastAA(page.getByTestId('story-timeline-capsule'), 'timeline capsule');
@@ -89,18 +103,26 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 76
     await expect(page.locator('.hero-orb')).toHaveCount(5);
     const orbDurations = await page.locator('.hero-orb').evaluateAll(elements => elements.slice(0, 5).map(el => getComputedStyle(el).animationDuration));
     expect(orbDurations).toEqual(['26s', '31s', '34s', '23s', '37s']);
-    await expect(heading.locator('.hero-line').first()).toHaveAttribute('data-glow', 'ARI');
+    await expect(heading.locator('.hero-line').first()).not.toHaveAttribute('data-glow');
     await expect(heading.locator('.hero-line').first()).toHaveCSS('text-shadow', 'none'); // glow is isolated to an opacity-animated pseudo layer
     await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe('loaded');
     const fonts = await page.evaluate(() => ({
       logo: getComputedStyle(document.querySelector('.ari-wordmark-text')!).fontFamily,
       weight: getComputedStyle(document.querySelector('.ari-wordmark-text')!).fontWeight,
       headline: getComputedStyle(document.querySelector('h1')!).fontFamily,
+      headlineWeight: getComputedStyle(document.querySelector('h1')!).fontWeight,
+      headlineTransform: getComputedStyle(document.querySelector('h1')!).textTransform,
+      subhead: getComputedStyle(document.querySelector('[data-hero-subhead]')!).fontFamily,
+      eyebrow: getComputedStyle(document.querySelector('[data-hero-eyebrow]')!).fontFamily,
       button: getComputedStyle(document.querySelector('.site-header nav a')!).fontFamily,
     }));
     expect(fonts.logo).toMatch(/chakra/i);
     expect(fonts.weight).toBe('700');
-    expect(fonts.headline).not.toMatch(/chakra/i);
+    expect(fonts.headline).toMatch(/^'?spaceGrotesk/i);
+    expect(fonts.headlineWeight).toBe('600');
+    expect(fonts.headlineTransform).toBe('none');
+    expect(fonts.subhead).toMatch(/^'?inter/i);
+    expect(fonts.eyebrow).toMatch(/^'?inter/i);
     expect(fonts.button).not.toMatch(/chakra/i);
     for (const scrollY of [0, 99, 100, 150, 110, 0, viewport.height + 200, 3000]) {
       await page.evaluate(y => window.scrollTo(0, y), scrollY);

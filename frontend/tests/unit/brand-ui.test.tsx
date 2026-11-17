@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BRAND_NAME, LOGO_ASPECT, LOGO_SRC, LogoMark, Wordmark } from '@/components/brand';
 import { Reveal } from '@/components/reveal';
-import { Button } from '@/components/ui';
+import { Button, RollText } from '@/components/ui';
 
 afterEach(() => {
   cleanup();
@@ -15,6 +15,14 @@ describe('ARI brand and interactive UI', () => {
     render(<Button>Development sign-in</Button>);
     const btn = screen.getByRole('button', { name: 'Development sign-in' });
     expect(btn.querySelectorAll('[aria-hidden="true"]').length).toBe(0);
+  });
+
+  it('names a rolling link once and hides the visual copy from assistive tech', () => {
+    render(<a href="#how" className="group"><RollText>Go to projects</RollText></a>);
+    const link = screen.getByRole('link', { name: 'Go to projects' });
+    expect(link.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+    expect(screen.getAllByText('Go to projects')).toHaveLength(2);
+    expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 
   it('renders non-string button children untouched', () => {
